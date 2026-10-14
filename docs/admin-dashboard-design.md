@@ -57,15 +57,13 @@ Avoid excessive gradients, unnecessary animation, oversized cards, inconsistent 
 ## 4. Technology and Compatibility Rules
 
 - Follow the existing Next.js, React, and TypeScript architecture.
-- Select an AdminLTE version only after inspecting compatibility with the current project.
-- Use only the Bootstrap version, CSS assets, and icon library compatible with the selected AdminLTE version.
+- **Approved Styling Stack:** Use `admin-lte@4.10.0`, `bootstrap@^5.3.8`, and `bootstrap-icons@^1.13.2`.
+- **Single CSS Framework Discipline:** Remove Tailwind CSS v4 and `@tailwindcss/turbopack` from `apps/admin` to eliminate reset clashes (Bootstrap Reboot vs. Tailwind Preflight) and adhere to the single-framework requirement.
 - Do not add a competing admin template or a second CSS framework without approval.
-- Do not assume that an AdminLTE package designed for a different framework can be imported directly into Next.js.
+- Avoid AdminLTE DOM-manipulating vanilla JS plugins; build native, accessible React components (`AdminLayout`, `Sidebar`, `Navbar`, `DataTable`) to handle layout state and user interactions.
 - Reuse the project's existing UI libraries and utilities when suitable.
 - Do not add dependencies unless the need and compatibility are documented.
 - Keep the customer-facing storefront and NestJS backend unaffected unless a separately approved requirement demands a change.
-
-If direct AdminLTE integration is unsuitable, explain the trade-offs and propose the smallest compatible approach before implementation.
 
 ## 5. Admin Application Layout
 
@@ -130,8 +128,7 @@ The following is a **candidate structure**, not a mandate to build every item. C
   - Customer List
   - Customer Details (usually accessed from a customer)
 - **Marketing**
-  - Coupons
-  - Discounts
+  - Coupons (Separate automatic "Discounts" pruned to align strictly with PRD §5.8)
 - **Payments**
   - Transactions
   - Payment History
@@ -149,20 +146,15 @@ The following is a **candidate structure**, not a mandate to build every item. C
   - Inventory Reports
   - Customer Reports
 - **System**
-  - Users
-  - Roles and Permissions
+  - Admin Users (Role Enum: `SUPER_ADMIN`, `ADMIN`; dynamic RBAC permissions screens pruned)
   - Settings
   - Activity Logs
 
-### Navigation decision rule
+### Approved Navigation Policy: Phased Menu Activation
 
-For each proposed item, classify it as:
-
-- **Existing:** route and functionality already exist.
-- **Required:** included in the PRD but not yet implemented.
-- **Proposed:** potentially useful, but not confirmed in the PRD.
-
-Only Existing and approved Required items should be exposed as active navigation. Keep Proposed items out of the live sidebar until approved.
+1. **Information Architecture Visibility:** The sidebar renders the complete approved hierarchy above so administrators and developers see the full platform structure.
+2. **Active vs. Pending Modules:** Implemented routes (beginning with Categories in Phase 1) link directly to live functional data tables and forms.
+3. **Honest Placeholder State:** Modules slated for subsequent phases route to a clean, standard AdminLTE status shell (e.g. *"In Development — Scheduled for Phase X"*), preventing dead 404 links and avoiding deceptive mock business data.
 
 ## 7. Dashboard Overview
 
