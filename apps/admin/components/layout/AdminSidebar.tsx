@@ -1,0 +1,205 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { navigationConfig } from "@/config/navigation";
+import { useAdminLayout } from "./AdminLayoutContext";
+
+export function AdminSidebar() {
+  const pathname = usePathname();
+  const { closeMobileSidebar } = useAdminLayout();
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (groupId: string, defaultOpen: boolean) => {
+    setOpenGroups((prev) => {
+      const current = prev[groupId] !== undefined ? prev[groupId] : defaultOpen;
+      return {
+        ...prev,
+        [groupId]: !current,
+      };
+    });
+  };
+
+  const isItemActive = (href?: string) => {
+    if (!href) return false;
+    if (href === "/") {
+      return pathname === "/" || pathname === "";
+    }
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+
+  return (
+    <aside className="app-sidebar bg-dark text-white shadow" data-bs-theme="dark">
+      {/* Brand Header */}
+      <div className="sidebar-brand d-flex align-items-center justify-content-between px-3 py-2 border-bottom border-secondary border-opacity-25" style={{ height: "56px" }}>
+        <Link
+          href="/"
+          className="brand-link text-decoration-none text-white d-flex align-items-center gap-2"
+          onClick={closeMobileSidebar}
+        >
+          <div
+            className="brand-image bg-primary text-white rounded d-flex align-items-center justify-content-center shadow-sm"
+            style={{ width: "32px", height: "32px" }}
+          >
+            <i className="bi bi-cart4 fs-6"></i>
+          </div>
+          <div className="d-flex flex-column" style={{ lineHeight: 1.15 }}>
+            <span className="brand-text fw-bold text-white tracking-wide" style={{ fontSize: "0.86rem", letterSpacing: "0.03em" }}>
+              A to Z E-COMMERCE
+            </span>
+            <span className="text-secondary opacity-75" style={{ fontSize: "0.65rem" }}>
+              Admin Operations
+            </span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Navigation Menu with smooth scrolling */}
+      <div
+        className="sidebar-wrapper overflow-y-auto"
+        style={{
+          maxHeight: "calc(100vh - 56px)",
+          scrollBehavior: "smooth",
+        }}
+      >
+        <nav className="mt-2 px-2 pb-5">
+          <ul className="nav sidebar-menu flex-column gap-1 list-unstyled m-0 p-0" role="menu">
+            {navigationConfig.map((item) => {
+              if (item.isHeader) {
+                return (
+                  <li
+                    key={item.id}
+                    className="nav-header text-uppercase text-secondary fw-semibold px-2 pt-3 pb-1"
+                    style={{ fontSize: "0.64rem", letterSpacing: "0.08em" }}
+                  >
+                    {item.title}
+                  </li>
+                );
+              }
+
+              // Parent with children
+              if (item.children && item.children.length > 0) {
+                const hasActiveChild = item.children.some((child) => isItemActive(child.href));
+                const isGroupOpen = openGroups[item.id] !== undefined ? openGroups[item.id] : hasActiveChild;
+
+                return (
+                  <li key={item.id} className="nav-item">
+                    <button
+                      type="button"
+                      className={`nav-link w-100 text-start d-flex align-items-center justify-content-between rounded-2 border-0 text-decoration-none transition-all ${
+                        hasActiveChild ? "text-white fw-semibold bg-secondary bg-opacity-25" : "text-light opacity-75 hover-opacity-100"
+                      }`}
+                      style={{ background: "transparent", fontSize: "0.82rem", padding: "0.42rem 0.65rem" }}
+                      onClick={() => toggleGroup(item.id, hasActiveChild)}
+                      aria-expanded={isGroupOpen}
+                    >
+                      <div className="d-flex align-items-center gap-2">
+                        {item.icon && <i className={`${item.icon} text-secondary-emphasis`} style={{ fontSize: "0.95rem" }}></i>}
+                        <span>{item.title}</span>
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        {item.phase && item.phase > 1 && (
+                          <span className="badge bg-secondary-subtle text-secondary" style={{ fontSize: "0.58rem" }}>
+                            P{item.phase}
+                          </span>
+                        )}
+                        <i
+                          className={`bi bi-chevron-right small text-secondary`}
+                          style={{
+                            fontSize: "0.7rem",
+                            transform: isGroupOpen ? "rotate(90deg)" : "none",
+                            transition: "transform 0.2s ease-in-out",
+                          }}
+                        ></i>
+                      </div>
+                    </button>
+
+                    {/* Collapsible Submenu */}
+                    {isGroupOpen && (
+                      <ul className="nav nav-treeview flex-column list-unstyled ps-3 pe-1 py-1 gap-1" role="menu">
+                        {item.children.map((child) => {
+                          const active = isItemActive(child.href);
+
+                          return (
+                            <li key={child.id} className="nav-item" role="none">
+                              <Link
+                                href={child.href || "#"}
+                                className={`nav-link d-flex align-items-center justify-content-between rounded-2 text-decoration-none ${
+                                  active
+                                    ? "bg-primary text-white shadow-sm fw-semibold"
+                                    : "text-light opacity-75 hover-opacity-100"
+                                }`}
+                                style={{ fontSize: "0.78rem", padding: "0.34rem 0.65rem" }}
+                                onClick={closeMobileSidebar}
+                                role="menuitem"
+                                aria-current={active ? "page" : undefined}
+                              >
+                                <div className="d-flex align-items-center gap-2">
+                                  {child.icon ? (
+                                    <i className={`${child.icon}`} style={{ fontSize: "0.85rem" }}></i>
+                                  ) : (
+                                    <i className="bi bi-circle" style={{ fontSize: "0.45rem" }}></i>
+                                  )}
+                                  <span>{child.title}</span>
+                                </div>
+                                {child.badge ? (
+                                  <span className={`badge bg-${child.badge.variant || "secondary"}`} style={{ fontSize: "0.58rem" }}>
+                                    {child.badge.text}
+                                  </span>
+                                ) : child.phase && child.phase > 1 ? (
+                                  <span
+                                    className="badge bg-secondary-subtle text-secondary opacity-75"
+                                    style={{ fontSize: "0.55rem" }}
+                                  >
+                                    P{child.phase}
+                                  </span>
+                                ) : null}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </li>
+                );
+              }
+
+              // Standalone leaf item
+              const active = isItemActive(item.href);
+
+              return (
+                <li key={item.id} className="nav-item" role="none">
+                  <Link
+                    href={item.href || "#"}
+                    className={`nav-link d-flex align-items-center justify-content-between rounded-2 text-decoration-none ${
+                      active ? "bg-primary text-white shadow-sm fw-semibold" : "text-light opacity-80"
+                    }`}
+                    style={{ fontSize: "0.82rem", padding: "0.42rem 0.65rem" }}
+                    onClick={closeMobileSidebar}
+                    role="menuitem"
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <div className="d-flex align-items-center gap-2">
+                      {item.icon && <i className={`${item.icon}`} style={{ fontSize: "0.95rem" }}></i>}
+                      <span>{item.title}</span>
+                    </div>
+                    {item.badge ? (
+                      <span className={`badge bg-${item.badge.variant || "primary"}`} style={{ fontSize: "0.58rem" }}>
+                        {item.badge.text}
+                      </span>
+                    ) : item.phase && item.phase > 1 ? (
+                      <span className="badge bg-secondary-subtle text-secondary" style={{ fontSize: "0.58rem" }}>
+                        P{item.phase}
+                      </span>
+                    ) : null}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </div>
+    </aside>
+  );
+}

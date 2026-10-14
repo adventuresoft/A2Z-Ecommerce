@@ -11,6 +11,10 @@ describe('Environment Validation', () => {
     const result = validate(config);
     expect(result.PORT).toBe(3001);
     expect(result.DATABASE_URL).toBe(config.DATABASE_URL);
+    expect(result.JWT_SECRET).toBe('dev-insecure-access-secret-change-in-production');
+    expect(result.JWT_ACCESS_EXPIRES_IN).toBe('15m');
+    expect(result.JWT_REFRESH_SECRET).toBe('dev-insecure-refresh-secret-change-in-production');
+    expect(result.JWT_REFRESH_EXPIRES_IN).toBe('7d');
   });
 
   it('should throw an error if DATABASE_URL is missing', () => {

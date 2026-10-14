@@ -4,6 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "admin-lte/dist/css/adminlte.min.css";
 import "./globals.css";
+import { AdminLayoutProvider, AdminLayout } from "@/components/layout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Admin Dashboard — AZ E-Commerce",
-  description: "Operations, catalog, and order management",
+  title: "Admin Dashboard — A to Z E-Commerce",
+  description: "Back-office operations, catalog, and order management portal",
 };
 
 export default function RootLayout({
@@ -26,9 +27,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full`}>
       <body className="layout-fixed sidebar-expand-lg bg-body-tertiary min-vh-100">
-        {children}
+        <AdminLayoutProvider>
+          <AdminLayout>{children}</AdminLayout>
+        </AdminLayoutProvider>
       </body>
     </html>
   );
