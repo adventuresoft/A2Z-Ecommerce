@@ -30,3 +30,24 @@ model User {
 
   @@map("User")
 }
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String     @db.VarChar(100)
+  slug        String     @unique @db.VarChar(120)
+  description String?    @db.Text
+  imageUrl    String?    @db.VarChar(255)
+  parentId    String?
+  isActive    Boolean    @default(true)
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryHierarchy")
+
+  @@index([parentId])
+  @@index([slug])
+  @@index([isActive])
+  @@map("Category")
+}

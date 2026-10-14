@@ -153,3 +153,9 @@ body.sidebar-collapse .app-sidebar {
   background-color: var(--bs-body-bg) !important;
   border-color: var(--bs-border-color-translucent) !important;
 }
+
+/* AdminLTE Treeview React compatibility override */
+.sidebar-menu .nav-treeview,
+.sidebar-menu .menu-open > .nav-treeview {
+  display: block !important;
+}

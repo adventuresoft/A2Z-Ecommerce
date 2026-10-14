@@ -81,17 +81,18 @@ export function AdminSidebar() {
               // Parent with children
               if (item.children && item.children.length > 0) {
                 const hasActiveChild = item.children.some((child) => isItemActive(child.href));
-                const isGroupOpen = openGroups[item.id] !== undefined ? openGroups[item.id] : hasActiveChild;
+                const defaultOpen = hasActiveChild || item.id === "products" || item.id === "catalog";
+                const isGroupOpen = openGroups[item.id] !== undefined ? openGroups[item.id] : defaultOpen;
 
                 return (
-                  <li key={item.id} className="nav-item">
+                  <li key={item.id} className={`nav-item ${isGroupOpen ? "menu-open" : ""}`}>
                     <button
                       type="button"
                       className={`nav-link w-100 text-start d-flex align-items-center justify-content-between rounded-2 border-0 text-decoration-none transition-all ${
-                        hasActiveChild ? "text-white fw-semibold bg-secondary bg-opacity-25" : "text-light opacity-75 hover-opacity-100"
+                        hasActiveChild || isGroupOpen ? "text-white fw-semibold bg-secondary bg-opacity-25" : "text-light opacity-75 hover-opacity-100"
                       }`}
                       style={{ background: "transparent", fontSize: "0.82rem", padding: "0.42rem 0.65rem" }}
-                      onClick={() => toggleGroup(item.id, hasActiveChild)}
+                      onClick={() => toggleGroup(item.id, defaultOpen)}
                       aria-expanded={isGroupOpen}
                     >
                       <div className="d-flex align-items-center gap-2">
@@ -117,7 +118,7 @@ export function AdminSidebar() {
 
                     {/* Collapsible Submenu */}
                     {isGroupOpen && (
-                      <ul className="nav nav-treeview flex-column list-unstyled ps-3 pe-1 py-1 gap-1" role="menu">
+                      <ul className="nav nav-treeview d-block flex-column list-unstyled ps-3 pe-1 py-1 gap-1" role="menu">
                         {item.children.map((child) => {
                           const active = isItemActive(child.href);
 
