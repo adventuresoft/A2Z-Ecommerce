@@ -236,3 +236,42 @@ export function resolveImageUrl(url?: string | null): string {
   const origin = apiBase.replace(/\/api\/v1\/?$/, '');
   return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
+
+export function formatCategoryOptions(categories: CategoryItem[]): { id: string; label: string; isChild: boolean }[] {
+  const roots = categories.filter((c) => !c.parentId);
+  const children = categories.filter((c) => !!c.parentId);
+
+  const formatted: { id: string; label: string; isChild: boolean }[] = [];
+
+  for (const root of roots) {
+    formatted.push({
+      id: root.id,
+      label: `📁 ${root.name}`,
+      isChild: false,
+    });
+
+    const rootChildren = children.filter((c) => c.parentId === root.id);
+    for (const child of rootChildren) {
+      formatted.push({
+        id: child.id,
+        label: `\u00A0\u00A0↳ 📂 ${child.name}`,
+        isChild: true,
+      });
+    }
+  }
+
+  // Any orphaned children whose parent might not be in the roots list
+  const includedIds = new Set(formatted.map((f) => f.id));
+  for (const child of children) {
+    if (!includedIds.has(child.id)) {
+      formatted.push({
+        id: child.id,
+        label: `↳ 📂 ${child.name}`,
+        isChild: true,
+      });
+    }
+  }
+
+  return formatted;
+}
+

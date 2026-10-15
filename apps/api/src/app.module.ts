@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { BrandsModule } from './brands/brands.module.js';
 import { AttributesModule } from './attributes/attributes.module.js';
+import { ProductsModule } from './products/products.module.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AttributesModule } from './attributes/attributes.module.js';
     CategoriesModule,
     BrandsModule,
     AttributesModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -51,6 +51,7 @@ export const navigationConfig: NavItem[] = [
         href: "/catalog/products",
         icon: "bi bi-grid-3x3-gap",
         phase: 2,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "products-brands",
@@ -74,6 +75,7 @@ export const navigationConfig: NavItem[] = [
         href: "/catalog/variants",
         icon: "bi bi-diagram-3",
         phase: 2,
+        badge: { text: "Live", variant: "success" },
       },
     ],
   },

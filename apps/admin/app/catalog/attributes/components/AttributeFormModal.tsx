@@ -101,7 +101,7 @@ export function AttributeFormModal({
   const handleUpdateValueRow = (
     index: number,
     field: keyof ValueRowState,
-    val: any,
+    val: string | number | boolean,
   ) => {
     setValues((prev) => {
       const next = [...prev];

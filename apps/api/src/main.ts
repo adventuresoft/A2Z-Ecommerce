@@ -15,7 +15,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   // Static uploads directories
-  ensureUploadDirs(['categories', 'brands']);
+  ensureUploadDirs(['categories', 'brands', 'products']);
   app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // Security Headers
