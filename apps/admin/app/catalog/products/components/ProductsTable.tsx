@@ -4,6 +4,7 @@
 import React from "react";
 import Link from "next/link";
 import { ProductItem } from "../../../../services/products";
+import { useAuth } from "@/context/AuthContext";
 
 interface ProductsTableProps {
   products: ProductItem[];
@@ -24,6 +25,7 @@ export function ProductsTable({
   onDeleteClick,
   onToggleStatus,
 }: ProductsTableProps) {
+  const { can } = useAuth();
   const API_URL = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace('/api/v1', '') : 'http://localhost:3001';
 
   const renderSortIcon = (column: "title" | "createdAt" | "updatedAt") => {
@@ -206,14 +208,16 @@ export function ProductsTable({
                     >
                       <i className="bi bi-pencil"></i>
                     </Link>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger p-1 px-2"
-                      title="Delete Product"
-                      onClick={() => onDeleteClick(product)}
-                    >
-                      <i className="bi bi-trash"></i>
-                    </button>
+                    {can("products", "delete") && (
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger p-1 px-2"
+                        title="Delete Product"
+                        onClick={() => onDeleteClick(product)}
+                      >
+                        <i className="bi bi-trash"></i>
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

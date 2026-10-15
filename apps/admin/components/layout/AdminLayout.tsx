@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { AdminNavbar } from "./AdminNavbar";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminFooter } from "./AdminFooter";
 import { PageHeader, PageHeaderProps } from "./PageHeader";
 import { useAdminLayout } from "./AdminLayoutContext";
+import { useAuth } from "../../context/AuthContext";
 
 export interface AdminLayoutProps {
   children: React.ReactNode;
@@ -15,6 +17,38 @@ export interface AdminLayoutProps {
 
 export function AdminLayout({ children, headerProps, hideHeader }: AdminLayoutProps) {
   const { mobileOpen, closeMobileSidebar } = useAdminLayout();
+  const { user, isLoading } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const isAuthPage = pathname === "/login" || pathname === "/forgot-password";
+
+  useEffect(() => {
+    if (!isLoading && !user && !isAuthPage) {
+      router.push(`/login?returnUrl=${encodeURIComponent(pathname)}`);
+    }
+  }, [isLoading, user, isAuthPage, pathname, router]);
+
+  // If on login or forgot-password, render clean layout without sidebar/navbar
+  if (isAuthPage) {
+    return (
+      <main className="min-vh-100 bg-body-secondary d-flex align-items-center justify-content-center p-3">
+        {children}
+      </main>
+    );
+  }
+
+  // If loading and unauthenticated, render a clean loading spinner
+  if (isLoading || !user) {
+    return (
+      <div className="min-vh-100 d-flex flex-column align-items-center justify-content-center bg-body-tertiary">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading administrative session...</span>
+        </div>
+        <p className="mt-3 text-secondary small">Verifying session...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app-wrapper">

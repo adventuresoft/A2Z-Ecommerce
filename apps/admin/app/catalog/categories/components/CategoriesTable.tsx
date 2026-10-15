@@ -1,6 +1,7 @@
 "use client";
 
 import { CategoryItem, ParentOption, resolveImageUrl } from "../../../../services/categories";
+import { useAuth } from "@/context/AuthContext";
 
 interface CategoriesTableProps {
   categories: CategoryItem[];
@@ -51,6 +52,7 @@ export function CategoriesTable({
   parentOptions,
   onResetFilters,
 }: CategoriesTableProps) {
+  const { can } = useAuth();
   const startItem = total === 0 ? 0 : (page - 1) * limit + 1;
   const endItem = Math.min(page * limit, total);
 
@@ -314,14 +316,16 @@ export function CategoriesTable({
                         >
                           <i className="bi bi-pencil"></i>
                         </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline-danger"
-                          onClick={() => onDeleteClick(cat)}
-                          title="Delete category"
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
+                        {can("categories", "delete") && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger"
+                            onClick={() => onDeleteClick(cat)}
+                            title="Delete category"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

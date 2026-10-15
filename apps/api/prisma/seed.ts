@@ -411,42 +411,66 @@ async function seedCategoryTree(
   return count;
 }
 
-async function seedSuperAdmin() {
-  const superAdminEmail =
-    process.env.SUPER_ADMIN_EMAIL || 'admin@az-ecommerce.local';
-  const superAdminPassword =
-    process.env.SUPER_ADMIN_PASSWORD || 'Admin123456!';
-  const superAdminName =
-    process.env.SUPER_ADMIN_NAME || 'Super Administrator';
+async function seedDemoUsers() {
+  const defaultPassword = 'Password123!';
+  const demoUsers = [
+    {
+      email: 'superadmin@az-ecommerce.local',
+      name: 'Super Admin',
+      role: Role.SUPER_ADMIN,
+    },
+    {
+      email: 'admin@az-ecommerce.local',
+      name: 'Operations Admin',
+      role: Role.ADMIN,
+    },
+    {
+      email: 'shopmanager@az-ecommerce.local',
+      name: 'Shop Manager',
+      role: Role.SHOP_MANAGER,
+    },
+    {
+      email: 'customer@az-ecommerce.local',
+      name: 'Demo Customer',
+      role: Role.CUSTOMER,
+    },
+  ];
 
-  console.log(`Checking existing super admin: ${superAdminEmail}`);
-  const existing = await prisma.user.findUnique({
-    where: { email: superAdminEmail },
-  });
-
-  if (existing) {
-    console.log(`Super admin ${superAdminEmail} already exists. Skipping.`);
-    return;
-  }
-
-  const passwordHash = await argon2.hash(superAdminPassword, {
+  const passwordHash = await argon2.hash(defaultPassword, {
     type: argon2.argon2id,
   });
 
-  const created = await prisma.user.create({
-    data: {
-      email: superAdminEmail,
-      passwordHash,
-      name: superAdminName,
-      role: Role.SUPER_ADMIN,
-      isActive: true,
-      emailVerifiedAt: new Date(),
-    },
-  });
+  console.log('Seeding demo accounts for all roles...');
+  for (const user of demoUsers) {
+    const existing = await prisma.user.findUnique({
+      where: { email: user.email },
+    });
 
-  console.log(
-    `Provisioned initial SUPER_ADMIN user: ${created.email} (${created.id})`,
-  );
+    if (existing) {
+      await prisma.user.update({
+        where: { email: user.email },
+        data: {
+          role: user.role,
+          name: user.name,
+          isActive: true,
+          passwordHash,
+        },
+      });
+      console.log(`Updated demo user: ${user.email} (${user.role})`);
+    } else {
+      const created = await prisma.user.create({
+        data: {
+          email: user.email,
+          passwordHash,
+          name: user.name,
+          role: user.role,
+          isActive: true,
+          emailVerifiedAt: new Date(),
+        },
+      });
+      console.log(`Created demo user: ${created.email} (${created.role})`);
+    }
+  }
 }
 
 async function seedCategories() {
@@ -706,7 +730,7 @@ async function seedAttributes() {
 }
 
 async function seed() {
-  await seedSuperAdmin();
+  await seedDemoUsers();
   await seedCategories();
   await seedBrands();
   await seedAttributes();

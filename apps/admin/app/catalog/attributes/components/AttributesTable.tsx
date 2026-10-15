@@ -2,6 +2,7 @@
 
 import React from "react";
 import { AttributeItem, AttributeType } from "../../../../services/attributes";
+import { useAuth } from "@/context/AuthContext";
 
 interface AttributesTableProps {
   attributes: AttributeItem[];
@@ -50,6 +51,7 @@ export function AttributesTable({
   onToggleStatus,
   onResetFilters,
 }: AttributesTableProps) {
+  const { can } = useAuth();
   const startItem = total === 0 ? 0 : (page - 1) * limit + 1;
   const endItem = Math.min(page * limit, total);
 
@@ -321,14 +323,16 @@ export function AttributesTable({
                         >
                           <i className="bi bi-pencil"></i>
                         </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline-danger"
-                          onClick={() => onDeleteClick(attr)}
-                          title="Delete attribute"
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
+                        {can("attributes", "delete") && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger"
+                            onClick={() => onDeleteClick(attr)}
+                            title="Delete attribute"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

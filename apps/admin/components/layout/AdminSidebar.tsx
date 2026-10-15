@@ -1,14 +1,58 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navigationConfig } from "@/config/navigation";
+import { navigationConfig, NavItem } from "@/config/navigation";
 import { useAdminLayout } from "./AdminLayoutContext";
+import { useAuth } from "@/context/AuthContext";
+import { AppModule } from "@/config/permissions";
+
+const ITEM_MODULE_MAP: Record<string, AppModule> = {
+  products: "products",
+  "products-categories": "categories",
+  "products-all": "products",
+  "products-brands": "brands",
+  "products-attributes": "attributes",
+  "products-variants": "variants",
+  orders: "orders",
+  "orders-list": "orders",
+  "orders-returns": "orders",
+  inventory: "inventory",
+  "inventory-overview": "inventory",
+  "inventory-adjustments": "inventory",
+  "inventory-movements": "inventory",
+  "inventory-low-stock": "inventory",
+  customers: "customers",
+  "customers-list": "customers",
+  "customers-groups": "customers",
+  marketing: "marketing",
+  "marketing-coupons": "marketing",
+  payments: "payments",
+  "payments-transactions": "payments",
+  "payments-refunds": "payments",
+  shipping: "shipping",
+  "shipping-shipments": "shipping",
+  "shipping-methods": "shipping",
+  "shipping-zones": "shipping",
+  engagement: "engagement",
+  "engagement-reviews": "engagement",
+  "engagement-notifications": "engagement",
+  reports: "reports",
+  "reports-sales": "reports",
+  "reports-orders": "reports",
+  "reports-inventory": "reports",
+  "reports-customers": "reports",
+  system: "settings",
+  "system-users": "users",
+  "system-settings": "settings",
+  "system-logs": "settings",
+};
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const { closeMobileSidebar } = useAdminLayout();
+  const { can } = useAuth();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const toggleGroup = (groupId: string, defaultOpen: boolean) => {
@@ -28,6 +72,51 @@ export function AdminSidebar() {
     }
     return pathname === href || pathname.startsWith(href + "/");
   };
+
+  // Filter visible items based on current user permissions
+  const visibleItems = useMemo(() => {
+    const filterItem = (item: NavItem): NavItem | null => {
+      if (item.isHeader) return item;
+      if (item.id === "dashboard") return item;
+
+      const mod = ITEM_MODULE_MAP[item.id];
+      if (mod && !can(mod, "read")) {
+        return null;
+      }
+
+      if (item.children && item.children.length > 0) {
+        const visibleChildren = item.children
+          .map(filterItem)
+          .filter((c): c is NavItem => c !== null);
+        if (visibleChildren.length === 0) {
+          return null;
+        }
+        return { ...item, children: visibleChildren };
+      }
+
+      return item;
+    };
+
+    const result: NavItem[] = [];
+    let pendingHeader: NavItem | null = null;
+
+    for (const raw of navigationConfig) {
+      if (raw.isHeader) {
+        pendingHeader = raw;
+      } else {
+        const filtered = filterItem(raw);
+        if (filtered) {
+          if (pendingHeader) {
+            result.push(pendingHeader);
+            pendingHeader = null;
+          }
+          result.push(filtered);
+        }
+      }
+    }
+
+    return result;
+  }, [can]);
 
   return (
     <aside className="app-sidebar bg-dark text-white shadow" data-bs-theme="dark">
@@ -65,7 +154,7 @@ export function AdminSidebar() {
       >
         <nav className="mt-2 px-2 pb-5">
           <ul className="nav sidebar-menu flex-column gap-1 list-unstyled m-0 p-0" role="menu">
-            {navigationConfig.map((item) => {
+            {visibleItems.map((item) => {
               if (item.isHeader) {
                 return (
                   <li

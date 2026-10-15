@@ -12,8 +12,9 @@ describe('image-upload helper', () => {
   describe('createImageUploadOptions', () => {
     it('should configure 5 MB file size limit', () => {
       const options = createImageUploadOptions('brands', 'brand');
-      expect(options.limits?.fileSize).toBe(5 * 1024 * 1024);
-      expect(options.limits?.fileSize).toBe(MAX_IMAGE_FILE_SIZE);
+      const limits = options.limits as any;
+      expect(limits?.fileSize).toBe(5 * 1024 * 1024);
+      expect(limits?.fileSize).toBe(MAX_IMAGE_FILE_SIZE);
     });
 
     it('should accept valid image MIME types', () => {

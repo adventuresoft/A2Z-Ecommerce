@@ -30,10 +30,10 @@ describe('AttributesAdminController', () => {
     expect(guards).toContain(RolesGuard);
   });
 
-  it('should have ADMIN and SUPER_ADMIN roles metadata', () => {
+  it('should have ADMIN, SUPER_ADMIN, and SHOP_MANAGER roles metadata', () => {
     const roles = Reflect.getMetadata('roles', AttributesAdminController);
     expect(roles).toBeDefined();
-    expect(roles).toEqual([Role.ADMIN, Role.SUPER_ADMIN]);
+    expect(roles).toEqual([Role.ADMIN, Role.SUPER_ADMIN, Role.SHOP_MANAGER]);
   });
 
   it('should delegate create to service', async () => {

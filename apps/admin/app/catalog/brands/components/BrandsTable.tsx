@@ -2,6 +2,7 @@
 
 import React from "react";
 import { BrandItem, resolveLogoUrl } from "../../../../services/brands";
+import { useAuth } from "@/context/AuthContext";
 
 interface BrandsTableProps {
   brands: BrandItem[];
@@ -46,6 +47,7 @@ export function BrandsTable({
   onToggleStatus,
   onResetFilters,
 }: BrandsTableProps) {
+  const { can } = useAuth();
   const startItem = total === 0 ? 0 : (page - 1) * limit + 1;
   const endItem = Math.min(page * limit, total);
 
@@ -322,14 +324,16 @@ export function BrandsTable({
                         >
                           <i className="bi bi-pencil"></i>
                         </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline-danger"
-                          onClick={() => onDeleteClick(brand)}
-                          title="Delete brand"
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
+                        {can("brands", "delete") && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger"
+                            onClick={() => onDeleteClick(brand)}
+                            title="Delete brand"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

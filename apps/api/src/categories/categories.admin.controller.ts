@@ -28,8 +28,10 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { CategoriesService } from './categories.service.js';
 import {
   CategoryQueryDto,
@@ -41,8 +43,8 @@ import {
 
 @ApiTags('Admin Categories')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SHOP_MANAGER)
 @Controller('admin/categories')
 export class CategoriesAdminController {
   constructor(private readonly categoriesService: CategoriesService) {}
@@ -121,6 +123,7 @@ export class CategoriesAdminController {
   }
 
   @Delete(':id')
+  @RequirePermission('categories', 'delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an empty category' })
   @ApiParam({ name: 'id', description: 'Category UUID' })

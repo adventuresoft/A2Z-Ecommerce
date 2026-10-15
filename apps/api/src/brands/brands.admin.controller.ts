@@ -26,8 +26,10 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { createImageUploadOptions } from '../common/uploads/image-upload.js';
 import { BrandsService } from './brands.service.js';
 import {
@@ -40,8 +42,8 @@ import {
 
 @ApiTags('Admin Brands')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SHOP_MANAGER)
 @Controller('admin/brands')
 export class BrandsAdminController {
   constructor(private readonly brandsService: BrandsService) {}
@@ -133,6 +135,7 @@ export class BrandsAdminController {
   }
 
   @Delete(':id')
+  @RequirePermission('brands', 'delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an unreferenced brand' })
   @ApiParam({ name: 'id', description: 'Brand UUID' })

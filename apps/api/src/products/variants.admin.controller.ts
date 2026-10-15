@@ -19,8 +19,10 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import {
   PaginatedVariantResponseDto,
   ProductVariantResponseDto,
@@ -31,8 +33,8 @@ import { ProductsService } from './products.service.js';
 
 @ApiTags('Admin Variants')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SHOP_MANAGER)
 @Controller('admin/variants')
 export class VariantsAdminController {
   constructor(private readonly productsService: ProductsService) {}
@@ -56,6 +58,7 @@ export class VariantsAdminController {
   }
 
   @Delete(':id')
+  @RequirePermission('variants', 'delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an individual variant' })
   @ApiParam({ name: 'id', description: 'ProductVariant UUID' })

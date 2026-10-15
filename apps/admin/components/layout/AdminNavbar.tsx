@@ -4,10 +4,12 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAdminLayout } from "./AdminLayoutContext";
+import { useAuth } from "@/context/AuthContext";
 
 export function AdminNavbar() {
   const router = useRouter();
   const { toggleSidebar, theme, toggleTheme } = useAdminLayout();
+  const { user, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const profileRef = useRef<HTMLLIElement>(null);
@@ -31,17 +33,8 @@ export function AdminNavbar() {
     };
   }, []);
 
-  const handleLogout = () => {
-    // Session token cleanup
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-      } catch {
-        // ignore
-      }
-      router.push("/");
-    }
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
@@ -194,12 +187,28 @@ export function AdminNavbar() {
                 className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-semibold shadow-sm"
                 style={{ width: "32px", height: "32px", fontSize: "0.85rem" }}
               >
-                SA
+                {user?.name
+                  ? user.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()
+                  : "AD"}
               </div>
               <div className="d-none d-sm-block text-start" style={{ lineHeight: "1.2" }}>
-                <span className="d-block fw-semibold small text-body">Super Admin</span>
-                <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: "0.65rem" }}>
-                  SUPER_ADMIN
+                <span className="d-block fw-semibold small text-body">{user?.name || "Administrator"}</span>
+                <span
+                  className={`badge ${
+                    user?.role === "SUPER_ADMIN"
+                      ? "bg-primary-subtle text-primary border border-primary-subtle"
+                      : user?.role === "ADMIN"
+                      ? "bg-warning-subtle text-warning-emphasis border border-warning-subtle"
+                      : "bg-success-subtle text-success border border-success-subtle"
+                  }`}
+                  style={{ fontSize: "0.65rem" }}
+                >
+                  {user?.role || "GUEST"}
                 </span>
               </div>
               <i className="bi bi-chevron-down small text-muted d-none d-sm-inline"></i>
@@ -211,8 +220,8 @@ export function AdminNavbar() {
                 style={{ minWidth: "210px", zIndex: 1050 }}
               >
                 <div className="px-3 py-2 border-bottom mb-1">
-                  <p className="mb-0 fw-semibold small text-body">admin@az-ecommerce.local</p>
-                  <span className="text-muted small">System Administrator</span>
+                  <p className="mb-0 fw-semibold small text-body">{user?.email || "admin@az-ecommerce.local"}</p>
+                  <span className="text-muted small">Role: {user?.role || "Administrator"}</span>
                 </div>
                 <Link
                   href="/system/users"

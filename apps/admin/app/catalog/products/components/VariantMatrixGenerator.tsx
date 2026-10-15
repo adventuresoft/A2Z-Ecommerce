@@ -11,6 +11,7 @@ import {
   ProductImageItem,
   uploadProductImage,
 } from "../../../../services/products";
+import { useAuth } from "@/context/AuthContext";
 
 export interface VariantRow extends CreateVariantPayload {
   tempId: string;
@@ -30,6 +31,7 @@ export function VariantMatrixGenerator({
   variants,
   onChange,
 }: VariantMatrixGeneratorProps) {
+  const { can } = useAuth();
   const [attributes, setAttributes] = useState<AttributeItem[]>([]);
   const [loadingAttrs, setLoadingAttrs] = useState(false);
   const [selectedAttrMap, setSelectedAttrMap] = useState<Record<string, string[]>>({});
@@ -494,14 +496,16 @@ export function VariantMatrixGenerator({
                       </div>
                     </td>
                     <td className="text-center">
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger btn-sm p-1"
-                        title="Remove Variant"
-                        onClick={() => handleRemoveRow(index)}
-                      >
-                        <i className="bi bi-trash"></i>
-                      </button>
+                      {can("variants", "delete") && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm p-1"
+                          title="Remove Variant"
+                          onClick={() => handleRemoveRow(index)}
+                        >
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

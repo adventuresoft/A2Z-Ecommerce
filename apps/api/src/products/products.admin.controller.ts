@@ -28,8 +28,10 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { createImageUploadOptions } from '../common/uploads/image-upload.js';
 import {
   CreateProductDto,
@@ -45,8 +47,8 @@ import { ProductsService } from './products.service.js';
 
 @ApiTags('Admin Products')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SHOP_MANAGER)
 @Controller('admin/products')
 export class ProductsAdminController {
   constructor(private readonly productsService: ProductsService) {}
@@ -113,6 +115,7 @@ export class ProductsAdminController {
   }
 
   @Delete(':id')
+  @RequirePermission('products', 'delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete product and associated variants/images' })
   @ApiParam({ name: 'id', description: 'Product UUID' })
@@ -159,6 +162,7 @@ export class ProductsAdminController {
   }
 
   @Delete(':productId/images/:imageId')
+  @RequirePermission('products', 'delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a gallery image and unlink from disk' })
   @ApiParam({ name: 'productId', description: 'Parent Product UUID' })

@@ -21,8 +21,10 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { AttributesService } from './attributes.service.js';
 import {
   AttributeQueryDto,
@@ -36,8 +38,8 @@ import {
 
 @ApiTags('Admin Attributes')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.SHOP_MANAGER)
 @Controller('admin/attributes')
 export class AttributesAdminController {
   constructor(private readonly attributesService: AttributesService) {}
@@ -102,6 +104,7 @@ export class AttributesAdminController {
   }
 
   @Delete(':id')
+  @RequirePermission('attributes', 'delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an attribute by ID (cascades to values)' })
   @ApiParam({ name: 'id', description: 'Attribute UUID' })
@@ -163,6 +166,7 @@ export class AttributesAdminController {
   }
 
   @Delete(':id/values/:valueId')
+  @RequirePermission('attributes', 'delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an attribute value' })
   @ApiParam({ name: 'id', description: 'Attribute UUID' })
