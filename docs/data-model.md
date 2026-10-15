@@ -34,13 +34,12 @@ erDiagram
     Brand ||--o{ Product : "manufactures"
 
     Product ||--o{ ProductImage : "displays"
-    Product ||--o{ ProductAttribute : "defines"
     Product ||--o{ ProductVariant : "offers"
     Product ||--o{ Review : "receives"
 
-    ProductAttribute ||--o{ ProductAttributeValue : "has values"
+    Attribute ||--o{ AttributeValue : "has values"
     ProductVariant ||--o{ ProductVariantAttributeValue : "combines"
-    ProductAttributeValue ||--o{ ProductVariantAttributeValue : "assigned to"
+    AttributeValue ||--o{ ProductVariantAttributeValue : "assigned to"
 
     ProductVariant ||--|| Inventory : "tracks stock"
     ProductVariant ||--o{ StockMovement : "logs movements"
@@ -71,6 +70,7 @@ erDiagram
 | Enum Name | Values | Purpose |
 |---|---|---|
 | **`Role`** | `SUPER_ADMIN`, `ADMIN`, `CUSTOMER` | System access control. Super admins manage team & settings; admins manage catalog/orders. |
+| **`AttributeType`** | `TEXT`, `COLOR`, `BUTTON` | Presentation and input format for product options (e.g., color swatches, button pills, text). |
 | **`OrderStatus`** | `PENDING`, `CONFIRMED`, `PROCESSING`, `SHIPPED`, `DELIVERED`, `CANCELLED`, `RETURNED` | Overall lifecycle of customer order. |
 | **`PaymentStatus`** | `PENDING`, `PAID`, `FAILED`, `REFUNDED` | Monetary status. For COD, remains `PENDING` until doorstep collection. |
 | **`ShipmentStatus`** | `UNFULFILLED`, `PREPARING`, `DISPATCHED`, `IN_TRANSIT`, `OUT_FOR_DELIVERY`, `DELIVERED`, `FAILED_DELIVERY`, `RETURNED` | Courier fulfillment status. |
@@ -201,12 +201,45 @@ The purchasable physical SKU holding prices, barcode, and physical attributes.
 | `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Timestamp. |
 | `updatedAt` | `TIMESTAMP` | Not Null | Timestamp. |
 
-#### `ProductAttribute`, `ProductAttributeValue`, `ProductVariantAttributeValue`
-Normalized variant configuration tables (e.g. Color → Black, Size → XL).
+#### `Attribute`
+Catalog-wide reusable option dictionary (e.g. Color, Size, Storage, Material).
 
-- **`ProductAttribute`:** `id`, `productId` (FK), `name` (e.g. "Color", "Storage").
-- **`ProductAttributeValue`:** `id`, `attributeId` (FK), `value` (e.g. "Space Gray", "256GB").
-- **`ProductVariantAttributeValue`:** `variantId` (FK), `attributeValueId` (FK), Composite PK `(variantId, attributeValueId)`.
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `UUID` | PK | Attribute identifier. |
+| `name` | `VARCHAR(100)` | Not Null | Display name (e.g., "Color", "Shoe Size"). |
+| `slug` | `VARCHAR(120)` | Unique, Not Null | URL-safe slug. |
+| `type` | `AttributeType` | Not Null, Default `TEXT` | `TEXT`, `COLOR`, `BUTTON`. |
+| `description` | `TEXT` | Nullable | Optional note or explanation. |
+| `isActive` | `BOOLEAN` | Not Null, Default `true` | Display toggle. |
+| `sortOrder` | `INTEGER` | Not Null, Default `0` | Ranking in catalog filters. |
+| `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Timestamp. |
+| `updatedAt` | `TIMESTAMP` | Not Null | Timestamp. |
+
+#### `AttributeValue`
+Predefined selectable values linked to an attribute.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `UUID` | PK | Attribute value identifier. |
+| `attributeId` | `UUID` | FK → `Attribute.id` (Cascade), Not Null | Parent attribute. |
+| `value` | `VARCHAR(100)` | Not Null | Stored value (e.g. "Space Gray", "256GB", "XL"). |
+| `label` | `VARCHAR(100)` | Nullable | Display label. |
+| `colorCode` | `VARCHAR(20)` | Nullable | Optional hex color (e.g. `#000080` for swatches). |
+| `sortOrder` | `INTEGER` | Not Null, Default `0` | Option ranking. |
+| `isActive` | `BOOLEAN` | Not Null, Default `true` | Value visibility toggle. |
+| `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Timestamp. |
+| `updatedAt` | `TIMESTAMP` | Not Null | Timestamp. |
+
+*(Constraint: `@@unique([attributeId, value])`)*
+
+#### `ProductVariantAttributeValue`
+Association table assigning attribute values to specific physical SKUs (`ProductVariant`).
+
+- **`variantId`:** `UUID` (FK → `ProductVariant.id` Cascade).
+- **`attributeValueId`:** `UUID` (FK → `AttributeValue.id` Restrict).
+- Composite PK `(variantId, attributeValueId)`.
+
 
 ---
 

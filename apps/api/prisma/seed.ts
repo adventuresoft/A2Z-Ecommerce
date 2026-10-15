@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient, Role, AttributeType } from '@prisma/client';
 import * as argon2 from 'argon2';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -553,11 +553,165 @@ async function seedBrands() {
   console.log(`Successfully seeded/updated ${count} brands.`);
 }
 
+interface AttributeValueSeedItem {
+  value: string;
+  label?: string;
+  colorCode?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+interface AttributeSeedItem {
+  name: string;
+  slug: string;
+  type: AttributeType;
+  description?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  values: AttributeValueSeedItem[];
+}
+
+const ATTRIBUTE_DEMO_DATA: AttributeSeedItem[] = [
+  {
+    name: 'Color',
+    slug: 'color',
+    type: AttributeType.COLOR,
+    description: 'Product color options with visual swatches.',
+    sortOrder: 1,
+    isActive: true,
+    values: [
+      { value: 'Black', label: 'Matte Black', colorCode: '#000000', sortOrder: 1 },
+      { value: 'White', label: 'Pearl White', colorCode: '#FFFFFF', sortOrder: 2 },
+      { value: 'Navy Blue', label: 'Navy Blue', colorCode: '#000080', sortOrder: 3 },
+      { value: 'Crimson Red', label: 'Crimson Red', colorCode: '#DC143C', sortOrder: 4 },
+      { value: 'Space Gray', label: 'Space Gray', colorCode: '#708090', sortOrder: 5 },
+      { value: 'Emerald Green', label: 'Emerald Green', colorCode: '#50C878', sortOrder: 6 },
+    ],
+  },
+  {
+    name: 'Apparel Size',
+    slug: 'apparel-size',
+    type: AttributeType.BUTTON,
+    description: 'Standard sizing for clothing and fashion apparel.',
+    sortOrder: 2,
+    isActive: true,
+    values: [
+      { value: 'XS', label: 'Extra Small', sortOrder: 1 },
+      { value: 'S', label: 'Small', sortOrder: 2 },
+      { value: 'M', label: 'Medium', sortOrder: 3 },
+      { value: 'L', label: 'Large', sortOrder: 4 },
+      { value: 'XL', label: 'Extra Large', sortOrder: 5 },
+      { value: 'XXL', label: '2X Large', sortOrder: 6 },
+    ],
+  },
+  {
+    name: 'Shoe Size',
+    slug: 'shoe-size',
+    type: AttributeType.BUTTON,
+    description: 'Footwear sizing in EU standards.',
+    sortOrder: 3,
+    isActive: true,
+    values: [
+      { value: '39', label: 'EU 39', sortOrder: 1 },
+      { value: '40', label: 'EU 40', sortOrder: 2 },
+      { value: '41', label: 'EU 41', sortOrder: 3 },
+      { value: '42', label: 'EU 42', sortOrder: 4 },
+      { value: '43', label: 'EU 43', sortOrder: 5 },
+      { value: '44', label: 'EU 44', sortOrder: 6 },
+    ],
+  },
+  {
+    name: 'Storage Capacity',
+    slug: 'storage-capacity',
+    type: AttributeType.BUTTON,
+    description: 'On-board flash storage capacity for electronics.',
+    sortOrder: 4,
+    isActive: true,
+    values: [
+      { value: '64GB', label: '64 GB', sortOrder: 1 },
+      { value: '128GB', label: '128 GB', sortOrder: 2 },
+      { value: '256GB', label: '256 GB', sortOrder: 3 },
+      { value: '512GB', label: '512 GB', sortOrder: 4 },
+      { value: '1TB', label: '1 TB', sortOrder: 5 },
+    ],
+  },
+  {
+    name: 'Material',
+    slug: 'material',
+    type: AttributeType.TEXT,
+    description: 'Fabric or physical material composition.',
+    sortOrder: 5,
+    isActive: true,
+    values: [
+      { value: '100% Cotton', label: '100% Cotton', sortOrder: 1 },
+      { value: 'Genuine Leather', label: 'Genuine Leather', sortOrder: 2 },
+      { value: 'Polyester Blend', label: 'Polyester Blend', sortOrder: 3 },
+      { value: 'Merino Wool', label: 'Merino Wool', sortOrder: 4 },
+    ],
+  },
+];
+
+async function seedAttributes() {
+  console.log('Seeding attribute demo data...');
+  let attrCount = 0;
+  let valCount = 0;
+  for (const attr of ATTRIBUTE_DEMO_DATA) {
+    const attribute = await prisma.attribute.upsert({
+      where: { slug: attr.slug },
+      update: {
+        name: attr.name,
+        type: attr.type,
+        description: attr.description,
+        sortOrder: attr.sortOrder ?? 0,
+        isActive: attr.isActive ?? true,
+      },
+      create: {
+        name: attr.name,
+        slug: attr.slug,
+        type: attr.type,
+        description: attr.description,
+        sortOrder: attr.sortOrder ?? 0,
+        isActive: attr.isActive ?? true,
+      },
+    });
+    attrCount++;
+
+    for (const val of attr.values) {
+      await prisma.attributeValue.upsert({
+        where: {
+          attributeId_value: {
+            attributeId: attribute.id,
+            value: val.value,
+          },
+        },
+        update: {
+          label: val.label,
+          colorCode: val.colorCode,
+          sortOrder: val.sortOrder ?? 0,
+          isActive: val.isActive ?? true,
+        },
+        create: {
+          attributeId: attribute.id,
+          value: val.value,
+          label: val.label,
+          colorCode: val.colorCode,
+          sortOrder: val.sortOrder ?? 0,
+          isActive: val.isActive ?? true,
+        },
+      });
+      valCount++;
+    }
+  }
+  console.log(`Successfully seeded/updated ${attrCount} attributes with ${valCount} values.`);
+}
+
 async function seed() {
   await seedSuperAdmin();
   await seedCategories();
   await seedBrands();
+  await seedAttributes();
 }
+
 
 seed()
   .catch((e) => {

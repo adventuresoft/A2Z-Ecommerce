@@ -65,7 +65,8 @@ export const navigationConfig: NavItem[] = [
         title: "Attributes",
         href: "/catalog/attributes",
         icon: "bi bi-sliders",
-        phase: 2,
+        phase: 1,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "products-variants",

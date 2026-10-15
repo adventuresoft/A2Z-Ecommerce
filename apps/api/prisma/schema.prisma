@@ -68,3 +68,43 @@ model Brand {
   @@map("Brand")
 }
 
+enum AttributeType {
+  TEXT
+  COLOR
+  BUTTON
+}
+
+model Attribute {
+  id          String           @id @default(uuid())
+  name        String           @db.VarChar(100)
+  slug        String           @unique @db.VarChar(120)
+  type        AttributeType    @default(TEXT)
+  description String?          @db.Text
+  isActive    Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  values      AttributeValue[]
+
+  @@index([isActive, sortOrder])
+  @@map("Attribute")
+}
+
+model AttributeValue {
+  id          String    @id @default(uuid())
+  attributeId String
+  value       String    @db.VarChar(100)
+  label       String?   @db.VarChar(100)
+  colorCode   String?   @db.VarChar(20)
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@unique([attributeId, value])
+  @@index([attributeId, sortOrder])
+  @@map("AttributeValue")
+}
