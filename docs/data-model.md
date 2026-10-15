@@ -167,7 +167,7 @@ Conceptual product master holding shared marketing attributes and descriptions.
 | `description` | `TEXT` | Not Null | Rich product description. |
 | `shortDescription` | `VARCHAR(500)`| Nullable | Concise teaser for card listings. |
 | `categoryId` | `UUID` | FK → `Category.id` (Restrict), Not Null | Primary taxonomy category. |
-| `brandId` | `UUID` | FK → `Brand.id` (Set Null), Nullable | Brand reference. |
+| `brandId` | `UUID` | FK → `Brand.id` (Restrict), Nullable | Brand reference. |
 | `isFeatured` | `BOOLEAN` | Not Null, Default `false` | Featured on homepage flag. |
 | `isActive` | `BOOLEAN` | Not Null, Default `true` | Catalog visibility toggle. |
 | `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Creation timestamp. |

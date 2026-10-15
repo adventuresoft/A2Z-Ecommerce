@@ -455,9 +455,108 @@ async function seedCategories() {
   console.log(`Successfully seeded/updated ${totalSeeded} categories.`);
 }
 
+interface BrandSeedItem {
+  name: string;
+  slug: string;
+  description?: string;
+  website?: string;
+  logoUrl?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+const BRAND_DEMO_DATA: BrandSeedItem[] = [
+  {
+    name: 'Apple',
+    slug: 'apple',
+    description: 'Innovative consumer electronics, smartphones, and personal computing.',
+    website: 'https://www.apple.com',
+    sortOrder: 1,
+    isActive: true,
+  },
+  {
+    name: 'Samsung',
+    slug: 'samsung',
+    description: 'Global leader in mobile electronics, displays, and smart home tech.',
+    website: 'https://www.samsung.com',
+    sortOrder: 2,
+    isActive: true,
+  },
+  {
+    name: 'Sony',
+    slug: 'sony',
+    description: 'Pioneering audio, visual, gaming entertainment, and cameras.',
+    website: 'https://www.sony.com',
+    sortOrder: 3,
+    isActive: true,
+  },
+  {
+    name: 'Nike',
+    slug: 'nike',
+    description: 'World-class athletic footwear, performance sportswear, and accessories.',
+    website: 'https://www.nike.com',
+    sortOrder: 4,
+    isActive: true,
+  },
+  {
+    name: 'Adidas',
+    slug: 'adidas',
+    description: 'Iconic three-stripe athletic footwear, sportswear, and lifestyle apparel.',
+    website: 'https://www.adidas.com',
+    sortOrder: 5,
+    isActive: true,
+  },
+  {
+    name: "Levi's",
+    slug: 'levis',
+    description: 'Authentic denim jeans, heritage apparel, and timeless American fashion.',
+    website: 'https://www.levi.com',
+    sortOrder: 6,
+    isActive: true,
+  },
+  {
+    name: 'Retro Audio Co',
+    slug: 'retro-audio-co',
+    description: 'Archived boutique manufacturer of vintage reel-to-reel and vinyl systems.',
+    website: 'https://example.com/retro-audio',
+    sortOrder: 99,
+    isActive: false,
+  },
+];
+
+async function seedBrands() {
+  console.log('Seeding brand demo data...');
+  let count = 0;
+  for (const brand of BRAND_DEMO_DATA) {
+    await prisma.brand.upsert({
+      where: { slug: brand.slug },
+      update: {
+        name: brand.name,
+        description: brand.description,
+        website: brand.website,
+        logoUrl: brand.logoUrl,
+        sortOrder: brand.sortOrder ?? 0,
+        isActive: brand.isActive ?? true,
+      },
+      create: {
+        name: brand.name,
+        slug: brand.slug,
+        description: brand.description,
+        website: brand.website,
+        logoUrl: brand.logoUrl,
+        sortOrder: brand.sortOrder ?? 0,
+        isActive: brand.isActive ?? true,
+      },
+    });
+    count++;
+  }
+  console.log(`Successfully seeded/updated ${count} brands.`);
+}
+
 async function seed() {
   await seedSuperAdmin();
   await seedCategories();
+  await seedBrands();
 }
 
 seed()

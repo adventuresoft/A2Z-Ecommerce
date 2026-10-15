@@ -15,9 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createImageUploadOptions } from '../common/uploads/image-upload.js';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -64,28 +62,7 @@ export class CategoriesAdminController {
     },
   })
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: join(process.cwd(), 'uploads', 'categories'),
-        filename: (_req, file, cb) => {
-          const uniqueId = randomUUID();
-          const ext = extname(file.originalname).toLowerCase();
-          cb(null, `cat_${uniqueId}${ext}`);
-        },
-      }),
-      fileFilter: (_req, file, cb) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp|svg\+xml|gif)$/i)) {
-          return cb(
-            new BadRequestException('Only image files (JPG, PNG, WEBP, SVG, GIF) are allowed'),
-            false,
-          );
-        }
-        cb(null, true);
-      },
-      limits: {
-        fileSize: 5 * 1024 * 1024,
-      },
-    }),
+    FileInterceptor('file', createImageUploadOptions('categories', 'cat')),
   )
   async uploadImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {

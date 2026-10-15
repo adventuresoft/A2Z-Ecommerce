@@ -11,6 +11,9 @@ try {
 
 export default defineConfig({
   schema: './prisma/schema.prisma',
+  migrations: {
+    seed: 'node --no-warnings prisma/seed.ts',
+  },
   datasource: {
     url: env('DATABASE_URL'),
   },
