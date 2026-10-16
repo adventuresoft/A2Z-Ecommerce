@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Role, AttributeType } from '@prisma/client';
+import { PrismaClient, Role, AttributeType, StockMovementType } from '@prisma/client';
 import * as argon2 from 'argon2';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -729,11 +729,1226 @@ async function seedAttributes() {
   console.log(`Successfully seeded/updated ${attrCount} attributes with ${valCount} values.`);
 }
 
+interface ProductSeedVariant {
+  sku: string;
+  barcode?: string;
+  regularPrice: number;
+  salePrice?: number;
+  weightGrams?: number;
+  imageUrl?: string;
+  isActive?: boolean;
+  attributes: {
+    attributeSlug: string;
+    value: string;
+  }[];
+  inventory: {
+    quantity: number;
+    reservedQuantity?: number;
+    lowStockThreshold?: number;
+  };
+}
+
+interface ProductSeedItem {
+  title: string;
+  slug: string;
+  description: string;
+  shortDescription?: string;
+  categorySlug: string;
+  brandSlug?: string;
+  thumbnailUrl: string;
+  isFeatured?: boolean;
+  isActive?: boolean;
+  images: {
+    imageUrl: string;
+    altText?: string;
+    isPrimary?: boolean;
+    sortOrder?: number;
+  }[];
+  variants: ProductSeedVariant[];
+}
+
+const PRODUCT_DEMO_DATA: ProductSeedItem[] = [
+  {
+    title: 'Apple iPhone 16 Pro Max',
+    slug: 'apple-iphone-16-pro-max',
+    description:
+      'The iPhone 16 Pro Max features a durable and lightweight titanium design with the thinnest borders on any Apple product. Powered by the A18 Pro chip, it brings unprecedented efficiency and graphics performance with Camera Control and 48MP Fusion camera system.',
+    shortDescription:
+      'Grade 5 titanium design, A18 Pro chip, 48MP Fusion camera, and best-ever battery life.',
+    categorySlug: 'apple-iphones',
+    brandSlug: 'apple',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80',
+        altText: 'iPhone 16 Pro Max front and back view',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80',
+        altText: 'iPhone 16 Pro Max camera module',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=800&auto=format&fit=crop&q=80',
+        altText: 'iPhone 16 Pro Max display angle',
+        isPrimary: false,
+        sortOrder: 3,
+      },
+    ],
+    variants: [
+      {
+        sku: 'IPHONE16PM-SG-256',
+        barcode: '194253123456',
+        regularPrice: 1299.0,
+        salePrice: 1199.0,
+        weightGrams: 227,
+        imageUrl:
+          'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Space Gray' },
+          { attributeSlug: 'storage-capacity', value: '256GB' },
+        ],
+        inventory: { quantity: 45, reservedQuantity: 2, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'IPHONE16PM-SG-512',
+        barcode: '194253123463',
+        regularPrice: 1499.0,
+        salePrice: 1399.0,
+        weightGrams: 227,
+        imageUrl:
+          'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Space Gray' },
+          { attributeSlug: 'storage-capacity', value: '512GB' },
+        ],
+        inventory: { quantity: 30, reservedQuantity: 1, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'IPHONE16PM-WH-256',
+        barcode: '194253123470',
+        regularPrice: 1299.0,
+        salePrice: 1199.0,
+        weightGrams: 227,
+        imageUrl:
+          'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'White' },
+          { attributeSlug: 'storage-capacity', value: '256GB' },
+        ],
+        inventory: { quantity: 20, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'IPHONE16PM-WH-1TB',
+        barcode: '194253123487',
+        regularPrice: 1699.0,
+        salePrice: 1599.0,
+        weightGrams: 227,
+        imageUrl:
+          'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'White' },
+          { attributeSlug: 'storage-capacity', value: '1TB' },
+        ],
+        inventory: { quantity: 4, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Samsung Galaxy S24 Ultra',
+    slug: 'samsung-galaxy-s24-ultra',
+    description:
+      'Welcome to the era of mobile AI. With Galaxy S24 Ultra in your hands, you can unleash whole new levels of creativity, productivity, and possibility. Encased in durable titanium with a flat 6.8-inch Dynamic AMOLED 2X display and embedded S Pen.',
+    shortDescription:
+      'Galaxy AI powered flagship with 200MP camera, titanium frame, and built-in S Pen.',
+    categorySlug: 'android-smartphones',
+    brandSlug: 'samsung',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80',
+        altText: 'Samsung Galaxy S24 Ultra',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&auto=format&fit=crop&q=80',
+        altText: 'Samsung Galaxy S24 Ultra in hand',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'S24U-BLK-256',
+        barcode: '880609123401',
+        regularPrice: 1299.0,
+        salePrice: 1149.0,
+        weightGrams: 232,
+        imageUrl:
+          'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Black' },
+          { attributeSlug: 'storage-capacity', value: '256GB' },
+        ],
+        inventory: { quantity: 35, reservedQuantity: 3, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'S24U-BLK-512',
+        barcode: '880609123418',
+        regularPrice: 1419.0,
+        salePrice: 1299.0,
+        weightGrams: 232,
+        imageUrl:
+          'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Black' },
+          { attributeSlug: 'storage-capacity', value: '512GB' },
+        ],
+        inventory: { quantity: 15, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'S24U-GRY-256',
+        barcode: '880609123425',
+        regularPrice: 1299.0,
+        salePrice: 1149.0,
+        weightGrams: 232,
+        imageUrl:
+          'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Space Gray' },
+          { attributeSlug: 'storage-capacity', value: '256GB' },
+        ],
+        inventory: { quantity: 2, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Sony WH-1000XM5 Wireless Noise-Cancelling Headphones',
+    slug: 'sony-wh-1000xm5-wireless-headphones',
+    description:
+      'Industry-leading noise cancellation optimized with two processors and 8 microphones. Magnificent sound engineered to perfection with Integrated Processor V1, crystal clear hands-free calling, and up to 30 hours of battery life with quick charging.',
+    shortDescription:
+      'Premium wireless noise-cancelling overhead headphones with 30-hour battery.',
+    categorySlug: 'wireless-earbuds',
+    brandSlug: 'sony',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80',
+        altText: 'Sony WH-1000XM5 Black',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80',
+        altText: 'Sony WH-1000XM5 profile angle',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'SONY-XM5-BLK',
+        barcode: '027242921504',
+        regularPrice: 399.99,
+        salePrice: 349.99,
+        weightGrams: 250,
+        imageUrl:
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'Black' }],
+        inventory: { quantity: 60, reservedQuantity: 4, lowStockThreshold: 8 },
+      },
+      {
+        sku: 'SONY-XM5-WHT',
+        barcode: '027242921511',
+        regularPrice: 399.99,
+        salePrice: 349.99,
+        weightGrams: 250,
+        imageUrl:
+          'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'White' }],
+        inventory: { quantity: 18, reservedQuantity: 1, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'SONY-XM5-NVY',
+        barcode: '027242921528',
+        regularPrice: 399.99,
+        salePrice: 349.99,
+        weightGrams: 250,
+        imageUrl:
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'Navy Blue' }],
+        inventory: { quantity: 0, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Apple MacBook Pro 16-inch M3 Max',
+    slug: 'apple-macbook-pro-16-m3-max',
+    description:
+      'MacBook Pro blasts forward with M3 Max, an insanely advanced chip designed for extreme workflows. Featuring up to 22 hours of battery life, Liquid Retina XDR display with 1600 nits peak brightness, and an array of pro connectivity ports.',
+    shortDescription:
+      '16.2-inch Liquid Retina XDR display, M3 Max chip, and up to 22 hours battery.',
+    categorySlug: 'ultrabooks-workstations',
+    brandSlug: 'apple',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80',
+        altText: 'MacBook Pro 16 open on desk',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=800&auto=format&fit=crop&q=80',
+        altText: 'MacBook Pro keyboard and trackpad',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'MBP16-SG-512',
+        barcode: '194253987654',
+        regularPrice: 2699.0,
+        salePrice: 2499.0,
+        weightGrams: 2160,
+        imageUrl:
+          'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Space Gray' },
+          { attributeSlug: 'storage-capacity', value: '512GB' },
+        ],
+        inventory: { quantity: 12, reservedQuantity: 1, lowStockThreshold: 3 },
+      },
+      {
+        sku: 'MBP16-SG-1TB',
+        barcode: '194253987661',
+        regularPrice: 3199.0,
+        salePrice: 2999.0,
+        weightGrams: 2160,
+        imageUrl:
+          'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Space Gray' },
+          { attributeSlug: 'storage-capacity', value: '1TB' },
+        ],
+        inventory: { quantity: 8, reservedQuantity: 0, lowStockThreshold: 3 },
+      },
+    ],
+  },
+  {
+    title: 'Nike Air Zoom Pegasus 40 Running Shoes',
+    slug: 'nike-air-zoom-pegasus-40',
+    description:
+      'A springy ride for every run, the Peg familiar, just-for-you feel returns to help you crush your running goals. This milestone edition provides responsive dual Zoom Air cushioning and engineered mesh for superior breathability.',
+    shortDescription:
+      'Responsive daily road running sneakers with dual Zoom Air units.',
+    categorySlug: 'mens-footwear-sneakers',
+    brandSlug: 'nike',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+        altText: 'Nike Pegasus 40 Red/Black',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=800&auto=format&fit=crop&q=80',
+        altText: 'Nike Pegasus 40 side angle',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'NIKE-PEG40-BLK-41',
+        barcode: '019660812301',
+        regularPrice: 140.0,
+        salePrice: 119.99,
+        weightGrams: 285,
+        imageUrl:
+          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Black' },
+          { attributeSlug: 'shoe-size', value: '41' },
+        ],
+        inventory: { quantity: 25, reservedQuantity: 2, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'NIKE-PEG40-BLK-42',
+        barcode: '019660812318',
+        regularPrice: 140.0,
+        salePrice: 119.99,
+        weightGrams: 290,
+        imageUrl:
+          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Black' },
+          { attributeSlug: 'shoe-size', value: '42' },
+        ],
+        inventory: { quantity: 30, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'NIKE-PEG40-BLK-43',
+        barcode: '019660812325',
+        regularPrice: 140.0,
+        salePrice: 119.99,
+        weightGrams: 300,
+        imageUrl:
+          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Black' },
+          { attributeSlug: 'shoe-size', value: '43' },
+        ],
+        inventory: { quantity: 3, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'NIKE-PEG40-WHT-42',
+        barcode: '019660812332',
+        regularPrice: 140.0,
+        salePrice: 119.99,
+        weightGrams: 290,
+        imageUrl:
+          'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'White' },
+          { attributeSlug: 'shoe-size', value: '42' },
+        ],
+        inventory: { quantity: 15, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'NIKE-PEG40-RED-42',
+        barcode: '019660812349',
+        regularPrice: 140.0,
+        salePrice: 124.99,
+        weightGrams: 290,
+        imageUrl:
+          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Crimson Red' },
+          { attributeSlug: 'shoe-size', value: '42' },
+        ],
+        inventory: { quantity: 0, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Adidas Originals Trefoil Classic Polo Shirt',
+    slug: 'adidas-originals-trefoil-classic-polo',
+    description:
+      'Rooted in sportswear legacy and refined for casual elegance, this polo shirt is woven from pure 100% breathable pique cotton with the signature embroidered Trefoil on the chest and ribbed polo collar.',
+    shortDescription:
+      'Timeless short-sleeve athletic polo shirt tailored from 100% breathable cotton.',
+    categorySlug: 'mens-casual-shirts-polos',
+    brandSlug: 'adidas',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&auto=format&fit=crop&q=80',
+    isFeatured: false,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&auto=format&fit=crop&q=80',
+        altText: 'Adidas Classic Polo front',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80',
+        altText: 'Adidas Classic Polo texture detail',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'ADI-POLO-NVY-M',
+        barcode: '406542109801',
+        regularPrice: 60.0,
+        salePrice: 49.99,
+        weightGrams: 220,
+        imageUrl:
+          'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Navy Blue' },
+          { attributeSlug: 'apparel-size', value: 'M' },
+          { attributeSlug: 'material', value: '100% Cotton' },
+        ],
+        inventory: { quantity: 40, reservedQuantity: 1, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'ADI-POLO-NVY-L',
+        barcode: '406542109818',
+        regularPrice: 60.0,
+        salePrice: 49.99,
+        weightGrams: 230,
+        imageUrl:
+          'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Navy Blue' },
+          { attributeSlug: 'apparel-size', value: 'L' },
+          { attributeSlug: 'material', value: '100% Cotton' },
+        ],
+        inventory: { quantity: 35, reservedQuantity: 2, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'ADI-POLO-WHT-M',
+        barcode: '406542109825',
+        regularPrice: 60.0,
+        salePrice: 49.99,
+        weightGrams: 220,
+        imageUrl:
+          'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'White' },
+          { attributeSlug: 'apparel-size', value: 'M' },
+          { attributeSlug: 'material', value: '100% Cotton' },
+        ],
+        inventory: { quantity: 20, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'ADI-POLO-WHT-L',
+        barcode: '406542109832',
+        regularPrice: 60.0,
+        salePrice: 49.99,
+        weightGrams: 230,
+        imageUrl:
+          'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'White' },
+          { attributeSlug: 'apparel-size', value: 'L' },
+          { attributeSlug: 'material', value: '100% Cotton' },
+        ],
+        inventory: { quantity: 5, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: "Levi's 501 Original Fit Denim Jeans",
+    slug: 'levis-501-original-fit-jeans',
+    description:
+      'Close your eyes. Think "jeans." Now open. They were 501 Originals, right? With a timeless straight leg and iconic styling, they are literally the blueprint for every pair of modern jeans in existence. Crafted from 100% heavyweight cotton denim.',
+    shortDescription:
+      'The authentic straight-leg blue jeans featuring the iconic signature button fly.',
+    categorySlug: 'mens-jeans-chinos',
+    brandSlug: 'levis',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1542272604-780c96856592?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1542272604-780c96856592?w=800&auto=format&fit=crop&q=80',
+        altText: "Levi's 501 Denim front",
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&auto=format&fit=crop&q=80',
+        altText: "Levi's 501 folded stack",
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'LEVI-501-NVY-M',
+        barcode: '052177000101',
+        regularPrice: 89.5,
+        salePrice: 79.5,
+        weightGrams: 650,
+        imageUrl:
+          'https://images.unsplash.com/photo-1542272604-780c96856592?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Navy Blue' },
+          { attributeSlug: 'apparel-size', value: 'M' },
+          { attributeSlug: 'material', value: '100% Cotton' },
+        ],
+        inventory: { quantity: 50, reservedQuantity: 3, lowStockThreshold: 10 },
+      },
+      {
+        sku: 'LEVI-501-NVY-L',
+        barcode: '052177000118',
+        regularPrice: 89.5,
+        salePrice: 79.5,
+        weightGrams: 670,
+        imageUrl:
+          'https://images.unsplash.com/photo-1542272604-780c96856592?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Navy Blue' },
+          { attributeSlug: 'apparel-size', value: 'L' },
+          { attributeSlug: 'material', value: '100% Cotton' },
+        ],
+        inventory: { quantity: 45, reservedQuantity: 0, lowStockThreshold: 10 },
+      },
+      {
+        sku: 'LEVI-501-BLK-M',
+        barcode: '052177000125',
+        regularPrice: 89.5,
+        salePrice: 79.5,
+        weightGrams: 650,
+        imageUrl:
+          'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Black' },
+          { attributeSlug: 'apparel-size', value: 'M' },
+          { attributeSlug: 'material', value: '100% Cotton' },
+        ],
+        inventory: { quantity: 28, reservedQuantity: 1, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'LEVI-501-BLK-XL',
+        barcode: '052177000132',
+        regularPrice: 89.5,
+        salePrice: 79.5,
+        weightGrams: 710,
+        imageUrl:
+          'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Black' },
+          { attributeSlug: 'apparel-size', value: 'XL' },
+          { attributeSlug: 'material', value: '100% Cotton' },
+        ],
+        inventory: { quantity: 0, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Apple Watch Series 9 GPS',
+    slug: 'apple-watch-series-9-gps',
+    description:
+      'Smarter, brighter, mightier. Introducing the S9 chip, enabling a magical new double tap gesture to interact with your watch without touching the screen, along with advanced health sensors, Crash Detection, and an edge-to-edge Always-On Retina display.',
+    shortDescription:
+      'Advanced smartwatch with S9 SiP, always-on display, and Double Tap gesture.',
+    categorySlug: 'smartwatches',
+    brandSlug: 'apple',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80',
+        altText: 'Apple Watch Series 9 Space Gray',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&auto=format&fit=crop&q=80',
+        altText: 'Apple Watch display face',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'AW9-GPS-SG-45',
+        barcode: '194253770101',
+        regularPrice: 429.0,
+        salePrice: 399.0,
+        weightGrams: 39,
+        imageUrl:
+          'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Space Gray' },
+          { attributeSlug: 'storage-capacity', value: '64GB' },
+        ],
+        inventory: { quantity: 22, reservedQuantity: 2, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'AW9-GPS-RED-45',
+        barcode: '194253770118',
+        regularPrice: 429.0,
+        salePrice: 399.0,
+        weightGrams: 39,
+        imageUrl:
+          'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Crimson Red' },
+          { attributeSlug: 'storage-capacity', value: '64GB' },
+        ],
+        inventory: { quantity: 8, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Samsung Galaxy Watch 6 Classic',
+    slug: 'samsung-galaxy-watch-6-classic',
+    description:
+      'A timeless design featuring a physical rotating bezel. Keep your fitness, sleep, and overall wellness goals on track with comprehensive body composition analysis (BIA), ECG, heart rhythm notifications, and durable sapphire crystal glass.',
+    shortDescription:
+      'Iconic rotating physical bezel with advanced fitness and wellness coaching.',
+    categorySlug: 'smartwatches',
+    brandSlug: 'samsung',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80',
+    isFeatured: false,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80',
+        altText: 'Galaxy Watch 6 Classic stainless steel',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&auto=format&fit=crop&q=80',
+        altText: 'Galaxy Watch lifestyle shot',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'GW6C-BLK-47',
+        barcode: '880609501201',
+        regularPrice: 429.99,
+        salePrice: 369.99,
+        weightGrams: 59,
+        imageUrl:
+          'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'Black' },
+          { attributeSlug: 'storage-capacity', value: '64GB' },
+        ],
+        inventory: { quantity: 19, reservedQuantity: 1, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'GW6C-WHT-47',
+        barcode: '880609501218',
+        regularPrice: 429.99,
+        salePrice: 369.99,
+        weightGrams: 59,
+        imageUrl:
+          'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [
+          { attributeSlug: 'color', value: 'White' },
+          { attributeSlug: 'storage-capacity', value: '64GB' },
+        ],
+        inventory: { quantity: 4, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Sony PlayStation 5 DualSense Wireless Controller',
+    slug: 'sony-dualsense-wireless-controller',
+    description:
+      'Discover a deeper, highly immersive gaming experience with innovative tactile haptic feedback, dynamic adaptive triggers, and a built-in microphone, all integrated into an iconic ergonomic design with USB-C fast charging.',
+    shortDescription:
+      'Immersive haptic feedback, dynamic adaptive triggers, and built-in mic.',
+    categorySlug: 'pc-accessories',
+    brandSlug: 'sony',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1606318801954-d46d46d3360a?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1606318801954-d46d46d3360a?w=800&auto=format&fit=crop&q=80',
+        altText: 'PS5 DualSense Controller White',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1592840496694-26d035b52b48?w=800&auto=format&fit=crop&q=80',
+        altText: 'DualSense controller trigger and grips',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'SONY-DS5-WHT',
+        barcode: '711719541201',
+        regularPrice: 74.99,
+        salePrice: 69.99,
+        weightGrams: 280,
+        imageUrl:
+          'https://images.unsplash.com/photo-1606318801954-d46d46d3360a?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'White' }],
+        inventory: { quantity: 80, reservedQuantity: 5, lowStockThreshold: 10 },
+      },
+      {
+        sku: 'SONY-DS5-BLK',
+        barcode: '711719541218',
+        regularPrice: 79.99,
+        salePrice: 74.99,
+        weightGrams: 280,
+        imageUrl:
+          'https://images.unsplash.com/photo-1606318801954-d46d46d3360a?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'Black' }],
+        inventory: { quantity: 35, reservedQuantity: 0, lowStockThreshold: 10 },
+      },
+      {
+        sku: 'SONY-DS5-RED',
+        barcode: '711719541225',
+        regularPrice: 79.99,
+        salePrice: 74.99,
+        weightGrams: 280,
+        imageUrl:
+          'https://images.unsplash.com/photo-1592840496694-26d035b52b48?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'Crimson Red' }],
+        inventory: { quantity: 1, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Eco-Friendly High Density Non-Slip Yoga Mat',
+    slug: 'eco-friendly-high-density-yoga-mat',
+    description:
+      'Engineered with premium non-toxic eco TPE material, dual-sided non-slip texture, and laser-engraved alignment guides for optimal posture stability and joint protection during intense yoga, pilates, and floor workouts.',
+    shortDescription:
+      'Dual-sided textured 6mm yoga mat with posture alignment guides.',
+    categorySlug: 'yoga-mats-foam-rollers',
+    brandSlug: undefined,
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=800&auto=format&fit=crop&q=80',
+    isFeatured: false,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=800&auto=format&fit=crop&q=80',
+        altText: 'Rolled Yoga Mat on studio floor',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&auto=format&fit=crop&q=80',
+        altText: 'Yoga mat in active use',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'YOGA-MAT-EMR',
+        barcode: '697123456701',
+        regularPrice: 49.99,
+        salePrice: 39.99,
+        weightGrams: 900,
+        imageUrl:
+          'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'Emerald Green' }],
+        inventory: { quantity: 50, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'YOGA-MAT-NVY',
+        barcode: '697123456718',
+        regularPrice: 49.99,
+        salePrice: 39.99,
+        weightGrams: 900,
+        imageUrl:
+          'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'Navy Blue' }],
+        inventory: { quantity: 40, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Cast Iron Hex Dumbbell Pair',
+    slug: 'cast-iron-hex-dumbbell-pair',
+    description:
+      'Heavy-duty cast iron hex dumbbells with anti-roll hexagonal heads and ergonomic knurled chrome handles. Ideal for compound lifts, strength training, arm curls, squats, and functional home gym workouts.',
+    shortDescription:
+      'Anti-roll hexagonal rubber encased dumbbells with ergonomic knurled grip.',
+    categorySlug: 'dumbbells-barbells',
+    brandSlug: undefined,
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800&auto=format&fit=crop&q=80',
+    isFeatured: false,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800&auto=format&fit=crop&q=80',
+        altText: 'Cast iron hex dumbbells pair',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=800&auto=format&fit=crop&q=80',
+        altText: 'Dumbbells set in gym rack',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'HEX-DB-10KG',
+        barcode: '697123456801',
+        regularPrice: 69.99,
+        salePrice: 59.99,
+        weightGrams: 20000,
+        imageUrl:
+          'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'Black' }],
+        inventory: { quantity: 25, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+      {
+        sku: 'HEX-DB-15KG',
+        barcode: '697123456818',
+        regularPrice: 99.99,
+        salePrice: 89.99,
+        weightGrams: 30000,
+        imageUrl:
+          'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'Black' }],
+        inventory: { quantity: 15, reservedQuantity: 0, lowStockThreshold: 5 },
+      },
+    ],
+  },
+  {
+    title: 'Advanced Hyaluronic Acid Hydrating Serum',
+    slug: 'advanced-hyaluronic-acid-serum',
+    description:
+      'Formulated with 5 molecular weights of pure hyaluronic acid, niacinamide, and panthenol. Deeply penetrates multi-layer skin barriers to lock in intense 72-hour moisture, smooth fine lines, and restore skin elasticity.',
+    shortDescription:
+      'Multi-depth intensive hydration facial serum with pure vitamin B5.',
+    categorySlug: 'face-serums-creams',
+    brandSlug: undefined,
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&auto=format&fit=crop&q=80',
+    isFeatured: true,
+    isActive: true,
+    images: [
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&auto=format&fit=crop&q=80',
+        altText: 'Hyaluronic Acid Face Serum dropper bottle',
+        isPrimary: true,
+        sortOrder: 1,
+      },
+      {
+        imageUrl:
+          'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80',
+        altText: 'Skincare serum and cream collection',
+        isPrimary: false,
+        sortOrder: 2,
+      },
+    ],
+    variants: [
+      {
+        sku: 'SERUM-HA-30ML',
+        barcode: '880912345001',
+        regularPrice: 35.0,
+        salePrice: 28.5,
+        weightGrams: 80,
+        imageUrl:
+          'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'White' }],
+        inventory: { quantity: 75, reservedQuantity: 4, lowStockThreshold: 10 },
+      },
+      {
+        sku: 'SERUM-HA-50ML',
+        barcode: '880912345018',
+        regularPrice: 52.0,
+        salePrice: 42.0,
+        weightGrams: 120,
+        imageUrl:
+          'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&auto=format&fit=crop&q=80',
+        isActive: true,
+        attributes: [{ attributeSlug: 'color', value: 'White' }],
+        inventory: { quantity: 40, reservedQuantity: 0, lowStockThreshold: 8 },
+      },
+    ],
+  },
+];
+
+async function seedProductsAndInventory() {
+  console.log('Seeding product and inventory demo data...');
+  const categories = await prisma.category.findMany();
+  const categoryMap = new Map(categories.map((c) => [c.slug, c.id]));
+
+  const brands = await prisma.brand.findMany();
+  const brandMap = new Map(brands.map((b) => [b.slug, b.id]));
+
+  const attributes = await prisma.attribute.findMany({
+    include: { values: true },
+  });
+  const attrValueMap = new Map<string, string>();
+  for (const attr of attributes) {
+    for (const val of attr.values) {
+      attrValueMap.set(`${attr.slug}:${val.value}`, val.id);
+    }
+  }
+
+  const superAdmin = await prisma.user.findFirst({
+    where: { role: Role.SUPER_ADMIN },
+  });
+
+  let productCount = 0;
+  let variantCount = 0;
+  let inventoryCount = 0;
+
+  for (const item of PRODUCT_DEMO_DATA) {
+    const categoryId = categoryMap.get(item.categorySlug);
+    if (!categoryId) {
+      console.warn(
+        `Category slug '${item.categorySlug}' not found. Skipping product '${item.title}'`,
+      );
+      continue;
+    }
+    const brandId = item.brandSlug
+      ? brandMap.get(item.brandSlug) ?? null
+      : null;
+
+    const product = await prisma.product.upsert({
+      where: { slug: item.slug },
+      update: {
+        title: item.title,
+        description: item.description,
+        shortDescription: item.shortDescription ?? null,
+        categoryId,
+        brandId,
+        thumbnailUrl: item.thumbnailUrl,
+        isFeatured: item.isFeatured ?? false,
+        isActive: item.isActive ?? true,
+      },
+      create: {
+        title: item.title,
+        slug: item.slug,
+        description: item.description,
+        shortDescription: item.shortDescription ?? null,
+        categoryId,
+        brandId,
+        thumbnailUrl: item.thumbnailUrl,
+        isFeatured: item.isFeatured ?? false,
+        isActive: item.isActive ?? true,
+      },
+    });
+    productCount++;
+
+    for (const img of item.images) {
+      const existing = await prisma.productImage.findFirst({
+        where: { productId: product.id, imageUrl: img.imageUrl },
+      });
+      if (existing) {
+        await prisma.productImage.update({
+          where: { id: existing.id },
+          data: {
+            altText: img.altText ?? item.title,
+            isPrimary: img.isPrimary ?? false,
+            sortOrder: img.sortOrder ?? 0,
+          },
+        });
+      } else {
+        await prisma.productImage.create({
+          data: {
+            productId: product.id,
+            imageUrl: img.imageUrl,
+            altText: img.altText ?? item.title,
+            isPrimary: img.isPrimary ?? false,
+            sortOrder: img.sortOrder ?? 0,
+          },
+        });
+      }
+    }
+
+    for (const v of item.variants) {
+      const variant = await prisma.productVariant.upsert({
+        where: { sku: v.sku },
+        update: {
+          productId: product.id,
+          barcode: v.barcode ?? `BC-${v.sku}`,
+          regularPrice: v.regularPrice,
+          salePrice: v.salePrice ?? null,
+          weightGrams: v.weightGrams ?? null,
+          imageUrl: v.imageUrl ?? item.thumbnailUrl,
+          isActive: v.isActive ?? true,
+        },
+        create: {
+          productId: product.id,
+          sku: v.sku,
+          barcode: v.barcode ?? `BC-${v.sku}`,
+          regularPrice: v.regularPrice,
+          salePrice: v.salePrice ?? null,
+          weightGrams: v.weightGrams ?? null,
+          imageUrl: v.imageUrl ?? item.thumbnailUrl,
+          isActive: v.isActive ?? true,
+        },
+      });
+      variantCount++;
+
+      for (const attr of v.attributes) {
+        const attrValId = attrValueMap.get(
+          `${attr.attributeSlug}:${attr.value}`,
+        );
+        if (attrValId) {
+          await prisma.productVariantAttributeValue.upsert({
+            where: {
+              variantId_attributeValueId: {
+                variantId: variant.id,
+                attributeValueId: attrValId,
+              },
+            },
+            update: {},
+            create: {
+              variantId: variant.id,
+              attributeValueId: attrValId,
+            },
+          });
+        }
+      }
+
+      const invQty = v.inventory.quantity;
+      const invReserved = v.inventory.reservedQuantity ?? 0;
+      const invThreshold = v.inventory.lowStockThreshold ?? 5;
+
+      await prisma.inventory.upsert({
+        where: { variantId: variant.id },
+        update: {
+          quantity: invQty,
+          reservedQuantity: invReserved,
+          lowStockThreshold: invThreshold,
+        },
+        create: {
+          variantId: variant.id,
+          quantity: invQty,
+          reservedQuantity: invReserved,
+          lowStockThreshold: invThreshold,
+        },
+      });
+      inventoryCount++;
+
+      const existingMovement = await prisma.stockMovement.findFirst({
+        where: {
+          variantId: variant.id,
+          type: StockMovementType.INITIAL,
+        },
+      });
+
+      if (!existingMovement) {
+        await prisma.stockMovement.create({
+          data: {
+            variantId: variant.id,
+            type: StockMovementType.INITIAL,
+            quantityChange: invQty,
+            previousQuantity: 0,
+            newQuantity: invQty,
+            referenceId: 'SEED-INIT',
+            notes: 'Initial seed demo stock balance',
+            performedByUserId: superAdmin?.id ?? null,
+          },
+        });
+      }
+
+      if (invReserved > 0) {
+        const existingReserve = await prisma.stockMovement.findFirst({
+          where: {
+            variantId: variant.id,
+            type: StockMovementType.PURCHASE_RESERVE,
+          },
+        });
+        if (!existingReserve) {
+          await prisma.stockMovement.create({
+            data: {
+              variantId: variant.id,
+              type: StockMovementType.PURCHASE_RESERVE,
+              quantityChange: -invReserved,
+              previousQuantity: invQty,
+              newQuantity: invQty,
+              referenceId: 'DEMO-ORDER-1001',
+              notes: `Customer pre-order reservation of ${invReserved} unit(s)`,
+              performedByUserId: superAdmin?.id ?? null,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  console.log(
+    `Successfully seeded/updated ${productCount} products, ${variantCount} variants, and ${inventoryCount} inventory records.`,
+  );
+}
+
 async function seed() {
   await seedDemoUsers();
   await seedCategories();
   await seedBrands();
   await seedAttributes();
+  await seedProductsAndInventory();
 }
 
 

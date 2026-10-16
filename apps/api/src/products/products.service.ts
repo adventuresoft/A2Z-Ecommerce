@@ -346,6 +346,16 @@ export class ProductsService {
           },
         });
 
+        // Initialize default inventory balance for the new variant
+        await tx.inventory.create({
+          data: {
+            variantId: variant.id,
+            quantity: 0,
+            reservedQuantity: 0,
+            lowStockThreshold: 5,
+          },
+        });
+
         if (v.attributeValueIds && v.attributeValueIds.length > 0) {
           await tx.productVariantAttributeValue.createMany({
             data: v.attributeValueIds.map((attrValId) => ({
@@ -648,6 +658,16 @@ export class ProductsService {
               imageId: v.imageId || null,
               imageUrl: v.imageUrl?.trim() || null,
               isActive: v.isActive ?? true,
+            },
+          });
+
+          // Initialize default inventory balance for the new variant
+          await tx.inventory.create({
+            data: {
+              variantId: variant.id,
+              quantity: 0,
+              reservedQuantity: 0,
+              lowStockThreshold: 5,
             },
           });
 

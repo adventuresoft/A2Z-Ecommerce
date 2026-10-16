@@ -63,7 +63,9 @@ async function ensureValidToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null;
 
   try {
-    const token = localStorage.getItem('accessToken');
+    const token =
+      localStorage.getItem('az_admin_access_token') ||
+      localStorage.getItem('accessToken');
     if (token) return token;
 
     // Auto-login in dev environment if no token is present
@@ -72,16 +74,21 @@ async function ensureValidToken(): Promise<string | null> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: 'admin@az-ecommerce.local',
-        password: 'Admin123456!',
+        password: 'Password123!',
       }),
     });
 
     if (loginRes.ok) {
       const data = await loginRes.json();
       if (data.accessToken) {
+        localStorage.setItem('az_admin_access_token', data.accessToken);
         localStorage.setItem('accessToken', data.accessToken);
         if (data.refreshToken) {
+          localStorage.setItem('az_admin_refresh_token', data.refreshToken);
           localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        if (data.user) {
+          localStorage.setItem('az_admin_user', JSON.stringify(data.user));
         }
         return data.accessToken;
       }
@@ -118,6 +125,7 @@ async function fetchWithAuth(
   }
 
   if (res.status === 401 && !isRetry && typeof window !== 'undefined') {
+    localStorage.removeItem('az_admin_access_token');
     localStorage.removeItem('accessToken');
     const newToken = await ensureValidToken();
     if (newToken) {

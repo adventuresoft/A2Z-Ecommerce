@@ -159,7 +159,9 @@ async function ensureValidToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null;
 
   try {
-    const token = localStorage.getItem('accessToken');
+    const token =
+      localStorage.getItem('az_admin_access_token') ||
+      localStorage.getItem('accessToken');
     if (token) return token;
 
     // Auto-login in dev environment if no token is present
@@ -168,14 +170,24 @@ async function ensureValidToken(): Promise<string | null> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: 'admin@az-ecommerce.local',
-        password: 'AdminPassword123!',
+        password: 'Password123!',
       }),
     });
 
     if (loginRes.ok) {
       const data = await loginRes.json();
-      localStorage.setItem('accessToken', data.accessToken);
-      return data.accessToken;
+      if (data.accessToken) {
+        localStorage.setItem('az_admin_access_token', data.accessToken);
+        localStorage.setItem('accessToken', data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem('az_admin_refresh_token', data.refreshToken);
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        if (data.user) {
+          localStorage.setItem('az_admin_user', JSON.stringify(data.user));
+        }
+        return data.accessToken;
+      }
     }
   } catch {
     // Fallback silent fail
@@ -184,12 +196,45 @@ async function ensureValidToken(): Promise<string | null> {
   return null;
 }
 
-async function authHeaders(extraHeaders: Record<string, string> = {}): Promise<HeadersInit> {
+async function fetchWithAuth(
+  url: string,
+  init: RequestInit = {},
+  isRetry = false,
+): Promise<Response> {
   const token = await ensureValidToken();
-  return {
-    ...extraHeaders,
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  const headers = new Headers(init.headers || {});
+
+  if (!headers.has('Content-Type') && !(init.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url, { ...init, headers });
+  } catch {
+    throw new Error(
+      `Cannot connect to API server at ${API_BASE}. Please ensure the NestJS backend is running.`,
+    );
+  }
+
+  if (res.status === 401 && !isRetry && typeof window !== 'undefined') {
+    localStorage.removeItem('az_admin_access_token');
+    localStorage.removeItem('accessToken');
+    const newToken = await ensureValidToken();
+    if (newToken) {
+      const retryHeaders = new Headers(init.headers || {});
+      if (!retryHeaders.has('Content-Type') && !(init.body instanceof FormData)) {
+        retryHeaders.set('Content-Type', 'application/json');
+      }
+      retryHeaders.set('Authorization', `Bearer ${newToken}`);
+      return fetch(url, { ...init, headers: retryHeaders });
+    }
+  }
+
+  return res;
 }
 
 export async function getProducts(query: ProductQuery = {}): Promise<PaginatedProducts> {
@@ -204,8 +249,7 @@ export async function getProducts(query: ProductQuery = {}): Promise<PaginatedPr
   if (query.sortBy) params.set('sortBy', query.sortBy);
   if (query.sortOrder) params.set('sortOrder', query.sortOrder);
 
-  const res = await fetch(`${API_BASE}/admin/products?${params.toString()}`, {
-    headers: await authHeaders(),
+  const res = await fetchWithAuth(`${API_BASE}/admin/products?${params.toString()}`, {
     cache: 'no-store',
   });
 
@@ -225,8 +269,7 @@ export async function getProducts(query: ProductQuery = {}): Promise<PaginatedPr
 }
 
 export async function getProduct(idOrSlug: string): Promise<ProductItem> {
-  const res = await fetch(`${API_BASE}/admin/products/${encodeURIComponent(idOrSlug)}`, {
-    headers: await authHeaders(),
+  const res = await fetchWithAuth(`${API_BASE}/admin/products/${encodeURIComponent(idOrSlug)}`, {
     cache: 'no-store',
   });
 
@@ -239,9 +282,8 @@ export async function getProduct(idOrSlug: string): Promise<ProductItem> {
 }
 
 export async function createProduct(payload: CreateProductPayload): Promise<ProductItem> {
-  const res = await fetch(`${API_BASE}/admin/products`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/products`, {
     method: 'POST',
-    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
 
@@ -254,9 +296,8 @@ export async function createProduct(payload: CreateProductPayload): Promise<Prod
 }
 
 export async function updateProduct(id: string, payload: UpdateProductPayload): Promise<ProductItem> {
-  const res = await fetch(`${API_BASE}/admin/products/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/products/${id}`, {
     method: 'PUT',
-    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
 
@@ -269,9 +310,8 @@ export async function updateProduct(id: string, payload: UpdateProductPayload): 
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/admin/products/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/products/${id}`, {
     method: 'DELETE',
-    headers: await authHeaders(),
   });
 
   if (!res.ok) {
@@ -286,9 +326,8 @@ export async function uploadProductImages(productId: string, files: File[]): Pro
     formData.append('files', file);
   }
 
-  const res = await fetch(`${API_BASE}/admin/products/${productId}/images`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/products/${productId}/images`, {
     method: 'POST',
-    headers: await authHeaders(),
     body: formData,
   });
 
@@ -305,9 +344,8 @@ export async function updateProductImage(
   imageId: string,
   payload: UpdateImagePayload,
 ): Promise<ProductImageItem> {
-  const res = await fetch(`${API_BASE}/admin/products/${productId}/images/${imageId}`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/products/${productId}/images/${imageId}`, {
     method: 'PATCH',
-    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
 
@@ -320,9 +358,8 @@ export async function updateProductImage(
 }
 
 export async function deleteProductImage(productId: string, imageId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/admin/products/${productId}/images/${imageId}`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/products/${productId}/images/${imageId}`, {
     method: 'DELETE',
-    headers: await authHeaders(),
   });
 
   if (!res.ok) {
@@ -332,9 +369,8 @@ export async function deleteProductImage(productId: string, imageId: string): Pr
 }
 
 export async function reorderProductImages(productId: string, imageIds: string[]): Promise<ProductImageItem[]> {
-  const res = await fetch(`${API_BASE}/admin/products/${productId}/images/reorder`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/products/${productId}/images/reorder`, {
     method: 'PUT',
-    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ imageIds }),
   });
 
@@ -354,8 +390,7 @@ export async function getVariants(query: VariantQuery = {}): Promise<PaginatedVa
   if (query.productId) params.set('productId', query.productId);
   if (query.isActive !== undefined) params.set('isActive', query.isActive.toString());
 
-  const res = await fetch(`${API_BASE}/admin/variants?${params.toString()}`, {
-    headers: await authHeaders(),
+  const res = await fetchWithAuth(`${API_BASE}/admin/variants?${params.toString()}`, {
     cache: 'no-store',
   });
 
@@ -375,9 +410,8 @@ export async function getVariants(query: VariantQuery = {}): Promise<PaginatedVa
 }
 
 export async function updateVariant(id: string, payload: UpdateVariantPayload): Promise<ProductVariantItem> {
-  const res = await fetch(`${API_BASE}/admin/variants/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/variants/${id}`, {
     method: 'PUT',
-    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
 
@@ -390,9 +424,8 @@ export async function updateVariant(id: string, payload: UpdateVariantPayload): 
 }
 
 export async function deleteVariant(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/admin/variants/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/variants/${id}`, {
     method: 'DELETE',
-    headers: await authHeaders(),
   });
 
   if (!res.ok) {
@@ -405,9 +438,8 @@ export async function uploadProductImage(file: File): Promise<{ imageUrl: string
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch(`${API_BASE}/admin/products/upload-image`, {
+  const res = await fetchWithAuth(`${API_BASE}/admin/products/upload-image`, {
     method: 'POST',
-    headers: await authHeaders(),
     body: formData,
   });
 

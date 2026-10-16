@@ -34,8 +34,8 @@ export function getStoredTokens(): { accessToken: string | null; refreshToken: s
     return { accessToken: null, refreshToken: null };
   }
   return {
-    accessToken: localStorage.getItem(TOKEN_KEY),
-    refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY),
+    accessToken: localStorage.getItem(TOKEN_KEY) || localStorage.getItem('accessToken'),
+    refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY) || localStorage.getItem('refreshToken'),
   };
 }
 
@@ -43,6 +43,8 @@ export function setStoredTokens(tokens: { accessToken: string; refreshToken: str
   if (typeof window === 'undefined') return;
   localStorage.setItem(TOKEN_KEY, tokens.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  localStorage.setItem('accessToken', tokens.accessToken);
+  localStorage.setItem('refreshToken', tokens.refreshToken);
   document.cookie = `${TOKEN_KEY}=${tokens.accessToken}; path=/; max-age=604800; SameSite=Lax`;
 }
 
@@ -51,6 +53,8 @@ export function clearStoredTokens() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
   document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`;
 }
 

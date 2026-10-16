@@ -64,7 +64,7 @@ describe('Products & Variants API Flow (e2e)', () => {
         email: testAdmin.email,
         passwordHash: adminPasswordHash,
         name: testAdmin.name,
-        role: Role.ADMIN,
+        role: Role.SUPER_ADMIN,
       },
     });
 

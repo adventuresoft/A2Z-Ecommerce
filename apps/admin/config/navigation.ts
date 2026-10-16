@@ -113,6 +113,7 @@ export const navigationConfig: NavItem[] = [
         href: "/inventory",
         icon: "bi bi-layers",
         phase: 3,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "inventory-adjustments",
@@ -120,6 +121,7 @@ export const navigationConfig: NavItem[] = [
         href: "/inventory/adjustments",
         icon: "bi bi-pencil-square",
         phase: 3,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "inventory-movements",
@@ -127,6 +129,7 @@ export const navigationConfig: NavItem[] = [
         href: "/inventory/movements",
         icon: "bi bi-arrow-left-right",
         phase: 3,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "inventory-low-stock",
@@ -134,6 +137,7 @@ export const navigationConfig: NavItem[] = [
         href: "/inventory/low-stock",
         icon: "bi bi-exclamation-triangle",
         phase: 3,
+        badge: { text: "Live", variant: "success" },
       },
     ],
   },

@@ -2,12 +2,10 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAdminLayout } from "./AdminLayoutContext";
 import { useAuth } from "@/context/AuthContext";
 
 export function AdminNavbar() {
-  const router = useRouter();
   const { toggleSidebar, theme, toggleTheme } = useAdminLayout();
   const { user, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);

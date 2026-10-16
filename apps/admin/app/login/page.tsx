@@ -30,8 +30,8 @@ function LoginForm() {
     try {
       await login({ email, password });
       router.push(returnUrl);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Invalid email or password.');
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Invalid email or password.');
     } finally {
       setIsSubmitting(false);
     }

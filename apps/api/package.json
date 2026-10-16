@@ -25,7 +25,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "db:seed": "node --no-warnings prisma/seed.ts"
+    "db:seed": "node --no-warnings prisma/seed.ts",
+    "inventory:backfill": "node --no-warnings prisma/backfill-inventory.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

@@ -110,8 +110,8 @@ describe('Authentication Flow (e2e)', () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
         .send({
-          email: 'admin@az-ecommerce.local',
-          password: 'Admin123456!',
+          email: 'superadmin@az-ecommerce.local',
+          password: 'Password123!',
         })
         .expect(200);
 

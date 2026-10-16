@@ -52,7 +52,7 @@ describe('Categories API Flow (e2e)', () => {
         email: testAdmin.email,
         passwordHash,
         name: testAdmin.name,
-        role: Role.ADMIN,
+        role: Role.SUPER_ADMIN,
       },
     });
 
