@@ -44,6 +44,9 @@ export class UserResponseDto {
   roleDefinition?: RoleSummaryDto | null;
 
   @ApiPropertyOptional()
+  designation?: string | null;
+
+  @ApiPropertyOptional()
   department?: string | null;
 
   @ApiPropertyOptional()

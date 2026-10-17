@@ -71,7 +71,6 @@ export default function AdminUsersManagementPage() {
   const [userSearch, setUserSearch] = useState("");
   const [debouncedUserSearch, setDebouncedUserSearch] = useState("");
   const [filterRole, setFilterRole] = useState<UserRole | "">("");
-  const [filterDepartment, setFilterDepartment] = useState("");
 
   // Modals
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -87,8 +86,7 @@ export default function AdminUsersManagementPage() {
     phone: "",
     role: "ADMIN" as UserRole,
     roleId: "",
-    department: "",
-    section: "",
+    designation: "",
     location: "",
     isActive: true,
   });
@@ -143,7 +141,6 @@ export default function AdminUsersManagementPage() {
         limit: usersLimit,
         search: debouncedUserSearch || undefined,
         role: filterRole || undefined,
-        department: filterDepartment || undefined,
       });
       setUsers(res.items);
       setUsersTotal(res.total);
@@ -155,7 +152,7 @@ export default function AdminUsersManagementPage() {
     } finally {
       setUsersLoading(false);
     }
-  }, [usersPage, usersLimit, debouncedUserSearch, filterRole, filterDepartment]);
+  }, [usersPage, usersLimit, debouncedUserSearch, filterRole]);
 
   const fetchRolesList = useCallback(async () => {
     setRolesLoading(true);
@@ -215,8 +212,7 @@ export default function AdminUsersManagementPage() {
       phone: "",
       role: "ADMIN",
       roleId: roles.find((r) => r.slug === "admin")?.id || "",
-      department: "Administration",
-      section: "",
+      designation: "",
       location: "Dhaka (District) - District: Dhaka",
       isActive: true,
     });
@@ -232,8 +228,7 @@ export default function AdminUsersManagementPage() {
       phone: user.phone || "",
       role: user.role,
       roleId: user.roleId || "",
-      department: user.department || "",
-      section: user.section || "",
+      designation: user.designation || "",
       location: user.location || "",
       isActive: user.isActive,
     });
@@ -252,8 +247,7 @@ export default function AdminUsersManagementPage() {
           password: userForm.password ? userForm.password : undefined,
           role: userForm.role,
           roleId: userForm.roleId || null,
-          department: userForm.department || null,
-          section: userForm.section || null,
+          designation: userForm.designation?.trim() || null,
           location: userForm.location || null,
           isActive: userForm.isActive,
         });
@@ -266,8 +260,7 @@ export default function AdminUsersManagementPage() {
           phone: userForm.phone || undefined,
           role: userForm.role,
           roleId: userForm.roleId || undefined,
-          department: userForm.department || undefined,
-          section: userForm.section || undefined,
+          designation: userForm.designation?.trim() || undefined,
           location: userForm.location || undefined,
           isActive: userForm.isActive,
         });
@@ -651,28 +644,8 @@ export default function AdminUsersManagementPage() {
 
             {/* Filter Bar */}
             <div className="row g-3 align-items-center mb-4">
-              <div className="col-md-3">
-                <label className="form-label small text-muted mb-1">Filter by Department</label>
-                <select
-                  className="form-select"
-                  value={filterDepartment}
-                  onChange={(e) => {
-                    setFilterDepartment(e.target.value);
-                    setUsersPage(1);
-                  }}
-                >
-                  <option value="">All Departments</option>
-                  <option value="ADM">ADM</option>
-                  <option value="Revenue">Revenue</option>
-                  <option value="Human Resource Management">Human Resource Management</option>
-                  <option value="Local Government Branch">Local Government Branch</option>
-                  <option value="Operations & Fulfillment">Operations & Fulfillment</option>
-                  <option value="Catalog Management">Catalog Management</option>
-                </select>
-              </div>
-
-              <div className="col-md-3">
-                <label className="form-label small text-muted mb-1">Filter by Section / Role</label>
+              <div className="col-md-4">
+                <label className="form-label small text-muted mb-1">Filter by Role</label>
                 <select
                   className="form-select"
                   value={filterRole}
@@ -690,12 +663,11 @@ export default function AdminUsersManagementPage() {
               </div>
 
               <div className="col-md-3 d-flex align-items-end pt-3">
-                {(filterDepartment || filterRole || userSearch) && (
+                {(filterRole || userSearch) && (
                   <button
                     type="button"
                     className="btn btn-outline-danger d-flex align-items-center gap-1"
                     onClick={() => {
-                      setFilterDepartment("");
                       setFilterRole("");
                       setUserSearch("");
                       setDebouncedUserSearch("");
@@ -751,7 +723,7 @@ export default function AdminUsersManagementPage() {
                     <th style={{ width: "50px" }}>#</th>
                     <th>EMPLOYEE PROFILE</th>
                     <th>CONTACT & AREA</th>
-                    <th>DEPT. & SECTION</th>
+                    <th>DESIGNATION & ROLE</th>
                     <th>STATUS</th>
                     <th style={{ width: "120px" }} className="text-end pe-3">
                       ACTION
@@ -822,19 +794,13 @@ export default function AdminUsersManagementPage() {
                             </div>
                           </td>
 
-                          {/* Dept & Section */}
+                          {/* Designation & Role */}
                           <td>
                             <div className="d-flex flex-column gap-1">
-                              <div className="small fw-semibold text-primary d-flex align-items-center gap-1">
-                                <i className="bi bi-building"></i>
-                                {user.department || "Administration"}
+                              <div className="small fw-semibold text-dark d-flex align-items-center gap-1">
+                                <i className="bi bi-person-badge text-secondary"></i>
+                                {user.designation || "Not Assigned"}
                               </div>
-                              {user.section && (
-                                <div className="small text-muted" style={{ fontSize: "0.8rem" }}>
-                                  <i className="bi bi-diagram-2 me-1"></i>
-                                  {user.section}
-                                </div>
-                              )}
                               <div>
                                 <span
                                   className={`badge ${
@@ -848,7 +814,7 @@ export default function AdminUsersManagementPage() {
                                   }`}
                                   style={{ fontSize: "0.7rem" }}
                                 >
-                                  {user.role}
+                                  {user.roleDefinition?.name || user.role}
                                 </span>
                               </div>
                             </div>
@@ -1776,28 +1742,17 @@ export default function AdminUsersManagementPage() {
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label small fw-bold">Department</label>
+                      <label className="form-label small fw-bold">Designation</label>
                       <input
                         type="text"
                         className="form-control"
-                        placeholder="e.g. Human Resource Management"
-                        value={userForm.department}
-                        onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
+                        placeholder="e.g. Senior Manager, Sales Lead"
+                        value={userForm.designation}
+                        onChange={(e) => setUserForm({ ...userForm, designation: e.target.value })}
                       />
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label small fw-bold">Section</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. Establishment Section"
-                        value={userForm.section}
-                        onChange={(e) => setUserForm({ ...userForm, section: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="col-12">
                       <label className="form-label small fw-bold">Location / Area</label>
                       <input
                         type="text"
@@ -1892,12 +1847,8 @@ export default function AdminUsersManagementPage() {
                     <span className="fw-semibold text-dark">{viewingUser.phone || "N/A"}</span>
                   </div>
                   <div className="list-group-item d-flex justify-content-between py-2">
-                    <span className="text-muted">Department</span>
-                    <span className="fw-semibold text-dark">{viewingUser.department || "N/A"}</span>
-                  </div>
-                  <div className="list-group-item d-flex justify-content-between py-2">
-                    <span className="text-muted">Section</span>
-                    <span className="fw-semibold text-dark">{viewingUser.section || "N/A"}</span>
+                    <span className="text-muted">Designation</span>
+                    <span className="fw-semibold text-dark">{viewingUser.designation || "N/A"}</span>
                   </div>
                   <div className="list-group-item d-flex justify-content-between py-2">
                     <span className="text-muted">Location</span>

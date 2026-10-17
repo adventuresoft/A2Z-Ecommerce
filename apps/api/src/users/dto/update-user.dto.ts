@@ -35,6 +35,11 @@ export class UpdateUserDto {
   @IsString()
   roleId?: string | null;
 
+  @ApiPropertyOptional({ example: 'Senior HR Executive' })
+  @IsOptional()
+  @IsString()
+  designation?: string | null;
+
   @ApiPropertyOptional({ example: 'Human Resource Management' })
   @IsOptional()
   @IsString()

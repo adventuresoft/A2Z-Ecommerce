@@ -29,6 +29,7 @@ model User {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
+  designation     String?         @db.VarChar(100)
   department      String?         @db.VarChar(100)
   section         String?         @db.VarChar(100)
   location        String?         @db.VarChar(150)
@@ -459,5 +460,21 @@ model ShipmentStatusHistory {
   @@index([changedByUserId])
   @@map("ShipmentStatusHistory")
 }
+
+model StoreSetting {
+  key         String   @id @db.VarChar(100)
+  value       String   @db.Text
+  dataType    String   @default("STRING") @db.VarChar(30)
+  group       String   @default("GENERAL") @db.VarChar(50)
+  isPublic    Boolean  @default(false)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([group])
+  @@index([isPublic])
+  @@map("StoreSetting")
+}
+
 
 

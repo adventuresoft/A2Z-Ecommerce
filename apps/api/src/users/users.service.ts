@@ -94,6 +94,7 @@ export class UsersService {
             permissions: user.roleDefinition.permissions,
           }
         : null,
+      designation: user.designation,
       department: user.department,
       section: user.section,
       location: user.location,
@@ -123,6 +124,13 @@ export class UsersService {
           : query.isActive === 'true';
     }
 
+    if (query.designation) {
+      where.designation = {
+        contains: query.designation.trim(),
+        mode: 'insensitive',
+      };
+    }
+
     if (query.department) {
       where.department = {
         contains: query.department.trim(),
@@ -144,6 +152,7 @@ export class UsersService {
         { email: { contains: term, mode: 'insensitive' } },
         { phone: { contains: term, mode: 'insensitive' } },
         { location: { contains: term, mode: 'insensitive' } },
+        { designation: { contains: term, mode: 'insensitive' } },
         { department: { contains: term, mode: 'insensitive' } },
       ];
     }
@@ -218,6 +227,7 @@ export class UsersService {
         phone: dto.phone?.trim() || null,
         role: dto.role ?? Role.ADMIN,
         roleId: dto.roleId || null,
+        designation: dto.designation?.trim() || null,
         department: dto.department?.trim() || null,
         section: dto.section?.trim() || null,
         location: dto.location?.trim() || null,
@@ -274,6 +284,7 @@ export class UsersService {
     if (dto.name !== undefined) updateData.name = dto.name.trim();
     if (dto.phone !== undefined) updateData.phone = dto.phone?.trim() || null;
     if (dto.role !== undefined) updateData.role = dto.role;
+    if (dto.designation !== undefined) updateData.designation = dto.designation?.trim() || null;
     if (dto.department !== undefined) updateData.department = dto.department?.trim() || null;
     if (dto.section !== undefined) updateData.section = dto.section?.trim() || null;
     if (dto.location !== undefined) updateData.location = dto.location?.trim() || null;

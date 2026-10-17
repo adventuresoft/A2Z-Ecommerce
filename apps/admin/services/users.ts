@@ -42,6 +42,7 @@ export interface AdminUser {
   role: UserRole;
   roleId: string | null;
   roleDefinition?: RoleDefinition | null;
+  designation: string | null;
   department: string | null;
   section: string | null;
   location: string | null;
@@ -66,6 +67,7 @@ export interface QueryUsersParams {
   search?: string;
   role?: UserRole | '';
   isActive?: boolean | string;
+  designation?: string;
   department?: string;
   section?: string;
 }
@@ -77,6 +79,7 @@ export interface CreateUserPayload {
   phone?: string;
   role?: UserRole;
   roleId?: string;
+  designation?: string;
   department?: string;
   section?: string;
   location?: string;
@@ -89,6 +92,7 @@ export interface UpdateUserPayload {
   phone?: string;
   role?: UserRole;
   roleId?: string | null;
+  designation?: string | null;
   department?: string | null;
   section?: string | null;
   location?: string | null;

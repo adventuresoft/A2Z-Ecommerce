@@ -42,6 +42,11 @@ export class CreateUserDto {
   @IsString()
   roleId?: string;
 
+  @ApiPropertyOptional({ example: 'Senior HR Executive' })
+  @IsOptional()
+  @IsString()
+  designation?: string;
+
   @ApiPropertyOptional({ example: 'Human Resource Management' })
   @IsOptional()
   @IsString()

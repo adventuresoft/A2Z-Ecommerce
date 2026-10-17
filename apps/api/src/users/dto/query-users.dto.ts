@@ -33,6 +33,11 @@ export class QueryUsersDto {
   @IsOptional()
   isActive?: boolean | string;
 
+  @ApiPropertyOptional({ description: 'Filter by designation' })
+  @IsOptional()
+  @IsString()
+  designation?: string;
+
   @ApiPropertyOptional({ description: 'Filter by department' })
   @IsOptional()
   @IsString()
