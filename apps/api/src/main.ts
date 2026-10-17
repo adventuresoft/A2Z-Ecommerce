@@ -26,8 +26,10 @@ async function bootstrap() {
   );
 
   // CORS Configuration
+  const defaultCors =
+    'http://localhost:3000,http://localhost:3002,http://127.0.0.1:3000,http://127.0.0.1:3002';
   const corsOrigins = configService
-    .get<string>('CORS_ORIGIN', 'http://localhost:3000,http://localhost:3002')
+    .get<string>('CORS_ORIGIN', defaultCors)
     .split(',')
     .map((origin) => origin.trim());
 
