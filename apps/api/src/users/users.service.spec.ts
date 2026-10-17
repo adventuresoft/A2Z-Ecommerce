@@ -24,7 +24,10 @@ describe('UsersService', () => {
 
     const result = await service.findById('uuid-1');
     expect(result).toEqual(mockUser);
-    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { id: 'uuid-1' } });
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'uuid-1' },
+      include: { roleDefinition: true },
+    });
   });
 
   it('should find user by email normalized', async () => {
@@ -33,7 +36,10 @@ describe('UsersService', () => {
 
     const result = await service.findByEmail('  TEST@az.local ');
     expect(result).toEqual(mockUser);
-    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'test@az.local' } });
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+      where: { email: 'test@az.local' },
+      include: { roleDefinition: true },
+    });
   });
 
   it('should create user with default CUSTOMER role', async () => {

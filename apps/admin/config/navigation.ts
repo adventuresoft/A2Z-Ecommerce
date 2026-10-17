@@ -91,6 +91,7 @@ export const navigationConfig: NavItem[] = [
         href: "/orders",
         icon: "bi bi-receipt",
         phase: 3,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "orders-returns",
@@ -212,6 +213,7 @@ export const navigationConfig: NavItem[] = [
         href: "/shipping/shipments",
         icon: "bi bi-box",
         phase: 4,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "shipping-methods",
@@ -219,6 +221,7 @@ export const navigationConfig: NavItem[] = [
         href: "/shipping/methods",
         icon: "bi bi-gear-wide",
         phase: 4,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "shipping-zones",
@@ -226,6 +229,7 @@ export const navigationConfig: NavItem[] = [
         href: "/shipping/zones",
         icon: "bi bi-geo-alt",
         phase: 4,
+        badge: { text: "Live", variant: "success" },
       },
     ],
   },
@@ -304,6 +308,7 @@ export const navigationConfig: NavItem[] = [
         href: "/system/users",
         icon: "bi bi-shield-lock",
         phase: 1,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "system-settings",

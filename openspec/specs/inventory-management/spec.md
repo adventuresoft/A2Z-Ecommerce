@@ -65,6 +65,14 @@ The system SHALL provide internal service methods (`reserveStock`, `releaseReser
 - **WHEN** a reservation request is made for 5 units of a variant having physical quantity 10 and reserved quantity 8 (available 2)
 - **THEN** the system rolls back the transaction and throws an InsufficientStockException without modifying balances
 
+#### Scenario: Order cancellation reserved stock release
+- **WHEN** an order containing reserved variants is cancelled
+- **THEN** the system decrements `reservedQuantity` by the cancelled order quantity and creates a `CANCEL_RESTORE` ledger entry without altering physical on-hand quantity
+
+#### Scenario: Order fulfillment physical and reserved stock deduction
+- **WHEN** an order is marked shipped or fulfilled
+- **THEN** the system decrements both physical `quantity` and `reservedQuantity` by the fulfilled quantity and creates an `ORDER_FULFILL` ledger entry
+
 ### Requirement: Administrative Inventory API Endpoints
 The system SHALL expose administrative REST endpoints beneath `/api/v1/admin/inventory` protected by JWT authentication and restricted to `ADMIN` and `SUPER_ADMIN` roles, supporting pagination, keyword search across product title and SKU, category filtering, low-stock filtering, and retrieval of stock movement history.
 

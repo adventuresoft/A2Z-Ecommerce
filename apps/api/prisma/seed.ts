@@ -413,34 +413,215 @@ async function seedCategoryTree(
 
 async function seedDemoUsers() {
   const defaultPassword = 'Password123!';
+  const passwordHash = await argon2.hash(defaultPassword, {
+    type: argon2.argon2id,
+  });
+
+  console.log('Seeding permissions pool...');
+  const CORE_MODULES = [
+    'user',
+    'basic_setting',
+    'products',
+    'categories',
+    'brands',
+    'attributes',
+    'variants',
+    'orders',
+    'inventory',
+    'shipments',
+    'customers',
+    'marketing',
+    'payments',
+    'engagement',
+    'reports',
+  ];
+  const CORE_ACTIONS = ['read', 'create', 'update', 'delete'];
+
+  for (const mod of CORE_MODULES) {
+    const modTitle = mod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    for (const act of CORE_ACTIONS) {
+      const key = `${mod}.${act}`;
+      await prisma.permissionDefinition.upsert({
+        where: { key },
+        create: {
+          key,
+          name: `${act.toUpperCase()} ${modTitle}`,
+          module: mod,
+          action: act,
+          description: `Permission to ${act} resources in ${modTitle} module`,
+          isSystem: true,
+        },
+        update: {},
+      });
+    }
+  }
+
+  console.log('Seeding security roles directory...');
+  const allPerms = CORE_MODULES.flatMap((m) => CORE_ACTIONS.map((a) => `${m}.${a}`));
+  const cruPerms = CORE_MODULES.flatMap((m) => ['read', 'create', 'update'].map((a) => `${m}.${a}`));
+  const shopPerms = [
+    'products.read', 'products.create', 'products.update', 'products.delete',
+    'variants.read', 'variants.create', 'variants.update', 'variants.delete',
+    'categories.read', 'categories.create', 'categories.update',
+    'brands.read', 'brands.create', 'brands.update',
+    'attributes.read', 'attributes.create', 'attributes.update',
+    'orders.read', 'orders.update',
+    'inventory.read', 'inventory.update',
+  ];
+
+  const superAdminRole = await prisma.roleDefinition.upsert({
+    where: { slug: 'superadmin' },
+    create: {
+      name: 'SuperAdmin',
+      slug: 'superadmin',
+      description: 'Full unrestricted root system access across all domain capabilities.',
+      isSystem: true,
+      permissions: allPerms,
+    },
+    update: { permissions: allPerms },
+  });
+
+  const adminRole = await prisma.roleDefinition.upsert({
+    where: { slug: 'admin' },
+    create: {
+      name: 'Operations Admin',
+      slug: 'admin',
+      description: 'Operational access to manage catalog, orders, inventory, and shipments without deletion privileges.',
+      isSystem: true,
+      permissions: cruPerms,
+    },
+    update: { permissions: cruPerms },
+  });
+
+  const shopManagerRole = await prisma.roleDefinition.upsert({
+    where: { slug: 'shop_manager' },
+    create: {
+      name: 'Shop Manager',
+      slug: 'shop_manager',
+      description: 'Catalog, variant, order, and inventory management capabilities.',
+      isSystem: true,
+      permissions: shopPerms,
+    },
+    update: { permissions: shopPerms },
+  });
+
+  const customerRole = await prisma.roleDefinition.upsert({
+    where: { slug: 'customer' },
+    create: {
+      name: 'Customer',
+      slug: 'customer',
+      description: 'Customer storefront account with no administrative abilities.',
+      isSystem: true,
+      permissions: [],
+    },
+    update: {},
+  });
+
   const demoUsers = [
     {
       email: 'superadmin@az-ecommerce.local',
       name: 'Super Admin',
       role: Role.SUPER_ADMIN,
+      roleId: superAdminRole.id,
+      department: 'Executive Leadership',
+      section: 'Headquarters',
+      location: 'Dhaka, Bangladesh',
+      phone: '+8801700000001',
     },
     {
       email: 'admin@az-ecommerce.local',
       name: 'Operations Admin',
       role: Role.ADMIN,
+      roleId: adminRole.id,
+      department: 'Operations & Fulfillment',
+      section: 'Order Processing',
+      location: 'Dhaka, Bangladesh',
+      phone: '+8801700000002',
     },
     {
       email: 'shopmanager@az-ecommerce.local',
       name: 'Shop Manager',
       role: Role.SHOP_MANAGER,
+      roleId: shopManagerRole.id,
+      department: 'Catalog Management',
+      section: 'Merchandising',
+      location: 'Chittagong, Bangladesh',
+      phone: '+8801700000003',
     },
     {
       email: 'customer@az-ecommerce.local',
       name: 'Demo Customer',
       role: Role.CUSTOMER,
+      roleId: customerRole.id,
+      department: null,
+      section: null,
+      location: 'Dhaka, Bangladesh',
+      phone: '+8801700000004',
+    },
+    // Realistic administrative directory matching reference design
+    {
+      email: 'admaodhaka@gmail.com',
+      name: 'SM JAHIDUL ISLAM',
+      role: Role.ADMIN,
+      roleId: adminRole.id,
+      department: 'ADM',
+      section: 'Magistracy Section',
+      location: 'Dhaka (District) - District: Dhaka',
+      phone: '012589654',
+    },
+    {
+      email: 'macemdhaka@gmail.com',
+      name: 'Naimur Rahman',
+      role: Role.ADMIN,
+      roleId: adminRole.id,
+      department: 'Revenue',
+      section: 'Record Room Section',
+      location: 'Dhaka (District) - District: Dhaka',
+      phone: '014586987',
+    },
+    {
+      email: 'hracedhaka@gmail.com',
+      name: 'Sharif Mohammad Helal Uddin',
+      role: Role.ADMIN,
+      roleId: adminRole.id,
+      department: 'Human Resource Management',
+      section: 'Establishment Section',
+      location: 'Dhaka (District) - District: Dhaka',
+      phone: '0172868595',
+    },
+    {
+      email: 'adcdevelopmentdhaka@gmail.com',
+      name: 'Md. Mahbub Ullah Majumder',
+      role: Role.SUPER_ADMIN,
+      roleId: superAdminRole.id,
+      department: 'Human Resource Management',
+      section: 'N/A',
+      location: 'Dhaka (District) - District: Dhaka',
+      phone: '01300029796',
+    },
+    {
+      email: 'ddlgdhaka@gmail.com',
+      name: 'Jaber Md. Shoaib',
+      role: Role.SHOP_MANAGER,
+      roleId: shopManagerRole.id,
+      department: 'Local Government Branch',
+      section: 'N/A',
+      location: 'Dhaka (District) - District: Dhaka',
+      phone: '01728680879',
+    },
+    {
+      email: 'admdhaka@gmail.com',
+      name: 'Mr. Litus Lowrence Chiran',
+      role: Role.ADMIN,
+      roleId: adminRole.id,
+      department: 'ADM',
+      section: 'N/A',
+      location: 'Dhaka (District) - District: Dhaka',
+      phone: '01951652634',
     },
   ];
 
-  const passwordHash = await argon2.hash(defaultPassword, {
-    type: argon2.argon2id,
-  });
-
-  console.log('Seeding demo accounts for all roles...');
+  console.log('Seeding demo accounts for all roles and employee directory...');
   for (const user of demoUsers) {
     const existing = await prisma.user.findUnique({
       where: { email: user.email },
@@ -451,7 +632,12 @@ async function seedDemoUsers() {
         where: { email: user.email },
         data: {
           role: user.role,
+          roleId: user.roleId,
           name: user.name,
+          phone: user.phone,
+          department: user.department,
+          section: user.section,
+          location: user.location,
           isActive: true,
           passwordHash,
         },
@@ -464,6 +650,11 @@ async function seedDemoUsers() {
           passwordHash,
           name: user.name,
           role: user.role,
+          roleId: user.roleId,
+          phone: user.phone,
+          department: user.department,
+          section: user.section,
+          location: user.location,
           isActive: true,
           emailVerifiedAt: new Date(),
         },

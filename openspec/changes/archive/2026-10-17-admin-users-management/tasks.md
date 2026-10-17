@@ -1,0 +1,22 @@
+# Tasks: Admin Users, Roles & Permissions Management Module
+
+- [x] Schema: Add `RoleDefinition` and `PermissionDefinition` models to Prisma schema <!-- id: 1 -->
+- [x] Schema: Extend `User` model with `department`, `section`, `location`, and `roleId` <!-- id: 2 -->
+- [x] Database: Push schema changes to PostgreSQL database via `prisma db push` <!-- id: 3 -->
+- [x] Database: Regenerate Prisma Client <!-- id: 4 -->
+- [x] API DTOs: Implement query, request, and response DTOs for users, roles, and permissions <!-- id: 5 -->
+- [x] API Service: Implement `PermissionsService` with auto-seeding of 60 core permissions <!-- id: 6 -->
+- [x] API Service: Implement `RolesService` with default roles and ability matrix computation <!-- id: 7 -->
+- [x] API Service: Expand `UsersService` with filtering, search, argon2id hashing, and safeguards <!-- id: 8 -->
+- [x] API Controllers: Implement `UsersAdminController`, `RolesAdminController`, and `PermissionsAdminController` <!-- id: 9 -->
+- [x] API Module: Wire dependencies with `forwardRef` to resolve circular auth references <!-- id: 10 -->
+- [x] Database: Update `seed.ts` with permissions, system roles, and realistic employee records matching design <!-- id: 11 -->
+- [x] API Tests: Unit tests for users, roles, and permissions services (11 tests passing) <!-- id: 12 -->
+- [x] API Tests: E2E tests for `/admin/users`, `/admin/roles`, and `/admin/permissions` (12 tests passing) <!-- id: 13 -->
+- [x] Frontend Service: Implement `apps/admin/services/users.ts` with API client and types <!-- id: 14 -->
+- [x] Frontend Nav: Update `system-users` in `apps/admin/config/navigation.ts` with `Live` badge <!-- id: 15 -->
+- [x] Frontend UI: Build `UsersDirectoryTab` matching Image 3 (Employee directory with badges and filters) <!-- id: 16 -->
+- [x] Frontend UI: Build `RoleDefinitionsTab` matching Image 4 (Registered role cards with `[R][C][U][D]` micro-badges) <!-- id: 17 -->
+- [x] Frontend UI: Build Ability Matrix Editor matching Image 1 (Category sidebar, bulk toggles, row actions) <!-- id: 18 -->
+- [x] Frontend UI: Build `PermissionPoolTab` matching Image 2 (Define permission and registry with stylized pills) <!-- id: 19 -->
+- [x] Build: Verify Next.js Turbopack build and full monorepo build <!-- id: 20 -->

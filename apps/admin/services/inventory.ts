@@ -117,8 +117,8 @@ async function ensureValidToken(): Promise<string | null> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'admin@a2z.com',
-        password: 'AdminPassword123!',
+        email: 'admin@az-ecommerce.local',
+        password: 'Password123!',
       }),
     });
 
@@ -126,6 +126,14 @@ async function ensureValidToken(): Promise<string | null> {
       const data = await loginRes.json();
       if (data.accessToken) {
         localStorage.setItem('az_admin_access_token', data.accessToken);
+        localStorage.setItem('accessToken', data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem('az_admin_refresh_token', data.refreshToken);
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        if (data.user) {
+          localStorage.setItem('az_admin_user', JSON.stringify(data.user));
+        }
         return data.accessToken;
       }
     }

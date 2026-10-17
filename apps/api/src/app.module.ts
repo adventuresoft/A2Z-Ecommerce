@@ -12,6 +12,8 @@ import { BrandsModule } from './brands/brands.module.js';
 import { AttributesModule } from './attributes/attributes.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
+import { OrdersModule } from './orders/orders.module.js';
+import { ShipmentsModule } from './shipments/shipments.module.js';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { InventoryModule } from './inventory/inventory.module.js';
     AttributesModule,
     ProductsModule,
     InventoryModule,
+    OrdersModule,
+    ShipmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
