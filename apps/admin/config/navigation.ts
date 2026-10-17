@@ -316,6 +316,7 @@ export const navigationConfig: NavItem[] = [
         href: "/system/settings",
         icon: "bi bi-sliders2",
         phase: 2,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "system-logs",

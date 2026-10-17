@@ -2146,14 +2146,355 @@ async function seedProductsAndInventory() {
   );
 }
 
+async function seedStoreSettings() {
+  console.log('Seeding default store settings...');
+  let count = 0;
+  for (const s of DEFAULT_STORE_SETTINGS) {
+    await prisma.storeSetting.upsert({
+      where: { key: s.key },
+      create: {
+        key: s.key,
+        value: s.value,
+        dataType: s.dataType,
+        group: s.group,
+        isPublic: s.isPublic,
+        description: s.description,
+      },
+      update: {
+        dataType: s.dataType,
+        group: s.group,
+        isPublic: s.isPublic,
+        description: s.description,
+      },
+    });
+    count++;
+  }
+  console.log(`Successfully seeded ${count} default store settings.`);
+}
+
+const DEFAULT_STORE_SETTINGS = [
+  {
+    key: 'store_name',
+    value: 'A2Z E-Commerce Store',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Primary customer-facing store brand name',
+  },
+  {
+    key: 'store_legal_name',
+    value: 'A2Z Retail & Logistics Ltd.',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Registered corporate or legal trading business name',
+  },
+  {
+    key: 'store_tagline',
+    value: 'Your One-Stop Shop for Electronics, Fashion & Home',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Promotional tagline or store headline',
+  },
+  {
+    key: 'contact_email',
+    value: 'support@az-ecommerce.com',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'General support email address',
+  },
+  {
+    key: 'contact_phone',
+    value: '+880 1700 000000',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Public contact telephone number',
+  },
+  {
+    key: 'support_hotline',
+    value: '16247',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Short helpline/hotline number',
+  },
+  {
+    key: 'store_address',
+    value: 'House 42, Road 11, Block D, Banani',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Physical warehouse or business headquarters address',
+  },
+  {
+    key: 'store_city',
+    value: 'Dhaka',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Headquarters municipality or city',
+  },
+  {
+    key: 'store_postal_code',
+    value: '1213',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'ZIP or Postal code of store headquarters',
+  },
+  {
+    key: 'store_country',
+    value: 'Bangladesh',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Country of primary operations',
+  },
+  {
+    key: 'store_logo_url',
+    value: '/images/logo.png',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Relative path or CDN URL for store brand logo',
+  },
+  {
+    key: 'store_favicon_url',
+    value: '/favicon.ico',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Store favicon image URL',
+  },
+  {
+    key: 'default_currency',
+    value: 'BDT',
+    dataType: 'STRING',
+    group: 'LOCALIZATION',
+    isPublic: true,
+    description: 'Three-letter ISO currency code',
+  },
+  {
+    key: 'currency_symbol',
+    value: '৳',
+    dataType: 'STRING',
+    group: 'LOCALIZATION',
+    isPublic: true,
+    description: 'Currency glyph or symbol displayed alongside prices',
+  },
+  {
+    key: 'currency_symbol_position',
+    value: 'BEFORE',
+    dataType: 'STRING',
+    group: 'LOCALIZATION',
+    isPublic: true,
+    description: 'Position of currency symbol relative to amount (BEFORE / AFTER)',
+  },
+  {
+    key: 'timezone',
+    value: 'Asia/Dhaka',
+    dataType: 'STRING',
+    group: 'LOCALIZATION',
+    isPublic: true,
+    description: 'Primary server and reporting timezone',
+  },
+  {
+    key: 'date_format',
+    value: 'YYYY-MM-DD',
+    dataType: 'STRING',
+    group: 'LOCALIZATION',
+    isPublic: true,
+    description: 'Standard date display format across storefront and invoices',
+  },
+  {
+    key: 'order_number_prefix',
+    value: 'AZ-',
+    dataType: 'STRING',
+    group: 'ORDER',
+    isPublic: true,
+    description: 'Prefix prepended to generated sequential order numbers',
+  },
+  {
+    key: 'min_order_subtotal',
+    value: '100.00',
+    dataType: 'NUMBER',
+    group: 'ORDER',
+    isPublic: true,
+    description: 'Minimum required cart subtotal to proceed with checkout',
+  },
+  {
+    key: 'max_order_subtotal',
+    value: '500000.00',
+    dataType: 'NUMBER',
+    group: 'ORDER',
+    isPublic: true,
+    description: 'Maximum allowable subtotal per single order transaction',
+  },
+  {
+    key: 'enable_cod',
+    value: 'true',
+    dataType: 'BOOLEAN',
+    group: 'ORDER',
+    isPublic: true,
+    description: 'Global toggle enabling Cash on Delivery payment option',
+  },
+  {
+    key: 'enable_guest_checkout',
+    value: 'false',
+    dataType: 'BOOLEAN',
+    group: 'ORDER',
+    isPublic: true,
+    description: 'Whether customers can place orders without registering an account',
+  },
+  {
+    key: 'auto_cancel_unpaid_hours',
+    value: '72',
+    dataType: 'NUMBER',
+    group: 'ORDER',
+    isPublic: false,
+    description: 'Hours after which uncollected or unpaid pending orders expire',
+  },
+  {
+    key: 'default_low_stock_threshold',
+    value: '5',
+    dataType: 'NUMBER',
+    group: 'INVENTORY',
+    isPublic: false,
+    description: 'Default inventory threshold triggering low-stock warnings',
+  },
+  {
+    key: 'track_inventory_ledger',
+    value: 'true',
+    dataType: 'BOOLEAN',
+    group: 'INVENTORY',
+    isPublic: false,
+    description: 'Whether all quantity adjustments require StockMovement audit rows',
+  },
+  {
+    key: 'allow_backorders',
+    value: 'false',
+    dataType: 'BOOLEAN',
+    group: 'INVENTORY',
+    isPublic: false,
+    description: 'Allow customers to order items when available stock reaches zero',
+  },
+  {
+    key: 'stock_reservation_minutes',
+    value: '60',
+    dataType: 'NUMBER',
+    group: 'INVENTORY',
+    isPublic: false,
+    description: 'Duration pending checkout cart holds stock before timeout release',
+  },
+  {
+    key: 'free_shipping_threshold',
+    value: '5000.00',
+    dataType: 'NUMBER',
+    group: 'SHIPPING',
+    isPublic: true,
+    description: 'Order subtotal qualifying for free courier delivery (0 to disable)',
+  },
+  {
+    key: 'estimated_processing_days',
+    value: '2',
+    dataType: 'NUMBER',
+    group: 'SHIPPING',
+    isPublic: true,
+    description: 'Standard business days required to pick, pack, and dispatch parcel',
+  },
+  {
+    key: 'return_window_days',
+    value: '7',
+    dataType: 'NUMBER',
+    group: 'SHIPPING',
+    isPublic: true,
+    description: 'Calendar days after delivery within which customer can request returns',
+  },
+  {
+    key: 'shipping_policy_notice',
+    value: 'Standard delivery within 2-3 days inside Dhaka, 3-5 days outside Dhaka.',
+    dataType: 'STRING',
+    group: 'SHIPPING',
+    isPublic: true,
+    description: 'Public courier expectation announcement displayed at checkout',
+  },
+  {
+    key: 'customer_order_placed_notify',
+    value: 'true',
+    dataType: 'BOOLEAN',
+    group: 'NOTIFICATION',
+    isPublic: false,
+    description: 'Send automatic email/SMS confirmation upon order placement',
+  },
+  {
+    key: 'admin_low_stock_notify',
+    value: 'true',
+    dataType: 'BOOLEAN',
+    group: 'NOTIFICATION',
+    isPublic: false,
+    description: 'Send automated email to store managers when variant hits threshold',
+  },
+  {
+    key: 'system_sender_email',
+    value: 'noreply@az-ecommerce.com',
+    dataType: 'STRING',
+    group: 'NOTIFICATION',
+    isPublic: false,
+    description: 'System sender email address for transactional communications',
+  },
+  {
+    key: 'system_sender_name',
+    value: 'A2Z Store Dispatch',
+    dataType: 'STRING',
+    group: 'NOTIFICATION',
+    isPublic: false,
+    description: 'Friendly display sender name for automated customer notifications',
+  },
+  {
+    key: 'maintenance_mode',
+    value: 'false',
+    dataType: 'BOOLEAN',
+    group: 'SECURITY',
+    isPublic: true,
+    description: 'Puts customer storefront in maintenance mode while keeping admin accessible',
+  },
+  {
+    key: 'allow_registration',
+    value: 'true',
+    dataType: 'BOOLEAN',
+    group: 'SECURITY',
+    isPublic: true,
+    description: 'Enable or disable new customer self-service registration',
+  },
+  {
+    key: 'store_meta_title',
+    value: 'A2Z E-Commerce - Single Vendor Online Store',
+    dataType: 'STRING',
+    group: 'SECURITY',
+    isPublic: true,
+    description: 'Default SEO HTML meta title for storefront',
+  },
+  {
+    key: 'store_meta_description',
+    value: 'Premium physical products delivered swiftly across Bangladesh.',
+    dataType: 'STRING',
+    group: 'SECURITY',
+    isPublic: true,
+    description: 'Default SEO HTML meta description for storefront',
+  },
+];
+
 async function seed() {
   await seedDemoUsers();
   await seedCategories();
   await seedBrands();
   await seedAttributes();
   await seedProductsAndInventory();
+  await seedStoreSettings();
 }
-
 
 seed()
   .catch((e) => {
@@ -2164,3 +2505,4 @@ seed()
     await prisma.$disconnect();
     await pool.end();
   });
+
