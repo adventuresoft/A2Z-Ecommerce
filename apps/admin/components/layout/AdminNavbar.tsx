@@ -51,32 +51,7 @@ export function AdminNavbar() {
               <i className="bi bi-list fs-4"></i>
             </button>
           </li>
-          <li className="nav-item d-none d-md-block">
-            <Link href="/" className="nav-link text-body-secondary small fw-medium">
-              Home
-            </Link>
-          </li>
-          <li className="nav-item d-none d-md-block">
-            <Link href="/catalog/categories" className="nav-link text-body-secondary small fw-medium">
-              Categories
-            </Link>
-          </li>
         </ul>
-
-        {/* Global Search Bar */}
-        <div className="d-none d-lg-block mx-auto" style={{ maxWidth: "380px", width: "100%" }}>
-          <div className="input-group input-group-sm">
-            <input
-              type="search"
-              className="form-control bg-body-tertiary border-secondary-subtle"
-              placeholder="Search catalog, orders, customers..."
-              aria-label="Global admin search"
-            />
-            <button className="btn btn-outline-secondary" type="button" aria-label="Search button">
-              <i className="bi bi-search"></i>
-            </button>
-          </div>
-        </div>
 
         {/* Right Navbar links */}
         <ul className="navbar-nav ms-auto align-items-center gap-1">
