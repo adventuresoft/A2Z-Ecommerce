@@ -695,6 +695,130 @@ export const reportsService = {
     }
     return res.blob();
   },
+
+  // =========================================================================
+  // CUSTOMER REPORT METHODS
+  // =========================================================================
+
+  /**
+   * Fetch Customer Summary KPIs
+   */
+  async getCustomerSummary(
+    params?: CustomerReportParams,
+  ): Promise<CustomerSummary> {
+    const url = new URL(`${API_BASE}/admin/reports/customers/summary`);
+    appendCustomerParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch customer summary');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Customer Acquisition and Activity Timeline
+   */
+  async getCustomerTimeline(
+    params?: CustomerReportParams,
+  ): Promise<CustomerTimelineResponse> {
+    const url = new URL(`${API_BASE}/admin/reports/customers/timeline`);
+    appendCustomerParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch customer timeline');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Customer Breakdown by Spending and Loyalty Segments
+   */
+  async getCustomerSegments(
+    params?: CustomerReportParams,
+  ): Promise<CustomerSegmentMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/customers/by-segment`);
+    appendCustomerParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch customer segments');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Customer Geographic Distribution by City
+   */
+  async getCustomerByCity(
+    params?: CustomerReportParams,
+    limit = 10,
+  ): Promise<CustomerCityMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/customers/by-city`);
+    appendCustomerParams(url, params);
+    url.searchParams.set('limit', String(limit));
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch customer city breakdown');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Top Spending VIP Customers
+   */
+  async getTopCustomers(
+    params?: CustomerReportParams,
+    limit = 10,
+  ): Promise<TopCustomerItem[]> {
+    const url = new URL(`${API_BASE}/admin/reports/customers/top-customers`);
+    appendCustomerParams(url, params);
+    url.searchParams.set('limit', String(limit));
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch top spenders');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Paginated Customer Report List
+   */
+  async getCustomerList(
+    params?: CustomerReportParams,
+  ): Promise<PaginatedCustomerReport> {
+    const url = new URL(`${API_BASE}/admin/reports/customers/list`);
+    appendCustomerParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch customer report list');
+    }
+    return res.json();
+  },
+
+  /**
+   * Download Customer CSV export
+   */
+  async downloadCustomerCsv(params?: CustomerReportParams): Promise<Blob> {
+    const url = new URL(`${API_BASE}/admin/reports/customers/export`);
+    appendCustomerParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      throw new Error('Failed to export customer CSV');
+    }
+    return res.blob();
+  },
 };
 
 // =========================================================================
@@ -1030,4 +1154,140 @@ function appendInventoryParams(url: URL, params?: InventoryReportParams): void {
   if (params.sortBy) url.searchParams.set('sortBy', params.sortBy);
   if (params.sortOrder) url.searchParams.set('sortOrder', params.sortOrder);
 }
+
+// =========================================================================
+// CUSTOMER REPORT TYPES & HELPERS
+// =========================================================================
+
+export type CustomerSpendingTier =
+  | 'ALL'
+  | 'VIP'
+  | 'REGULAR'
+  | 'ONE_TIME'
+  | 'ZERO_ORDER';
+
+export type CustomerStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
+
+export interface CustomerReportParams {
+  startDate?: string;
+  endDate?: string;
+  customerStatus?: CustomerStatusFilter;
+  spendingTier?: CustomerSpendingTier;
+  city?: string;
+  search?: string;
+  interval?: 'day' | 'week' | 'month';
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface CustomerSummary {
+  totalCustomers: number;
+  newCustomers: number;
+  activeCustomers: number;
+  purchasingCustomers: number;
+  repeatCustomers: number;
+  repeatCustomerRate: number;
+  totalOrders: number;
+  totalRevenue: number;
+  averageCustomerValue: number;
+  averageOrdersPerCustomer: number;
+  zeroOrderCustomers: number;
+  inactiveCustomersCount: number;
+  currency: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CustomerTimelinePoint {
+  date: string;
+  label: string;
+  newRegistrations: number;
+  purchasingCustomers: number;
+  ordersPlaced: number;
+  revenue: number;
+}
+
+export interface CustomerTimelineResponse {
+  timeline: CustomerTimelinePoint[];
+  interval: string;
+}
+
+export interface CustomerSegmentMetric {
+  segment: string;
+  label: string;
+  customerCount: number;
+  percentage: number;
+  totalRevenue: number;
+  averageSpent: number;
+}
+
+export interface CustomerCityMetric {
+  city: string;
+  customerCount: number;
+  orderCount: number;
+  totalRevenue: number;
+  percentage: number;
+}
+
+export interface TopCustomerItem {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  ordersCount: number;
+  totalSpent: number;
+  averageOrderValue: number;
+  lastOrderDate?: string | null;
+  primaryCity?: string | null;
+}
+
+export interface CustomerReportRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  ordersCount: number;
+  deliveredOrdersCount: number;
+  cancelledOrdersCount: number;
+  totalSpent: number;
+  averageOrderValue: number;
+  lastOrderDate?: string | null;
+  primaryCity?: string | null;
+  reviewsCount: number;
+  spendingTier: CustomerSpendingTier;
+}
+
+export interface PaginatedCustomerReport {
+  items: CustomerReportRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+function appendCustomerParams(url: URL, params?: CustomerReportParams): void {
+  if (!params) return;
+  if (params.startDate) url.searchParams.set('startDate', params.startDate);
+  if (params.endDate) url.searchParams.set('endDate', params.endDate);
+  if (params.customerStatus && params.customerStatus !== 'ALL') {
+    url.searchParams.set('customerStatus', params.customerStatus);
+  }
+  if (params.spendingTier && params.spendingTier !== 'ALL') {
+    url.searchParams.set('spendingTier', params.spendingTier);
+  }
+  if (params.city) url.searchParams.set('city', params.city);
+  if (params.search) url.searchParams.set('search', params.search);
+  if (params.interval) url.searchParams.set('interval', params.interval);
+  if (params.page) url.searchParams.set('page', String(params.page));
+  if (params.limit) url.searchParams.set('limit', String(params.limit));
+  if (params.sortBy) url.searchParams.set('sortBy', params.sortBy);
+  if (params.sortOrder) url.searchParams.set('sortOrder', params.sortOrder);
+}
+
 

@@ -3,6 +3,7 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  Role,
   ShipmentStatus,
   StockMovementType,
   type Prisma,
@@ -10,6 +11,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   InventoryStockStatusFilter,
+  CustomerSpendingTier,
+  CustomerStatusFilter,
   type CategorySalesBreakdownDto,
   type OrderStatusBreakdownDto,
   type PaginatedSalesOrdersResponseDto,
@@ -43,6 +46,15 @@ import {
   type CriticalAlertItemDto,
   type InventoryReportListResponseDto,
   type InventoryReportRecordDto,
+  type QueryCustomerReportDto,
+  type CustomerSummaryResponseDto,
+  type CustomerTimelineResponseDto,
+  type CustomerTimelinePointDto,
+  type CustomerSegmentMetricDto,
+  type CustomerCityMetricDto,
+  type TopCustomerItemDto,
+  type CustomerReportListResponseDto,
+  type CustomerReportRecordDto,
 } from './dto/index.js';
 
 @Injectable()
@@ -2773,5 +2785,836 @@ export class ReportsService {
 
     return rows.join('\r\n');
   }
+
+  // =========================================================================
+  // CUSTOMER REPORT METHODS
+  // =========================================================================
+
+  /**
+   * Helper to construct Prisma User where clause for customer reports
+   */
+  private buildCustomerWhereClause(
+    query: QueryCustomerReportDto,
+  ): Prisma.UserWhereInput {
+    const where: Prisma.UserWhereInput = {
+      role: Role.CUSTOMER,
+    };
+
+    if (query.customerStatus === CustomerStatusFilter.ACTIVE) {
+      where.isActive = true;
+    } else if (query.customerStatus === CustomerStatusFilter.INACTIVE) {
+      where.isActive = false;
+    }
+
+    if (query.startDate || query.endDate) {
+      where.createdAt = {};
+      if (query.startDate) {
+        where.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.createdAt.lte = new Date(query.endDate);
+      }
+    }
+
+    if (query.search && query.search.trim() !== '') {
+      const term = query.search.trim();
+      where.OR = [
+        { name: { contains: term, mode: 'insensitive' } },
+        { email: { contains: term, mode: 'insensitive' } },
+        { phone: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    return where;
+  }
+
+  /**
+   * Determine spending tier for a customer based on total spent and order count
+   */
+  private determineCustomerTier(
+    totalSpent: number,
+    ordersCount: number,
+  ): CustomerSpendingTier {
+    if (ordersCount === 0) {
+      return CustomerSpendingTier.ZERO_ORDER;
+    }
+    if (totalSpent >= 10000) {
+      return CustomerSpendingTier.VIP;
+    }
+    if (ordersCount >= 2) {
+      return CustomerSpendingTier.REGULAR;
+    }
+    return CustomerSpendingTier.ONE_TIME;
+  }
+
+  /**
+   * Helper to fetch store currency setting
+   */
+  private async getStoreCurrency(): Promise<string> {
+    const currencySetting = await this.prisma.storeSetting.findUnique({
+      where: { key: 'store_currency' },
+    });
+    return currencySetting?.value || 'BDT';
+  }
+
+  /**
+   * Retrieve high-level customer registration, retention, LTV, and activity KPIs
+   */
+  async getCustomerSummary(
+    query: QueryCustomerReportDto,
+  ): Promise<CustomerSummaryResponseDto> {
+    const currency = await this.getStoreCurrency();
+
+    // Total registered customers with role CUSTOMER
+    const totalCustomers = await this.prisma.user.count({
+      where: { role: Role.CUSTOMER },
+    });
+
+    // Inactive accounts count
+    const inactiveCustomersCount = await this.prisma.user.count({
+      where: { role: Role.CUSTOMER, isActive: false },
+    });
+
+    // New customers in date range
+    const newCustWhere: Prisma.UserWhereInput = { role: Role.CUSTOMER };
+    if (query.startDate || query.endDate) {
+      newCustWhere.createdAt = {};
+      if (query.startDate) newCustWhere.createdAt.gte = new Date(query.startDate);
+      if (query.endDate) newCustWhere.createdAt.lte = new Date(query.endDate);
+    }
+    const newCustomers = await this.prisma.user.count({ where: newCustWhere });
+
+    // Orders placed by customers in date range
+    const orderWhere: Prisma.OrderWhereInput = {
+      user: { role: Role.CUSTOMER },
+    };
+    if (query.startDate || query.endDate) {
+      orderWhere.createdAt = {};
+      if (query.startDate) orderWhere.createdAt.gte = new Date(query.startDate);
+      if (query.endDate) orderWhere.createdAt.lte = new Date(query.endDate);
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: orderWhere,
+      select: {
+        id: true,
+        userId: true,
+        orderStatus: true,
+        grandTotal: true,
+      },
+    });
+
+    const nonCancelledOrders = orders.filter(
+      (o) => o.orderStatus !== OrderStatus.CANCELLED,
+    );
+
+    let totalRevenue = 0;
+    const userOrderMap = new Map<string, number>();
+
+    for (const order of nonCancelledOrders) {
+      totalRevenue += Number(order.grandTotal || 0);
+      userOrderMap.set(
+        order.userId,
+        (userOrderMap.get(order.userId) || 0) + 1,
+      );
+    }
+
+    const purchasingCustomers = userOrderMap.size;
+    let repeatCustomers = 0;
+    for (const count of userOrderMap.values()) {
+      if (count >= 2) {
+        repeatCustomers++;
+      }
+    }
+
+    const repeatCustomerRate =
+      purchasingCustomers > 0
+        ? Math.round((repeatCustomers / purchasingCustomers) * 10000) / 100
+        : 0;
+
+    const averageCustomerValue =
+      purchasingCustomers > 0
+        ? Math.round((totalRevenue / purchasingCustomers) * 100) / 100
+        : 0;
+
+    const averageOrdersPerCustomer =
+      purchasingCustomers > 0
+        ? Math.round((nonCancelledOrders.length / purchasingCustomers) * 100) / 100
+        : 0;
+
+    // Zero-order customers count (lifetime)
+    const zeroOrderCustomers = await this.prisma.user.count({
+      where: {
+        role: Role.CUSTOMER,
+        orders: { none: {} },
+      },
+    });
+
+    return {
+      totalCustomers,
+      newCustomers,
+      activeCustomers: purchasingCustomers,
+      purchasingCustomers,
+      repeatCustomers,
+      repeatCustomerRate,
+      totalOrders: nonCancelledOrders.length,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      averageCustomerValue,
+      averageOrdersPerCustomer,
+      zeroOrderCustomers,
+      inactiveCustomersCount,
+      currency,
+      startDate: query.startDate,
+      endDate: query.endDate,
+    };
+  }
+
+  /**
+   * Retrieve chronological customer acquisition and purchasing activity timeline
+   */
+  async getCustomerTimeline(
+    query: QueryCustomerReportDto,
+  ): Promise<CustomerTimelineResponseDto> {
+    const interval = query.interval || 'day';
+
+    // Default to last 30 days if neither start nor end is provided
+    let startDate = query.startDate ? new Date(query.startDate) : null;
+    let endDate = query.endDate ? new Date(query.endDate) : null;
+
+    if (!startDate && !endDate) {
+      endDate = new Date();
+      startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    } else if (startDate && !endDate) {
+      endDate = new Date();
+    } else if (!startDate && endDate) {
+      startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    const userWhere: Prisma.UserWhereInput = {
+      role: Role.CUSTOMER,
+      createdAt: { gte: startDate!, lte: endDate! },
+    };
+
+    const orderWhere: Prisma.OrderWhereInput = {
+      user: { role: Role.CUSTOMER },
+      createdAt: { gte: startDate!, lte: endDate! },
+    };
+
+    const [users, orders] = await Promise.all([
+      this.prisma.user.findMany({
+        where: userWhere,
+        select: { id: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.order.findMany({
+        where: orderWhere,
+        select: {
+          id: true,
+          userId: true,
+          orderStatus: true,
+          grandTotal: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    const bucketMap = new Map<
+      string,
+      {
+        date: string;
+        label: string;
+        newRegistrations: number;
+        purchasingUserIds: Set<string>;
+        ordersPlaced: number;
+        revenue: number;
+      }
+    >();
+
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+
+    const getBucketKeyAndLabel = (d: Date) => {
+      if (interval === 'month') {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        return {
+          key: `${y}-${m}`,
+          label: `${monthNames[d.getMonth()]} ${y}`,
+        };
+      } else if (interval === 'week') {
+        const copy = new Date(d);
+        const day = copy.getDay();
+        const diff = copy.getDate() - day + (day === 0 ? -6 : 1);
+        copy.setDate(diff);
+        const y = copy.getFullYear();
+        const m = String(copy.getMonth() + 1).padStart(2, '0');
+        const dt = String(copy.getDate()).padStart(2, '0');
+        return {
+          key: `${y}-${m}-${dt}`,
+          label: `Week of ${monthNames[copy.getMonth()]} ${copy.getDate()}, ${y}`,
+        };
+      } else {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dt = String(d.getDate()).padStart(2, '0');
+        return {
+          key: `${y}-${m}-${dt}`,
+          label: `${monthNames[d.getMonth()]} ${dt}`,
+        };
+      }
+    };
+
+    // Populate registration counts
+    for (const u of users) {
+      const { key, label } = getBucketKeyAndLabel(new Date(u.createdAt));
+      let bucket = bucketMap.get(key);
+      if (!bucket) {
+        bucket = {
+          date: key,
+          label,
+          newRegistrations: 0,
+          purchasingUserIds: new Set<string>(),
+          ordersPlaced: 0,
+          revenue: 0,
+        };
+        bucketMap.set(key, bucket);
+      }
+      bucket.newRegistrations++;
+    }
+
+    // Populate order counts and revenues
+    for (const o of orders) {
+      const { key, label } = getBucketKeyAndLabel(new Date(o.createdAt));
+      let bucket = bucketMap.get(key);
+      if (!bucket) {
+        bucket = {
+          date: key,
+          label,
+          newRegistrations: 0,
+          purchasingUserIds: new Set<string>(),
+          ordersPlaced: 0,
+          revenue: 0,
+        };
+        bucketMap.set(key, bucket);
+      }
+      bucket.ordersPlaced++;
+      if (o.orderStatus !== OrderStatus.CANCELLED) {
+        bucket.purchasingUserIds.add(o.userId);
+        bucket.revenue += Number(o.grandTotal || 0);
+      }
+    }
+
+    const sortedKeys = Array.from(bucketMap.keys()).sort();
+    const timeline: CustomerTimelinePointDto[] = sortedKeys.map((key) => {
+      const b = bucketMap.get(key)!;
+      return {
+        date: b.date,
+        label: b.label,
+        newRegistrations: b.newRegistrations,
+        purchasingCustomers: b.purchasingUserIds.size,
+        ordersPlaced: b.ordersPlaced,
+        revenue: Math.round(b.revenue * 100) / 100,
+      };
+    });
+
+    return {
+      timeline,
+      interval,
+    };
+  }
+
+  /**
+   * Retrieve customer segment distribution (VIP, Regular, One-Time, Zero-Order)
+   */
+  async getCustomerSegments(
+    query: QueryCustomerReportDto,
+  ): Promise<CustomerSegmentMetricDto[]> {
+    const users = await this.prisma.user.findMany({
+      where: { role: Role.CUSTOMER },
+      select: {
+        id: true,
+        orders: {
+          where: { orderStatus: { not: OrderStatus.CANCELLED } },
+          select: { grandTotal: true },
+        },
+      },
+    });
+
+    const segmentsMap: Record<
+      string,
+      { label: string; count: number; totalRevenue: number }
+    > = {
+      VIP: { label: 'VIP (> ৳10,000)', count: 0, totalRevenue: 0 },
+      REGULAR: { label: 'Repeat Customer (2+ Orders)', count: 0, totalRevenue: 0 },
+      ONE_TIME: { label: 'One-Time Buyer (1 Order)', count: 0, totalRevenue: 0 },
+      ZERO_ORDER: { label: 'Zero Orders / Inactive', count: 0, totalRevenue: 0 },
+    };
+
+    for (const u of users) {
+      const ordersCount = u.orders.length;
+      let totalSpent = 0;
+      for (const o of u.orders) {
+        totalSpent += Number(o.grandTotal || 0);
+      }
+
+      const tier = this.determineCustomerTier(totalSpent, ordersCount);
+      segmentsMap[tier].count++;
+      segmentsMap[tier].totalRevenue += totalSpent;
+    }
+
+    const totalCustomers = users.length || 1;
+    const result: CustomerSegmentMetricDto[] = [
+      {
+        segment: 'VIP',
+        label: segmentsMap.VIP.label,
+        customerCount: segmentsMap.VIP.count,
+        percentage:
+          Math.round((segmentsMap.VIP.count / totalCustomers) * 10000) / 100,
+        totalRevenue: Math.round(segmentsMap.VIP.totalRevenue * 100) / 100,
+        averageSpent:
+          segmentsMap.VIP.count > 0
+            ? Math.round(
+                (segmentsMap.VIP.totalRevenue / segmentsMap.VIP.count) * 100,
+              ) / 100
+            : 0,
+      },
+      {
+        segment: 'REGULAR',
+        label: segmentsMap.REGULAR.label,
+        customerCount: segmentsMap.REGULAR.count,
+        percentage:
+          Math.round((segmentsMap.REGULAR.count / totalCustomers) * 10000) / 100,
+        totalRevenue: Math.round(segmentsMap.REGULAR.totalRevenue * 100) / 100,
+        averageSpent:
+          segmentsMap.REGULAR.count > 0
+            ? Math.round(
+                (segmentsMap.REGULAR.totalRevenue / segmentsMap.REGULAR.count) *
+                  100,
+              ) / 100
+            : 0,
+      },
+      {
+        segment: 'ONE_TIME',
+        label: segmentsMap.ONE_TIME.label,
+        customerCount: segmentsMap.ONE_TIME.count,
+        percentage:
+          Math.round((segmentsMap.ONE_TIME.count / totalCustomers) * 10000) / 100,
+        totalRevenue: Math.round(segmentsMap.ONE_TIME.totalRevenue * 100) / 100,
+        averageSpent:
+          segmentsMap.ONE_TIME.count > 0
+            ? Math.round(
+                (segmentsMap.ONE_TIME.totalRevenue /
+                  segmentsMap.ONE_TIME.count) *
+                  100,
+              ) / 100
+            : 0,
+      },
+      {
+        segment: 'ZERO_ORDER',
+        label: segmentsMap.ZERO_ORDER.label,
+        customerCount: segmentsMap.ZERO_ORDER.count,
+        percentage:
+          Math.round((segmentsMap.ZERO_ORDER.count / totalCustomers) * 10000) / 100,
+        totalRevenue: 0,
+        averageSpent: 0,
+      },
+    ];
+
+    return result;
+  }
+
+  /**
+   * Retrieve geographic distribution of customers by shipping destination city
+   */
+  async getCustomerByCity(
+    query: QueryCustomerReportDto,
+    limit = 10,
+  ): Promise<CustomerCityMetricDto[]> {
+    const orderWhere: Prisma.OrderWhereInput = {
+      user: { role: Role.CUSTOMER },
+      orderStatus: { not: OrderStatus.CANCELLED },
+      shippingCity: { not: '' },
+    };
+
+    if (query.startDate || query.endDate) {
+      orderWhere.createdAt = {};
+      if (query.startDate) orderWhere.createdAt.gte = new Date(query.startDate);
+      if (query.endDate) orderWhere.createdAt.lte = new Date(query.endDate);
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: orderWhere,
+      select: {
+        userId: true,
+        shippingCity: true,
+        grandTotal: true,
+      },
+    });
+
+    const cityMap = new Map<
+      string,
+      { userIds: Set<string>; orderCount: number; totalRevenue: number }
+    >();
+
+    for (const o of orders) {
+      const city = o.shippingCity?.trim() || 'Unknown';
+      let entry = cityMap.get(city);
+      if (!entry) {
+        entry = {
+          userIds: new Set<string>(),
+          orderCount: 0,
+          totalRevenue: 0,
+        };
+        cityMap.set(city, entry);
+      }
+      entry.userIds.add(o.userId);
+      entry.orderCount++;
+      entry.totalRevenue += Number(o.grandTotal || 0);
+    }
+
+    const totalCustomersInCities = Array.from(cityMap.values()).reduce(
+      (sum, val) => sum + val.userIds.size,
+      0,
+    );
+
+    const sorted = Array.from(cityMap.entries()).sort(
+      (a, b) => b[1].totalRevenue - a[1].totalRevenue,
+    );
+
+    const topCities = sorted.slice(0, limit);
+
+    return topCities.map(([city, data]) => ({
+      city,
+      customerCount: data.userIds.size,
+      orderCount: data.orderCount,
+      totalRevenue: Math.round(data.totalRevenue * 100) / 100,
+      percentage:
+        totalCustomersInCities > 0
+          ? Math.round((data.userIds.size / totalCustomersInCities) * 10000) / 100
+          : 0,
+    }));
+  }
+
+  /**
+   * Retrieve top spending VIP customers
+   */
+  async getTopCustomers(
+    query: QueryCustomerReportDto,
+    limit = 10,
+  ): Promise<TopCustomerItemDto[]> {
+    const userWhere: Prisma.UserWhereInput = {
+      role: Role.CUSTOMER,
+    };
+
+    if (query.customerStatus === CustomerStatusFilter.ACTIVE) {
+      userWhere.isActive = true;
+    } else if (query.customerStatus === CustomerStatusFilter.INACTIVE) {
+      userWhere.isActive = false;
+    }
+
+    const orderDateWhere: Prisma.OrderWhereInput = {
+      orderStatus: { not: OrderStatus.CANCELLED },
+    };
+    if (query.startDate || query.endDate) {
+      orderDateWhere.createdAt = {};
+      if (query.startDate) orderDateWhere.createdAt.gte = new Date(query.startDate);
+      if (query.endDate) orderDateWhere.createdAt.lte = new Date(query.endDate);
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: userWhere,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+        orders: {
+          where: orderDateWhere,
+          select: {
+            id: true,
+            grandTotal: true,
+            shippingCity: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    const computed: TopCustomerItemDto[] = [];
+
+    for (const u of users) {
+      if (u.orders.length === 0) continue;
+
+      let totalSpent = 0;
+      const cityFrequency = new Map<string, number>();
+
+      for (const o of u.orders) {
+        totalSpent += Number(o.grandTotal || 0);
+        if (o.shippingCity) {
+          const city = o.shippingCity.trim();
+          cityFrequency.set(city, (cityFrequency.get(city) || 0) + 1);
+        }
+      }
+
+      let primaryCity: string | null = null;
+      let maxCityCount = 0;
+      for (const [city, count] of cityFrequency.entries()) {
+        if (count > maxCityCount) {
+          maxCityCount = count;
+          primaryCity = city;
+        }
+      }
+
+      const ordersCount = u.orders.length;
+      computed.push({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        isActive: u.isActive,
+        createdAt: u.createdAt.toISOString(),
+        ordersCount,
+        totalSpent: Math.round(totalSpent * 100) / 100,
+        averageOrderValue:
+          ordersCount > 0
+            ? Math.round((totalSpent / ordersCount) * 100) / 100
+            : 0,
+        lastOrderDate: u.orders[0]?.createdAt
+          ? u.orders[0].createdAt.toISOString()
+          : null,
+        primaryCity,
+      });
+    }
+
+    computed.sort((a, b) => b.totalSpent - a.totalSpent);
+    return computed.slice(0, limit);
+  }
+
+  /**
+   * Retrieve paginated list of customers matching filters with orders metrics and insights
+   */
+  async getCustomerList(
+    query: QueryCustomerReportDto,
+  ): Promise<CustomerReportListResponseDto> {
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const limit = query.limit && query.limit > 0 ? query.limit : 15;
+    const sortBy = query.sortBy || 'createdAt';
+    const sortOrder = query.sortOrder || 'desc';
+
+    const where = this.buildCustomerWhereClause(query);
+
+    const users = await this.prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+        orders: {
+          select: {
+            id: true,
+            orderStatus: true,
+            grandTotal: true,
+            shippingCity: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        reviews: {
+          select: { id: true },
+        },
+      },
+    });
+
+    const records: CustomerReportRecordDto[] = [];
+
+    for (const u of users) {
+      let totalSpent = 0;
+      let deliveredOrdersCount = 0;
+      let cancelledOrdersCount = 0;
+      const cityFrequency = new Map<string, number>();
+
+      for (const o of u.orders) {
+        if (o.orderStatus === OrderStatus.DELIVERED) {
+          deliveredOrdersCount++;
+        } else if (o.orderStatus === OrderStatus.CANCELLED) {
+          cancelledOrdersCount++;
+        }
+
+        if (o.orderStatus !== OrderStatus.CANCELLED) {
+          totalSpent += Number(o.grandTotal || 0);
+        }
+
+        if (o.shippingCity) {
+          const city = o.shippingCity.trim();
+          cityFrequency.set(city, (cityFrequency.get(city) || 0) + 1);
+        }
+      }
+
+      let primaryCity: string | null = null;
+      let maxCityCount = 0;
+      for (const [city, count] of cityFrequency.entries()) {
+        if (count > maxCityCount) {
+          maxCityCount = count;
+          primaryCity = city;
+        }
+      }
+
+      const ordersCount = u.orders.length;
+      const validOrdersCount = ordersCount - cancelledOrdersCount;
+      const averageOrderValue =
+        validOrdersCount > 0
+          ? Math.round((totalSpent / validOrdersCount) * 100) / 100
+          : 0;
+
+      const spendingTier = this.determineCustomerTier(totalSpent, validOrdersCount);
+
+      // Filter by spending tier if specified
+      if (
+        query.spendingTier &&
+        query.spendingTier !== CustomerSpendingTier.ALL &&
+        spendingTier !== query.spendingTier
+      ) {
+        continue;
+      }
+
+      // Filter by city if specified
+      if (
+        query.city &&
+        query.city.trim() !== '' &&
+        primaryCity?.toLowerCase() !== query.city.trim().toLowerCase()
+      ) {
+        continue;
+      }
+
+      records.push({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        isActive: u.isActive,
+        createdAt: u.createdAt.toISOString(),
+        ordersCount,
+        deliveredOrdersCount,
+        cancelledOrdersCount,
+        totalSpent: Math.round(totalSpent * 100) / 100,
+        averageOrderValue,
+        lastOrderDate: u.orders[0]?.createdAt
+          ? u.orders[0].createdAt.toISOString()
+          : null,
+        primaryCity,
+        reviewsCount: u.reviews.length,
+        spendingTier,
+      });
+    }
+
+    // Sort records
+    records.sort((a, b) => {
+      let fieldA: any;
+      let fieldB: any;
+
+      if (sortBy === 'totalSpent') {
+        fieldA = a.totalSpent;
+        fieldB = b.totalSpent;
+      } else if (sortBy === 'ordersCount') {
+        fieldA = a.ordersCount;
+        fieldB = b.ordersCount;
+      } else if (sortBy === 'name') {
+        fieldA = a.name.toLowerCase();
+        fieldB = b.name.toLowerCase();
+      } else {
+        fieldA = new Date(a.createdAt).getTime();
+        fieldB = new Date(b.createdAt).getTime();
+      }
+
+      if (fieldA < fieldB) return sortOrder === 'asc' ? -1 : 1;
+      if (fieldA > fieldB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    const total = records.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const skip = (page - 1) * limit;
+    const paginatedItems = records.slice(skip, skip + limit);
+
+    return {
+      items: paginatedItems,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
+  /**
+   * Export filtered customer report records in CSV format
+   */
+  async exportCustomerCsv(
+    query: QueryCustomerReportDto,
+  ): Promise<string> {
+    const listResponse = await this.getCustomerList({
+      ...query,
+      page: 1,
+      limit: 10000,
+    });
+
+    const headers = [
+      'Customer ID',
+      'Name',
+      'Email',
+      'Phone',
+      'Status',
+      'Join Date',
+      'Spending Tier',
+      'Total Orders',
+      'Delivered Orders',
+      'Cancelled Orders',
+      'Total Spent',
+      'Average Order Value',
+      'Last Order Date',
+      'Primary City',
+      'Reviews Count',
+    ];
+
+    const escapeCsv = (str: any) => {
+      if (str === null || str === undefined) return '""';
+      const s = String(str).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+
+    const rows: string[] = [headers.join(',')];
+
+    for (const item of listResponse.items) {
+      const row = [
+        escapeCsv(item.id),
+        escapeCsv(item.name),
+        escapeCsv(item.email),
+        escapeCsv(item.phone || 'N/A'),
+        escapeCsv(item.isActive ? 'Active' : 'Inactive'),
+        escapeCsv(item.createdAt.slice(0, 10)),
+        escapeCsv(item.spendingTier),
+        escapeCsv(item.ordersCount),
+        escapeCsv(item.deliveredOrdersCount),
+        escapeCsv(item.cancelledOrdersCount),
+        escapeCsv(item.totalSpent.toFixed(2)),
+        escapeCsv(item.averageOrderValue.toFixed(2)),
+        escapeCsv(item.lastOrderDate ? item.lastOrderDate.slice(0, 10) : 'Never'),
+        escapeCsv(item.primaryCity || 'N/A'),
+        escapeCsv(item.reviewsCount),
+      ];
+      rows.push(row.join(','));
+    }
+
+    return rows.join('\r\n');
+  }
 }
+
 

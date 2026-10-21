@@ -295,6 +295,7 @@ export const navigationConfig: NavItem[] = [
         href: "/reports/customers",
         icon: "bi bi-person-check",
         phase: 5,
+        badge: { text: "Live", variant: "success" },
       },
     ],
   },

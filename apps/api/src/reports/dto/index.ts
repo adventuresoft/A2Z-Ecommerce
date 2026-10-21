@@ -15,3 +15,10 @@ export * from './inventory-summary-response.dto.js';
 export * from './inventory-timeline-response.dto.js';
 export * from './inventory-breakdowns.dto.js';
 export * from './inventory-report-list-response.dto.js';
+
+export * from './query-customer-report.dto.js';
+export * from './customer-summary-response.dto.js';
+export * from './customer-timeline-response.dto.js';
+export * from './customer-breakdowns.dto.js';
+export * from './customer-report-list-response.dto.js';
+

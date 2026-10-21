@@ -21,6 +21,10 @@ describe('ReportsService', () => {
         findMany: vi.fn(),
         count: vi.fn(),
       },
+      user: {
+        findMany: vi.fn(),
+        count: vi.fn(),
+      },
       orderItem: {
         findMany: vi.fn(),
       },
@@ -992,5 +996,251 @@ describe('ReportsService', () => {
       expect(csv).toContain('"1800.00"');
     });
   });
+
+  describe('getCustomerSummary', () => {
+    it('should calculate customer totals, retention and LTV accurately', async () => {
+      prismaMock.user.count
+        .mockResolvedValueOnce(100) // totalCustomers
+        .mockResolvedValueOnce(5)   // inactiveCustomersCount
+        .mockResolvedValueOnce(20)  // newCustomers
+        .mockResolvedValueOnce(30); // zeroOrderCustomers
+
+      prismaMock.order.findMany.mockResolvedValue([
+        {
+          id: 'ord-1',
+          userId: 'usr-1',
+          orderStatus: OrderStatus.DELIVERED,
+          grandTotal: '5000.00',
+        },
+        {
+          id: 'ord-2',
+          userId: 'usr-1',
+          orderStatus: OrderStatus.CONFIRMED,
+          grandTotal: '3000.00',
+        },
+        {
+          id: 'ord-3',
+          userId: 'usr-2',
+          orderStatus: OrderStatus.PROCESSING,
+          grandTotal: '2000.00',
+        },
+        {
+          id: 'ord-4',
+          userId: 'usr-3',
+          orderStatus: OrderStatus.CANCELLED,
+          grandTotal: '1000.00',
+        },
+      ]);
+
+      const summary = await service.getCustomerSummary({});
+
+      expect(summary.totalCustomers).toBe(100);
+      expect(summary.inactiveCustomersCount).toBe(5);
+      expect(summary.newCustomers).toBe(20);
+      expect(summary.zeroOrderCustomers).toBe(30);
+      expect(summary.purchasingCustomers).toBe(2); // usr-1 and usr-2
+      expect(summary.repeatCustomers).toBe(1); // usr-1 has 2 valid orders
+      expect(summary.repeatCustomerRate).toBe(50); // 1 / 2 * 100
+      expect(summary.totalOrders).toBe(3); // 3 non-cancelled
+      expect(summary.totalRevenue).toBe(10000); // 5000 + 3000 + 2000
+      expect(summary.averageCustomerValue).toBe(5000); // 10000 / 2
+      expect(summary.averageOrdersPerCustomer).toBe(1.5); // 3 / 2
+      expect(summary.currency).toBe('BDT');
+    });
+  });
+
+  describe('getCustomerTimeline', () => {
+    it('should aggregate chronological acquisition and purchasing timeline', async () => {
+      prismaMock.user.findMany.mockResolvedValue([
+        { id: 'usr-1', createdAt: new Date('2026-10-15T09:00:00Z') },
+        { id: 'usr-2', createdAt: new Date('2026-10-15T14:00:00Z') },
+      ]);
+
+      prismaMock.order.findMany.mockResolvedValue([
+        {
+          id: 'ord-1',
+          userId: 'usr-1',
+          orderStatus: OrderStatus.DELIVERED,
+          grandTotal: '4500.00',
+          createdAt: new Date('2026-10-15T10:00:00Z'),
+        },
+      ]);
+
+      const timeline = await service.getCustomerTimeline({
+        startDate: '2026-10-01',
+        endDate: '2026-10-31',
+        interval: 'day',
+      });
+
+      expect(timeline.interval).toBe('day');
+      expect(timeline.timeline.length).toBeGreaterThan(0);
+      const point = timeline.timeline.find((p) => p.date === '2026-10-15');
+      expect(point).toBeDefined();
+      expect(point?.newRegistrations).toBe(2);
+      expect(point?.purchasingCustomers).toBe(1);
+      expect(point?.ordersPlaced).toBe(1);
+      expect(point?.revenue).toBe(4500);
+    });
+  });
+
+  describe('getCustomerSegments', () => {
+    it('should categorize customers into VIP, Regular, One-Time and Zero-Order', async () => {
+      prismaMock.user.findMany.mockResolvedValue([
+        {
+          id: 'usr-vip',
+          orders: [{ grandTotal: '12000.00' }],
+        },
+        {
+          id: 'usr-reg',
+          orders: [{ grandTotal: '2000.00' }, { grandTotal: '1500.00' }],
+        },
+        {
+          id: 'usr-once',
+          orders: [{ grandTotal: '800.00' }],
+        },
+        {
+          id: 'usr-zero',
+          orders: [],
+        },
+      ]);
+
+      const segments = await service.getCustomerSegments({});
+
+      expect(segments).toHaveLength(4);
+      const vip = segments.find((s) => s.segment === 'VIP');
+      const reg = segments.find((s) => s.segment === 'REGULAR');
+      const once = segments.find((s) => s.segment === 'ONE_TIME');
+      const zero = segments.find((s) => s.segment === 'ZERO_ORDER');
+
+      expect(vip?.customerCount).toBe(1);
+      expect(vip?.totalRevenue).toBe(12000);
+      expect(reg?.customerCount).toBe(1);
+      expect(reg?.totalRevenue).toBe(3500);
+      expect(once?.customerCount).toBe(1);
+      expect(once?.totalRevenue).toBe(800);
+      expect(zero?.customerCount).toBe(1);
+      expect(zero?.totalRevenue).toBe(0);
+    });
+  });
+
+  describe('getCustomerByCity', () => {
+    it('should aggregate customer distribution by shipping destination city', async () => {
+      prismaMock.order.findMany.mockResolvedValue([
+        { userId: 'u1', shippingCity: 'Dhaka', grandTotal: '3000.00' },
+        { userId: 'u2', shippingCity: 'Dhaka', grandTotal: '2000.00' },
+        { userId: 'u3', shippingCity: 'Chittagong', grandTotal: '1500.00' },
+      ]);
+
+      const cities = await service.getCustomerByCity({}, 5);
+
+      expect(cities).toHaveLength(2);
+      expect(cities[0].city).toBe('Dhaka');
+      expect(cities[0].customerCount).toBe(2);
+      expect(cities[0].orderCount).toBe(2);
+      expect(cities[0].totalRevenue).toBe(5000);
+
+      expect(cities[1].city).toBe('Chittagong');
+      expect(cities[1].customerCount).toBe(1);
+      expect(cities[1].totalRevenue).toBe(1500);
+    });
+  });
+
+  describe('getTopCustomers', () => {
+    it('should return top spending customers ordered by total spent', async () => {
+      prismaMock.user.findMany.mockResolvedValue([
+        {
+          id: 'u1',
+          name: 'Top Spender',
+          email: 'top@example.com',
+          phone: '+8801700000001',
+          isActive: true,
+          createdAt: new Date('2026-01-01'),
+          orders: [
+            {
+              id: 'o1',
+              grandTotal: '15000.00',
+              shippingCity: 'Dhaka',
+              createdAt: new Date('2026-10-10'),
+            },
+          ],
+        },
+        {
+          id: 'u2',
+          name: 'Medium Spender',
+          email: 'med@example.com',
+          phone: null,
+          isActive: true,
+          createdAt: new Date('2026-02-01'),
+          orders: [
+            {
+              id: 'o2',
+              grandTotal: '5000.00',
+              shippingCity: 'Sylhet',
+              createdAt: new Date('2026-10-12'),
+            },
+          ],
+        },
+      ]);
+
+      const top = await service.getTopCustomers({}, 10);
+
+      expect(top).toHaveLength(2);
+      expect(top[0].name).toBe('Top Spender');
+      expect(top[0].totalSpent).toBe(15000);
+      expect(top[0].primaryCity).toBe('Dhaka');
+      expect(top[1].name).toBe('Medium Spender');
+      expect(top[1].totalSpent).toBe(5000);
+    });
+  });
+
+  describe('getCustomerList & exportCustomerCsv', () => {
+    it('should paginate and export customer records with order metrics', async () => {
+      prismaMock.user.findMany.mockResolvedValue([
+        {
+          id: 'u-list-1',
+          name: 'Customer List',
+          email: 'list@example.com',
+          phone: '+8801700000009',
+          isActive: true,
+          createdAt: new Date('2026-03-01T12:00:00Z'),
+          orders: [
+            {
+              id: 'o-list-1',
+              orderStatus: OrderStatus.DELIVERED,
+              grandTotal: '7500.00',
+              shippingCity: 'Dhaka',
+              createdAt: new Date('2026-10-15T10:00:00Z'),
+            },
+            {
+              id: 'o-list-2',
+              orderStatus: OrderStatus.CANCELLED,
+              grandTotal: '2000.00',
+              shippingCity: 'Dhaka',
+              createdAt: new Date('2026-10-14T10:00:00Z'),
+            },
+          ],
+          reviews: [{ id: 'rev-1' }],
+        },
+      ]);
+
+      const list = await service.getCustomerList({ page: 1, limit: 10 });
+
+      expect(list.total).toBe(1);
+      expect(list.items[0].name).toBe('Customer List');
+      expect(list.items[0].ordersCount).toBe(2);
+      expect(list.items[0].deliveredOrdersCount).toBe(1);
+      expect(list.items[0].cancelledOrdersCount).toBe(1);
+      expect(list.items[0].totalSpent).toBe(7500);
+      expect(list.items[0].reviewsCount).toBe(1);
+      expect(list.items[0].primaryCity).toBe('Dhaka');
+
+      const csv = await service.exportCustomerCsv({});
+      expect(csv).toContain('Customer ID,Name,Email,Phone,Status');
+      expect(csv).toContain('"Customer List"');
+      expect(csv).toContain('"list@example.com"');
+      expect(csv).toContain('"7500.00"');
+    });
+  });
 });
+
 
