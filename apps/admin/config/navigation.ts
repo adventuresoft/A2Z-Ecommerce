@@ -247,6 +247,7 @@ export const navigationConfig: NavItem[] = [
         href: "/engagement/reviews",
         icon: "bi bi-star",
         phase: 4,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "engagement-notifications",
@@ -254,6 +255,7 @@ export const navigationConfig: NavItem[] = [
         href: "/engagement/notifications",
         icon: "bi bi-bell",
         phase: 4,
+        badge: { text: "Live", variant: "success" },
       },
     ],
   },

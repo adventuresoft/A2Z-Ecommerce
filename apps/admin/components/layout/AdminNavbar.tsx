@@ -5,13 +5,40 @@ import Link from "next/link";
 import { useAdminLayout } from "./AdminLayoutContext";
 import { useAuth } from "@/context/AuthContext";
 
+import { engagementService, AdminNotification } from "@/services/engagement";
+
 export function AdminNavbar() {
   const { toggleSidebar, theme, toggleTheme } = useAdminLayout();
   const { user, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [recentNotifications, setRecentNotifications] = useState<AdminNotification[]>([]);
   const profileRef = useRef<HTMLLIElement>(null);
   const notificationsRef = useRef<HTMLLIElement>(null);
+
+  const loadNotifications = async () => {
+    try {
+      const [stats, list] = await Promise.all([
+        engagementService.getNotificationStats().catch(() => null),
+        engagementService.getNotifications({ limit: 5 }).catch(() => null),
+      ]);
+      if (stats) {
+        setUnreadCount(stats.unreadCount);
+      }
+      if (list) {
+        setRecentNotifications(list.items);
+      }
+    } catch {
+      // Ignore
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -33,6 +60,21 @@ export function AdminNavbar() {
 
   const handleLogout = async () => {
     await logout();
+  };
+
+  const getNotifIcon = (type: string) => {
+    switch (type) {
+      case "ORDER_STATUS":
+        return "bi bi-cart-check-fill text-success";
+      case "PAYMENT":
+        return "bi bi-cash-stack text-primary";
+      case "LOW_STOCK":
+        return "bi bi-exclamation-triangle-fill text-warning";
+      case "PROMOTION":
+        return "bi bi-megaphone-fill text-info";
+      default:
+        return "bi bi-bell-fill text-secondary";
+    }
   };
 
   return (
@@ -77,71 +119,95 @@ export function AdminNavbar() {
             <button
               type="button"
               className="nav-link btn btn-link text-body p-2 position-relative"
-              onClick={() => setNotificationsOpen((prev) => !prev)}
+              onClick={() => {
+                setNotificationsOpen((prev) => !prev);
+                loadNotifications();
+              }}
               aria-expanded={notificationsOpen}
               aria-label="Notifications"
             >
               <i className="bi bi-bell fs-5"></i>
-              <span
-                className="position-absolute top-1 start-100 translate-middle badge rounded-pill bg-danger"
-                style={{ fontSize: "0.65rem", transform: "translate(-85%, 25%)" }}
-              >
-                3
-              </span>
+              {unreadCount > 0 && (
+                <span
+                  className="position-absolute top-1 start-100 translate-middle badge rounded-pill bg-danger"
+                  style={{ fontSize: "0.65rem", transform: "translate(-85%, 25%)" }}
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </button>
 
             {notificationsOpen && (
               <div
                 className="dropdown-menu dropdown-menu-end shadow show mt-2 py-0 border-0"
-                style={{ width: "290px", zIndex: 1050 }}
+                style={{ width: "320px", zIndex: 1050 }}
               >
-                <div className="p-3 bg-primary text-white rounded-top">
-                  <h6 className="mb-0 fw-semibold">Notifications</h6>
-                  <small className="opacity-75">3 unread operational alerts</small>
-                </div>
-                <div className="list-group list-group-flush small">
-                  <div className="list-group-item list-group-item-action py-2">
-                    <div className="d-flex align-items-center">
-                      <i className="bi bi-exclamation-triangle-fill text-warning fs-5 me-2"></i>
-                      <div>
-                        <div className="fw-medium">Low Stock Alert</div>
-                        <div className="text-muted" style={{ fontSize: "0.75rem" }}>
-                          4 items reached reorder threshold
-                        </div>
-                      </div>
-                    </div>
+                <div className="p-3 bg-primary text-white rounded-top d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="mb-0 fw-semibold">Notifications</h6>
+                    <small className="opacity-75">{unreadCount} unread alert{unreadCount === 1 ? "" : "s"}</small>
                   </div>
-                  <div className="list-group-item list-group-item-action py-2">
-                    <div className="d-flex align-items-center">
-                      <i className="bi bi-cart-check-fill text-success fs-5 me-2"></i>
-                      <div>
-                        <div className="fw-medium">New Order Placed</div>
-                        <div className="text-muted" style={{ fontSize: "0.75rem" }}>
-                          Order #1042 received 5m ago
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="list-group-item list-group-item-action py-2">
-                    <div className="d-flex align-items-center">
-                      <i className="bi bi-person-plus-fill text-info fs-5 me-2"></i>
-                      <div>
-                        <div className="fw-medium">New Customer Registered</div>
-                        <div className="text-muted" style={{ fontSize: "0.75rem" }}>
-                          customer@example.com
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-2 text-center border-top">
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm text-decoration-none p-0"
+                  <Link
+                    href="/engagement/notifications"
+                    className="btn btn-sm btn-light py-0 px-2 small text-primary fw-medium"
                     onClick={() => setNotificationsOpen(false)}
                   >
-                    Close
-                  </button>
+                    View All
+                  </Link>
+                </div>
+                <div className="list-group list-group-flush small" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                  {recentNotifications.length === 0 ? (
+                    <div className="p-3 text-center text-muted">
+                      No notifications found
+                    </div>
+                  ) : (
+                    recentNotifications.map((notif) => (
+                      <Link
+                        key={notif.id}
+                        href={notif.linkUrl || "/engagement/notifications"}
+                        className={`list-group-item list-group-item-action py-2 ${
+                          notif.isRead ? "" : "bg-light"
+                        }`}
+                        onClick={() => {
+                          if (!notif.isRead) {
+                            engagementService.markNotificationAsRead(notif.id).catch(() => {});
+                          }
+                          setNotificationsOpen(false);
+                        }}
+                      >
+                        <div className="d-flex align-items-start">
+                          <i className={`${getNotifIcon(notif.type)} fs-5 me-2 mt-1`}></i>
+                          <div className="overflow-hidden w-100">
+                            <div className="d-flex justify-content-between align-items-baseline">
+                              <span className="fw-medium text-dark text-truncate" style={{ maxWidth: "180px" }}>
+                                {notif.title}
+                              </span>
+                              {!notif.isRead && (
+                                <span className="badge rounded-pill bg-primary" style={{ fontSize: "0.55rem" }}>
+                                  New
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-muted text-truncate" style={{ fontSize: "0.75rem" }}>
+                              {notif.message}
+                            </div>
+                            <div className="text-muted text-end mt-1" style={{ fontSize: "0.65rem" }}>
+                              {new Date(notif.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))
+                  )}
+                </div>
+                <div className="p-2 text-center border-top bg-light rounded-bottom">
+                  <Link
+                    href="/engagement/notifications"
+                    className="text-decoration-none small text-primary fw-semibold"
+                    onClick={() => setNotificationsOpen(false)}
+                  >
+                    Notification Center <i className="bi bi-arrow-right ms-1"></i>
+                  </Link>
                 </div>
               </div>
             )}

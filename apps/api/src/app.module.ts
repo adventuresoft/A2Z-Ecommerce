@@ -16,6 +16,8 @@ import { OrdersModule } from './orders/orders.module.js';
 import { ShipmentsModule } from './shipments/shipments.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
+import { ReviewsModule } from './reviews/reviews.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { PaymentsModule } from './payments/payments.module.js';
     ShipmentsModule,
     SettingsModule,
     PaymentsModule,
+    ReviewsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
