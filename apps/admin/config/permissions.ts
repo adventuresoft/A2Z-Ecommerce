@@ -66,6 +66,7 @@ export const CLIENT_ROLE_PERMISSIONS: Record<
     attributes: ['create', 'read', 'update'],
     orders: ['read', 'update'],
     inventory: ['read', 'update'],
+    reports: ['read'],
   },
 
   CUSTOMER: {},

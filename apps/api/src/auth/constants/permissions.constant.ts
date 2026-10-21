@@ -71,6 +71,7 @@ export const ROLE_PERMISSIONS: PermissionMatrix = {
     attributes: ['create', 'read', 'update'],
     orders: ['read', 'update'],
     inventory: ['read', 'update'],
+    reports: ['read'],
   },
 
   [Role.CUSTOMER]: {},

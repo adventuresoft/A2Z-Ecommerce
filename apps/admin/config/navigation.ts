@@ -271,6 +271,7 @@ export const navigationConfig: NavItem[] = [
         href: "/reports/sales",
         icon: "bi bi-currency-dollar",
         phase: 5,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "reports-orders",
