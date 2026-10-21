@@ -147,6 +147,7 @@ export const navigationConfig: NavItem[] = [
     title: "Customers",
     icon: "bi bi-people",
     phase: 3,
+    badge: { text: "Live", variant: "success" },
     children: [
       {
         id: "customers-list",
@@ -154,13 +155,15 @@ export const navigationConfig: NavItem[] = [
         href: "/customers",
         icon: "bi bi-person-lines-fill",
         phase: 3,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "customers-groups",
         title: "Customer Groups",
-        href: "/customers/groups",
+        href: "/reports/customers",
         icon: "bi bi-collection",
         phase: 3,
+        badge: { text: "Live", variant: "success" },
       },
     ],
   },

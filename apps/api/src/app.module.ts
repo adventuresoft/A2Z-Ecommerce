@@ -19,6 +19,7 @@ import { PaymentsModule } from './payments/payments.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ReportsModule } from './reports/reports.module.js';
+import { CustomersModule } from './customers/customers.module.js';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ReportsModule } from './reports/reports.module.js';
     ReviewsModule,
     NotificationsModule,
     ReportsModule,
+    CustomersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
