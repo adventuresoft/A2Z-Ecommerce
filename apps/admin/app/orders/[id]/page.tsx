@@ -10,6 +10,7 @@ import {
   ordersService,
 } from "../../../services/orders";
 import { createShipment } from "../../../services/shipments";
+import { PaymentMethod, paymentsService } from "../../../services/payments";
 
 export default function OrderDetailPage({
   params,
@@ -41,6 +42,24 @@ export default function OrderDetailPage({
   const [shipmentTrackingUrl, setShipmentTrackingUrl] = useState("");
   const [shipmentNotes, setShipmentNotes] = useState("");
   const [creatingShipment, setCreatingShipment] = useState(false);
+
+  // Record Payment Modal State
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH_ON_DELIVERY");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentStatusVal, setPaymentStatusVal] = useState<PaymentStatus>("PAID");
+  const [paymentRef, setPaymentRef] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [recordingPayment, setRecordingPayment] = useState(false);
+
+  // Issue Refund Modal State
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundMethod, setRefundMethod] = useState<PaymentMethod>("CASH_ON_DELIVERY");
+  const [refundRef, setRefundRef] = useState("");
+  const [refundNotes, setRefundNotes] = useState("");
+  const [issuingRefund, setIssuingRefund] = useState(false);
 
   const fetchOrder = useCallback(async () => {
     setLoading(true);
@@ -121,6 +140,72 @@ export default function OrderDetailPage({
       });
     } finally {
       setCreatingShipment(false);
+    }
+  };
+
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order) return;
+    setRecordingPayment(true);
+    try {
+      await paymentsService.recordPayment({
+        orderId: order.id,
+        method: paymentMethod,
+        amount: Number(paymentAmount || order.grandTotal),
+        status: paymentStatusVal,
+        transactionRef: paymentRef.trim() || undefined,
+        notes: paymentNotes.trim() || undefined,
+      });
+
+      setShowPaymentModal(false);
+      setPaymentRef("");
+      setPaymentNotes("");
+      setAlert({
+        type: "success",
+        text: `Payment of ৳${paymentAmount || order.grandTotal} recorded successfully!`,
+      });
+      fetchOrder();
+    } catch (err: unknown) {
+      setAlert({
+        type: "danger",
+        text: err instanceof Error ? err.message : "Failed to record payment",
+      });
+    } finally {
+      setRecordingPayment(false);
+    }
+  };
+
+  const handleIssueRefund = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order || !refundAmount || !refundReason) return;
+    setIssuingRefund(true);
+    try {
+      await paymentsService.createRefund({
+        orderId: order.id,
+        amount: Number(refundAmount),
+        reason: refundReason.trim(),
+        refundMethod,
+        transactionRef: refundRef.trim() || undefined,
+        notes: refundNotes.trim() || undefined,
+      });
+
+      setShowRefundModal(false);
+      setRefundAmount("");
+      setRefundReason("");
+      setRefundRef("");
+      setRefundNotes("");
+      setAlert({
+        type: "success",
+        text: `Refund of ৳${Number(refundAmount).toFixed(2)} issued successfully!`,
+      });
+      fetchOrder();
+    } catch (err: unknown) {
+      setAlert({
+        type: "danger",
+        text: err instanceof Error ? err.message : "Failed to issue refund",
+      });
+    } finally {
+      setIssuingRefund(false);
     }
   };
 
@@ -441,6 +526,66 @@ export default function OrderDetailPage({
             </div>
           </div>
 
+          {/* Payments & Transactions Card */}
+          <div className="card shadow-sm border-0 mb-4">
+            <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+              <h6 className="card-title mb-0 font-weight-bold text-dark">
+                <i className="bi bi-credit-card me-2 text-primary"></i>Payments & Transactions
+              </h6>
+              {order.orderStatus !== "CANCELLED" && (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm py-0 px-2"
+                  style={{ fontSize: "0.8rem" }}
+                  onClick={() => {
+                    setPaymentAmount(String(order.grandTotal));
+                    setShowPaymentModal(true);
+                  }}
+                >
+                  <i className="bi bi-plus-lg me-1"></i> Record
+                </button>
+              )}
+            </div>
+            <div className="card-body">
+              {order.payments && order.payments.length > 0 ? (
+                <div className="d-flex flex-column gap-2">
+                  {order.payments.map((p) => (
+                    <div key={p.id} className="p-2 border rounded bg-light">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-bold small text-dark">৳{p.amount.toFixed(2)}</span>
+                        {getPaymentStatusBadge(p.status as PaymentStatus)}
+                      </div>
+                      <div className="d-flex justify-content-between small text-muted">
+                        <span>{p.method.replace(/_/g, " ")}</span>
+                        <span>{new Date(p.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {p.transactionRef && (
+                        <div className="small font-monospace text-secondary mt-1">
+                          Ref: {p.transactionRef}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-3">
+                  <i className="bi bi-receipt display-6 text-muted d-block mb-1"></i>
+                  <p className="text-muted small mb-2">No transaction record found.</p>
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => {
+                      setPaymentAmount(String(order.grandTotal));
+                      setShowPaymentModal(true);
+                    }}
+                  >
+                    <i className="bi bi-plus-circle me-1"></i> Record Payment
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Courier Shipments Card */}
           <div className="card shadow-sm border-0 mb-4">
             <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
@@ -502,6 +647,57 @@ export default function OrderDetailPage({
                       <i className="bi bi-box-seam me-1"></i> Create Shipment Package
                     </button>
                   )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Refunds Management Card */}
+          <div className="card shadow-sm border-0 mb-4">
+            <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+              <h6 className="card-title mb-0 font-weight-bold text-dark">
+                <i className="bi bi-arrow-counterclockwise me-2 text-danger"></i>Refunds & Returns
+              </h6>
+              {order.paymentStatus === "PAID" && (
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm py-0 px-2"
+                  style={{ fontSize: "0.8rem" }}
+                  onClick={() => {
+                    const alreadyRefunded = (order.refunds || [])
+                      .filter((r) => r.status === "COMPLETED")
+                      .reduce((sum, r) => sum + r.amount, 0);
+                    const remaining = Math.max(0, order.grandTotal - alreadyRefunded);
+                    setRefundAmount(String(remaining));
+                    setShowRefundModal(true);
+                  }}
+                >
+                  <i className="bi bi-arrow-counterclockwise me-1"></i> Refund
+                </button>
+              )}
+            </div>
+            <div className="card-body">
+              {order.refunds && order.refunds.length > 0 ? (
+                <div className="d-flex flex-column gap-2">
+                  {order.refunds.map((r) => (
+                    <div key={r.id} className="p-2 border rounded bg-light">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-bold small text-danger">৳{r.amount.toFixed(2)}</span>
+                        <span className="badge bg-secondary-subtle text-secondary small">{r.status}</span>
+                      </div>
+                      <div className="small text-muted text-truncate" title={r.reason}>
+                        {r.reason}
+                      </div>
+                      <div className="text-muted" style={{ fontSize: "0.72rem" }}>
+                        {new Date(r.createdAt).toLocaleDateString()}
+                        {r.transactionRef ? ` • Ref: ${r.transactionRef}` : ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-2 text-muted small">
+                  No refunds issued for this order.
                 </div>
               )}
             </div>
@@ -744,6 +940,216 @@ export default function OrderDetailPage({
                   </button>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={creatingShipment}>
                     {creatingShipment ? "Dispatching..." : "Create Shipment"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Record Payment Modal */}
+      {showPaymentModal && (
+        <div
+          className="modal fade show d-block"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+          tabIndex={-1}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <form onSubmit={handleRecordPayment}>
+                <div className="modal-header bg-light">
+                  <h5 className="modal-title font-weight-bold">
+                    <i className="bi bi-credit-card me-2 text-primary"></i>
+                    Record Payment for #{order.orderNumber}
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setShowPaymentModal(false)}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <div className="row g-2 mb-3">
+                    <div className="col-sm-6">
+                      <label className="form-label small fw-semibold">Payment Method</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                      >
+                        <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
+                        <option value="CREDIT_CARD">Credit Card</option>
+                        <option value="MOBILE_BANKING">Mobile Banking</option>
+                      </select>
+                    </div>
+                    <div className="col-sm-6">
+                      <label className="form-label small fw-semibold">Transaction Status</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={paymentStatusVal}
+                        onChange={(e) => setPaymentStatusVal(e.target.value as PaymentStatus)}
+                      >
+                        <option value="PAID">Paid (Collected)</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="FAILED">Failed</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold">Amount (BDT)</label>
+                    <div className="input-group input-group-sm">
+                      <span className="input-group-text">৳</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold">Reference / Receipt #</label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="e.g. COD-RECEIPT-9901 or Slip #"
+                      value={paymentRef}
+                      onChange={(e) => setPaymentRef(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold">Payment Notes</label>
+                    <textarea
+                      className="form-control form-control-sm"
+                      rows={2}
+                      placeholder="e.g. Doorstep cash collection confirmed"
+                      value={paymentNotes}
+                      onChange={(e) => setPaymentNotes(e.target.value)}
+                    ></textarea>
+                  </div>
+                </div>
+                <div className="modal-footer bg-light">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setShowPaymentModal(false)}
+                    disabled={recordingPayment}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={recordingPayment}>
+                    {recordingPayment ? "Saving..." : "Record Payment"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issue Refund Modal */}
+      {showRefundModal && (
+        <div
+          className="modal fade show d-block"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+          tabIndex={-1}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <form onSubmit={handleIssueRefund}>
+                <div className="modal-header bg-danger text-white">
+                  <h5 className="modal-title font-weight-bold">
+                    <i className="bi bi-arrow-counterclockwise me-2"></i>
+                    Issue Refund for #{order.orderNumber}
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close btn-close-white"
+                    onClick={() => setShowRefundModal(false)}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <div className="row g-2 mb-3">
+                    <div className="col-sm-6">
+                      <label className="form-label small fw-semibold">Refund Amount (BDT) *</label>
+                      <div className="input-group input-group-sm">
+                        <span className="input-group-text">৳</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          max={order.grandTotal}
+                          className="form-control"
+                          value={refundAmount}
+                          onChange={(e) => setRefundAmount(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="col-sm-6">
+                      <label className="form-label small fw-semibold">Payout Method</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={refundMethod}
+                        onChange={(e) => setRefundMethod(e.target.value as PaymentMethod)}
+                      >
+                        <option value="CASH_ON_DELIVERY">Cash Return (Doorstep)</option>
+                        <option value="MOBILE_BANKING">Mobile Banking (bKash/Nagad)</option>
+                        <option value="CREDIT_CARD">Credit Card Reversal</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold">Reason for Refund *</label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="e.g. Return inspection passed, refunding item price"
+                      value={refundReason}
+                      onChange={(e) => setRefundReason(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold">Payout Voucher / Receipt #</label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="e.g. REF-2026-9810 or Cash Slip #"
+                      value={refundRef}
+                      onChange={(e) => setRefundRef(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold">Administrative Remarks</label>
+                    <textarea
+                      className="form-control form-control-sm"
+                      rows={2}
+                      placeholder="Optional notes regarding the return approval"
+                      value={refundNotes}
+                      onChange={(e) => setRefundNotes(e.target.value)}
+                    ></textarea>
+                  </div>
+                </div>
+                <div className="modal-footer bg-light">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setShowRefundModal(false)}
+                    disabled={issuingRefund}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-danger btn-sm" disabled={issuingRefund}>
+                    {issuingRefund ? "Processing..." : "Confirm & Disburse"}
                   </button>
                 </div>
               </form>

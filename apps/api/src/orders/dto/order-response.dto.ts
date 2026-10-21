@@ -76,6 +76,49 @@ export class OrderShipmentSummaryDto {
   createdAt: Date;
 }
 
+export class OrderPaymentSummaryDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: 'CASH_ON_DELIVERY' })
+  method: string;
+
+  @ApiProperty({ example: 'PENDING' })
+  status: string;
+
+  @ApiProperty({ example: 960.0 })
+  amount: number;
+
+  @ApiPropertyOptional({ example: 'COD-REC-12345' })
+  transactionRef?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-10-17T12:00:00.000Z' })
+  paidAt?: Date | null;
+
+  @ApiProperty({ example: '2026-10-17T11:00:00.000Z' })
+  createdAt: Date;
+}
+
+export class OrderRefundSummaryDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174099' })
+  id: string;
+
+  @ApiProperty({ example: 350.0 })
+  amount: number;
+
+  @ApiProperty({ example: 'COMPLETED' })
+  status: string;
+
+  @ApiProperty({ example: 'Damaged item return' })
+  reason: string;
+
+  @ApiPropertyOptional({ example: 'REFUND-SLIP-123' })
+  transactionRef?: string | null;
+
+  @ApiProperty({ example: '2026-10-17T14:00:00.000Z' })
+  createdAt: Date;
+}
+
 export class OrderResponseDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174002' })
   id: string;
@@ -142,6 +185,12 @@ export class OrderResponseDto {
 
   @ApiPropertyOptional({ type: [OrderShipmentSummaryDto] })
   shipments?: OrderShipmentSummaryDto[];
+
+  @ApiPropertyOptional({ type: [OrderPaymentSummaryDto] })
+  payments?: OrderPaymentSummaryDto[];
+
+  @ApiPropertyOptional({ type: [OrderRefundSummaryDto] })
+  refunds?: OrderRefundSummaryDto[];
 
   @ApiProperty({ example: '2026-10-17T11:00:00.000Z' })
   createdAt: Date;

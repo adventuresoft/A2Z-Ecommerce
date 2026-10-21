@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import {
   OrderStatus,
+  PaymentMethod,
   PaymentStatus,
   ShipmentStatus,
   StockMovementType,
@@ -43,6 +44,12 @@ export class OrdersService {
       orderBy: { createdAt: 'asc' as const },
     },
     shipments: {
+      orderBy: { createdAt: 'desc' as const },
+    },
+    payments: {
+      orderBy: { createdAt: 'desc' as const },
+    },
+    refunds: {
       orderBy: { createdAt: 'desc' as const },
     },
     user: { select: { name: true, email: true } },
@@ -120,6 +127,25 @@ export class OrdersService {
       createdAt: s.createdAt,
     }));
 
+    const payments = (order.payments || []).map((p: any) => ({
+      id: p.id,
+      method: p.method,
+      status: p.status,
+      amount: Number(p.amount),
+      transactionRef: p.transactionRef || null,
+      paidAt: p.paidAt || null,
+      createdAt: p.createdAt,
+    }));
+
+    const refunds = (order.refunds || []).map((r: any) => ({
+      id: r.id,
+      amount: Number(r.amount),
+      status: r.status,
+      reason: r.reason,
+      transactionRef: r.transactionRef || null,
+      createdAt: r.createdAt,
+    }));
+
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -143,6 +169,8 @@ export class OrdersService {
       items,
       statusHistory,
       shipments,
+      payments,
+      refunds,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
@@ -307,6 +335,15 @@ export class OrdersService {
               toStatus: OrderStatus.PENDING,
               notes: 'Order placed by customer',
               changedByUserId: userId,
+            },
+          },
+          payments: {
+            create: {
+              method: PaymentMethod.CASH_ON_DELIVERY,
+              status: PaymentStatus.PENDING,
+              amount: grandTotal,
+              currency: 'BDT',
+              notes: 'Initial Cash on Delivery pending payment record',
             },
           },
         },

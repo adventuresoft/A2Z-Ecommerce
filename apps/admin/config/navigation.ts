@@ -191,6 +191,7 @@ export const navigationConfig: NavItem[] = [
         href: "/payments/transactions",
         icon: "bi bi-cash-stack",
         phase: 4,
+        badge: { text: "Live", variant: "success" },
       },
       {
         id: "payments-refunds",
@@ -198,6 +199,7 @@ export const navigationConfig: NavItem[] = [
         href: "/payments/refunds",
         icon: "bi bi-arrow-counterclockwise",
         phase: 4,
+        badge: { text: "Live", variant: "success" },
       },
     ],
   },

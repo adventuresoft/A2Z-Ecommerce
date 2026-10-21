@@ -51,6 +51,25 @@ export interface AdminShipmentSummary {
   createdAt: string;
 }
 
+export interface AdminOrderPaymentSummary {
+  id: string;
+  method: string;
+  status: string;
+  amount: number;
+  transactionRef: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminOrderRefundSummary {
+  id: string;
+  amount: number;
+  status: string;
+  reason: string;
+  transactionRef: string | null;
+  createdAt: string;
+}
+
 export interface AdminOrder {
   id: string;
   orderNumber: string;
@@ -74,6 +93,8 @@ export interface AdminOrder {
   items: AdminOrderItem[];
   statusHistory?: AdminOrderStatusHistory[];
   shipments?: AdminShipmentSummary[];
+  payments?: AdminOrderPaymentSummary[];
+  refunds?: AdminOrderRefundSummary[];
   createdAt: string;
   updatedAt: string;
 }
