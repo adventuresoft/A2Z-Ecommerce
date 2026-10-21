@@ -370,4 +370,320 @@ export const reportsService = {
     }
     return res.blob();
   },
+
+  // =========================================================================
+  // ORDERS REPORT METHODS
+  // =========================================================================
+
+  /**
+   * Fetch Orders Summary KPIs
+   */
+  async getOrdersSummary(params?: OrdersReportParams): Promise<OrdersSummary> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/summary`);
+    appendOrdersParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch orders summary');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Orders Timeline Trend Points
+   */
+  async getOrdersTimeline(
+    params?: OrdersReportParams,
+  ): Promise<OrdersTimelineResponse> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/timeline`);
+    appendOrdersParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch orders timeline');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Order Status Breakdown
+   */
+  async getOrdersByStatus(
+    params?: OrdersReportParams,
+  ): Promise<OrderStatusMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/by-status`);
+    appendOrdersParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch order status breakdown');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Shipment Status Breakdown
+   */
+  async getOrdersByShipmentStatus(
+    params?: OrdersReportParams,
+  ): Promise<ShipmentStatusMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/by-shipment-status`);
+    appendOrdersParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch shipment status breakdown');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Payment Status Breakdown
+   */
+  async getOrdersByPaymentStatus(
+    params?: OrdersReportParams,
+  ): Promise<PaymentStatusMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/by-payment-status`);
+    appendOrdersParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch payment status breakdown');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Orders by Shipping City (Geographic breakdown)
+   */
+  async getOrdersByShippingCity(
+    params?: OrdersReportParams,
+    limit = 10,
+  ): Promise<ShippingCityMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/by-shipping-city`);
+    appendOrdersParams(url, params);
+    url.searchParams.set('limit', String(limit));
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch geographic breakdown');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Orders by Shipping Method
+   */
+  async getOrdersByShippingMethod(
+    params?: OrdersReportParams,
+  ): Promise<ShippingMethodMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/by-shipping-method`);
+    appendOrdersParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch shipping method breakdown');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Paginated Orders Report List
+   */
+  async getOrdersList(
+    params?: OrdersReportParams,
+  ): Promise<PaginatedOrdersReport> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/list`);
+    appendOrdersParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch orders report list');
+    }
+    return res.json();
+  },
+
+  /**
+   * Download Orders CSV export
+   */
+  async downloadOrdersCsv(params?: OrdersReportParams): Promise<Blob> {
+    const url = new URL(`${API_BASE}/admin/reports/orders/export`);
+    appendOrdersParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      throw new Error('Failed to export orders CSV');
+    }
+    return res.blob();
+  },
 };
+
+// =========================================================================
+// ORDERS REPORT TYPES & HELPERS
+// =========================================================================
+
+export interface OrdersReportParams {
+  startDate?: string;
+  endDate?: string;
+  orderStatus?: OrderStatus;
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: PaymentMethod;
+  shipmentStatus?: ShipmentStatus;
+  city?: string;
+  interval?: 'day' | 'week' | 'month';
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface OrdersSummary {
+  totalOrders: number;
+  totalOrderValue: number;
+  averageOrderValue: number;
+  totalItemsOrdered: number;
+  averageItemsPerOrder: number;
+  pendingOrdersCount: number;
+  confirmedOrdersCount: number;
+  processingOrdersCount: number;
+  shippedOrdersCount: number;
+  deliveredOrdersCount: number;
+  cancelledOrdersCount: number;
+  returnedOrdersCount: number;
+  fulfillmentRate: number;
+  cancellationRate: number;
+  returnRate: number;
+  paidOrdersCount: number;
+  pendingPaymentCount: number;
+  failedPaymentCount: number;
+  refundedOrdersCount: number;
+  currency: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface OrdersTimelinePoint {
+  date: string;
+  label: string;
+  totalOrders: number;
+  deliveredOrders: number;
+  processingOrders: number;
+  cancelledOrders: number;
+  returnedOrders: number;
+  totalValue: number;
+  itemsCount: number;
+}
+
+export interface OrdersTimelineResponse {
+  timeline: OrdersTimelinePoint[];
+  interval: string;
+}
+
+export interface OrderStatusMetric {
+  status: OrderStatus;
+  count: number;
+  percentage: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
+export interface ShipmentStatusMetric {
+  status: ShipmentStatus;
+  count: number;
+  percentage: number;
+  totalAmount: number;
+}
+
+export interface PaymentStatusMetric {
+  status: PaymentStatus;
+  count: number;
+  percentage: number;
+  totalAmount: number;
+}
+
+export interface ShippingCityMetric {
+  city: string;
+  count: number;
+  percentage: number;
+  totalAmount: number;
+}
+
+export interface ShippingMethodMetric {
+  methodName: string;
+  zoneName?: string;
+  count: number;
+  percentage: number;
+  totalShippingFee: number;
+}
+
+export interface OrdersReportItemSummary {
+  id: string;
+  productTitle: string;
+  sku: string;
+  variantAttributes: string | null;
+  unitPrice: number;
+  quantity: number;
+  totalPrice: number;
+}
+
+export interface OrdersReportRecord {
+  id: string;
+  orderNumber: string;
+  createdAt: string;
+  customerName: string;
+  customerEmail: string;
+  recipientPhone: string;
+  shippingStreet: string;
+  shippingCity: string;
+  shippingPostalCode: string;
+  orderStatus: OrderStatus;
+  paymentStatus: PaymentStatus;
+  shipmentStatus: ShipmentStatus;
+  paymentMethod: PaymentMethod | null;
+  courierName: string | null;
+  trackingNumber: string | null;
+  itemsCount: number;
+  subtotal: number;
+  discountAmount: number;
+  shippingFee: number;
+  grandTotal: number;
+  items?: OrdersReportItemSummary[];
+}
+
+export interface PaginatedOrdersReport {
+  items: OrdersReportRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+function appendOrdersParams(url: URL, params?: OrdersReportParams): void {
+  if (!params) return;
+  if (params.startDate) url.searchParams.set('startDate', params.startDate);
+  if (params.endDate) url.searchParams.set('endDate', params.endDate);
+  if (params.orderStatus) url.searchParams.set('orderStatus', params.orderStatus);
+  if (params.paymentStatus)
+    url.searchParams.set('paymentStatus', params.paymentStatus);
+  if (params.paymentMethod)
+    url.searchParams.set('paymentMethod', params.paymentMethod);
+  if (params.shipmentStatus)
+    url.searchParams.set('shipmentStatus', params.shipmentStatus);
+  if (params.city) url.searchParams.set('city', params.city);
+  if (params.interval) url.searchParams.set('interval', params.interval);
+  if (params.page) url.searchParams.set('page', String(params.page));
+  if (params.limit) url.searchParams.set('limit', String(params.limit));
+  if (params.search) url.searchParams.set('search', params.search);
+  if (params.sortBy) url.searchParams.set('sortBy', params.sortBy);
+  if (params.sortOrder) url.searchParams.set('sortOrder', params.sortOrder);
+}
+

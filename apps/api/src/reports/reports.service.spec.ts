@@ -4,6 +4,7 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  ShipmentStatus,
 } from '@prisma/client';
 
 describe('ReportsService', () => {
@@ -416,4 +417,277 @@ describe('ReportsService', () => {
       expect(csv).toContain('"3500.00"');
     });
   });
+
+  describe('getOrdersSummary', () => {
+    it('should aggregate order volume, fulfillment rates, and basket size correctly', async () => {
+      const mockOrders = [
+        {
+          id: 'ord-1',
+          grandTotal: '3000.00',
+          orderStatus: OrderStatus.DELIVERED,
+          paymentStatus: PaymentStatus.PAID,
+          items: [{ quantity: 3 }],
+        },
+        {
+          id: 'ord-2',
+          grandTotal: '1500.00',
+          orderStatus: OrderStatus.PENDING,
+          paymentStatus: PaymentStatus.PENDING,
+          items: [{ quantity: 1 }],
+        },
+      ];
+
+      prismaMock.order.findMany.mockResolvedValue(mockOrders);
+
+      const summary = await service.getOrdersSummary({});
+
+      expect(summary.totalOrders).toBe(2);
+      expect(summary.totalOrderValue).toBe(4500);
+      expect(summary.averageOrderValue).toBe(2250);
+      expect(summary.totalItemsOrdered).toBe(4);
+      expect(summary.averageItemsPerOrder).toBe(2);
+      expect(summary.deliveredOrdersCount).toBe(1);
+      expect(summary.pendingOrdersCount).toBe(1);
+      expect(summary.fulfillmentRate).toBe(50);
+      expect(summary.paidOrdersCount).toBe(1);
+      expect(summary.pendingPaymentCount).toBe(1);
+      expect(summary.currency).toBe('BDT');
+    });
+
+    it('should handle empty orders list gracefully with 0 counts', async () => {
+      prismaMock.order.findMany.mockResolvedValue([]);
+
+      const summary = await service.getOrdersSummary({});
+
+      expect(summary.totalOrders).toBe(0);
+      expect(summary.totalOrderValue).toBe(0);
+      expect(summary.averageOrderValue).toBe(0);
+      expect(summary.fulfillmentRate).toBe(0);
+    });
+  });
+
+  describe('getOrdersTimeline', () => {
+    it('should bucket orders by timeline interval correctly', async () => {
+      const mockOrders = [
+        {
+          id: 'ord-1',
+          createdAt: new Date('2026-10-21T08:00:00Z'),
+          grandTotal: '2000.00',
+          orderStatus: OrderStatus.DELIVERED,
+          items: [{ quantity: 2 }],
+        },
+        {
+          id: 'ord-2',
+          createdAt: new Date('2026-10-21T12:00:00Z'),
+          grandTotal: '1500.00',
+          orderStatus: OrderStatus.CANCELLED,
+          items: [{ quantity: 1 }],
+        },
+      ];
+
+      prismaMock.order.findMany.mockResolvedValue(mockOrders);
+
+      const res = await service.getOrdersTimeline({ interval: 'day' });
+
+      expect(res.timeline.length).toBe(1);
+      expect(res.timeline[0].totalOrders).toBe(2);
+      expect(res.timeline[0].deliveredOrders).toBe(1);
+      expect(res.timeline[0].cancelledOrders).toBe(1);
+      expect(res.timeline[0].totalValue).toBe(3500);
+      expect(res.timeline[0].itemsCount).toBe(3);
+    });
+  });
+
+  describe('getOrdersByStatus', () => {
+    it('should calculate percentages and totals across all OrderStatus values', async () => {
+      const mockOrders = [
+        { orderStatus: OrderStatus.DELIVERED, grandTotal: '4000.00' },
+        { orderStatus: OrderStatus.DELIVERED, grandTotal: '2000.00' },
+        { orderStatus: OrderStatus.PENDING, grandTotal: '1000.00' },
+      ];
+
+      prismaMock.order.findMany.mockResolvedValue(mockOrders);
+
+      const res = await service.getOrdersByStatus({});
+
+      const delivered = res.find((s) => s.status === OrderStatus.DELIVERED);
+      const pending = res.find((s) => s.status === OrderStatus.PENDING);
+
+      expect(delivered?.count).toBe(2);
+      expect(delivered?.totalAmount).toBe(6000);
+      expect(delivered?.percentage).toBe(66.67);
+      expect(pending?.count).toBe(1);
+      expect(pending?.percentage).toBe(33.33);
+    });
+  });
+
+  describe('getOrdersByShipmentStatus', () => {
+    it('should aggregate orders across ShipmentStatus enums', async () => {
+      const mockOrders = [
+        { shipmentStatus: ShipmentStatus.DELIVERED, grandTotal: '5000.00' },
+        { shipmentStatus: ShipmentStatus.IN_TRANSIT, grandTotal: '3000.00' },
+      ];
+
+      prismaMock.order.findMany.mockResolvedValue(mockOrders);
+
+      const res = await service.getOrdersByShipmentStatus({});
+
+      const delivered = res.find((s) => s.status === ShipmentStatus.DELIVERED);
+      expect(delivered?.count).toBe(1);
+      expect(delivered?.percentage).toBe(50);
+      expect(delivered?.totalAmount).toBe(5000);
+    });
+  });
+
+  describe('getOrdersByPaymentStatus', () => {
+    it('should aggregate orders across PaymentStatus enums', async () => {
+      const mockOrders = [
+        { paymentStatus: PaymentStatus.PAID, grandTotal: '8000.00' },
+        { paymentStatus: PaymentStatus.PENDING, grandTotal: '2000.00' },
+      ];
+
+      prismaMock.order.findMany.mockResolvedValue(mockOrders);
+
+      const res = await service.getOrdersByPaymentStatus({});
+
+      const paid = res.find((s) => s.status === PaymentStatus.PAID);
+      expect(paid?.count).toBe(1);
+      expect(paid?.percentage).toBe(50);
+      expect(paid?.totalAmount).toBe(8000);
+    });
+  });
+
+  describe('getOrdersByShippingCity', () => {
+    it('should group orders by city and return top cities sorted by volume', async () => {
+      const mockOrders = [
+        { shippingCity: 'Dhaka', grandTotal: '3000.00' },
+        { shippingCity: 'dhaka', grandTotal: '2000.00' },
+        { shippingCity: 'Chittagong', grandTotal: '1500.00' },
+      ];
+
+      prismaMock.order.findMany.mockResolvedValue(mockOrders);
+
+      const res = await service.getOrdersByShippingCity({}, 5);
+
+      expect(res.length).toBe(2);
+      expect(res[0].city).toBe('Dhaka');
+      expect(res[0].count).toBe(2);
+      expect(res[0].totalAmount).toBe(5000);
+      expect(res[1].city).toBe('Chittagong');
+      expect(res[1].count).toBe(1);
+    });
+  });
+
+  describe('getOrdersByShippingMethod', () => {
+    it('should group orders by shipping method and zone', async () => {
+      const mockOrders = [
+        {
+          shippingFee: '100.00',
+          shipments: [
+            {
+              courierName: 'RedX',
+              shippingMethod: { name: 'Standard Delivery', zone: { name: 'Dhaka City' } },
+            },
+          ],
+        },
+      ];
+
+      prismaMock.order.findMany.mockResolvedValue(mockOrders);
+
+      const res = await service.getOrdersByShippingMethod({});
+
+      expect(res.length).toBe(1);
+      expect(res[0].methodName).toBe('Standard Delivery');
+      expect(res[0].zoneName).toBe('Dhaka City');
+      expect(res[0].count).toBe(1);
+      expect(res[0].totalShippingFee).toBe(100);
+    });
+  });
+
+  describe('getOrdersList', () => {
+    it('should return paginated and mapped order records', async () => {
+      prismaMock.order.count.mockResolvedValue(1);
+      prismaMock.order.findMany.mockResolvedValue([
+        {
+          id: 'ord-10',
+          orderNumber: 'ORD-20261021-001',
+          createdAt: new Date('2026-10-21T10:00:00Z'),
+          recipientName: 'Karim Ullah',
+          recipientPhone: '01811223344',
+          shippingStreet: 'Road 5, House 10',
+          shippingCity: 'Dhaka',
+          shippingPostalCode: '1212',
+          orderStatus: OrderStatus.CONFIRMED,
+          paymentStatus: PaymentStatus.PENDING,
+          shipmentStatus: ShipmentStatus.PREPARING,
+          grandTotal: '2500.00',
+          subtotal: '2400.00',
+          discountAmount: '0.00',
+          shippingFee: '100.00',
+          user: { name: 'Karim Ullah', email: 'karim@example.com' },
+          payments: [{ method: PaymentMethod.CASH_ON_DELIVERY }],
+          shipments: [{ courierName: 'Pathao', trackingNumber: 'TRK-999' }],
+          items: [
+            {
+              id: 'it-1',
+              productTitle: 'Sneakers',
+              sku: 'SNK-01',
+              variantAttributes: 'Size: 42',
+              unitPrice: '2400.00',
+              quantity: 1,
+              totalPrice: '2400.00',
+            },
+          ],
+        },
+      ]);
+
+      const res = await service.getOrdersList({ page: 1, limit: 10 });
+
+      expect(res.total).toBe(1);
+      expect(res.items.length).toBe(1);
+      expect(res.items[0].orderNumber).toBe('ORD-20261021-001');
+      expect(res.items[0].customerName).toBe('Karim Ullah');
+      expect(res.items[0].courierName).toBe('Pathao');
+      expect(res.items[0].itemsCount).toBe(1);
+      expect(res.items[0].grandTotal).toBe(2500);
+    });
+  });
+
+  describe('exportOrdersCsv', () => {
+    it('should generate CSV with order destination and fulfillment headers', async () => {
+      prismaMock.order.findMany.mockResolvedValue([
+        {
+          orderNumber: 'ORD-EXPORT-1',
+          createdAt: new Date('2026-10-21T14:00:00Z'),
+          recipientName: 'Salma Begum',
+          recipientPhone: '01911223344',
+          shippingStreet: 'Mirpur 10',
+          shippingCity: 'Dhaka',
+          shippingPostalCode: '1216',
+          orderStatus: OrderStatus.DELIVERED,
+          paymentStatus: PaymentStatus.PAID,
+          shipmentStatus: ShipmentStatus.DELIVERED,
+          grandTotal: '4200.00',
+          subtotal: '4000.00',
+          discountAmount: '0.00',
+          shippingFee: '200.00',
+          user: { name: 'Salma Begum', email: 'salma@example.com' },
+          payments: [{ method: PaymentMethod.MOBILE_BANKING }],
+          shipments: [{ courierName: 'Steadfast', trackingNumber: 'ST-101' }],
+          items: [{ quantity: 3 }],
+        },
+      ]);
+
+      const csv = await service.exportOrdersCsv({});
+
+      expect(csv).toContain('Destination Street,Destination City,Postal Code');
+      expect(csv).toContain('"ORD-EXPORT-1"');
+      expect(csv).toContain('"Salma Begum"');
+      expect(csv).toContain('"Mirpur 10"');
+      expect(csv).toContain('"Dhaka"');
+      expect(csv).toContain('"Steadfast"');
+      expect(csv).toContain('"4200.00"');
+    });
+  });
 });
+

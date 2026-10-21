@@ -3,6 +3,7 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  ShipmentStatus,
   type Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -17,6 +18,17 @@ import type {
   SalesTimelinePointDto,
   SalesTimelineResponseDto,
   TopSellingProductDto,
+  QueryOrdersReportDto,
+  OrdersSummaryResponseDto,
+  OrdersTimelineResponseDto,
+  OrdersTimelinePointDto,
+  OrderStatusMetricDto,
+  ShipmentStatusMetricDto,
+  PaymentStatusMetricDto,
+  ShippingCityMetricDto,
+  ShippingMethodMetricDto,
+  OrdersReportListResponseDto,
+  OrdersReportRecordDto,
 } from './dto/index.js';
 
 @Injectable()
@@ -806,4 +818,838 @@ export class ReportsService {
 
     return rows.join('\r\n');
   }
+
+  // =========================================================================
+  // ORDERS REPORT METHODS
+  // =========================================================================
+
+  /**
+   * Helper to construct Prisma where criteria from orders query filters
+   */
+  private buildOrdersWhereClause(
+    query: QueryOrdersReportDto,
+  ): Prisma.OrderWhereInput {
+    const where: Prisma.OrderWhereInput = {};
+
+    // Date range filter
+    if (query.startDate || query.endDate) {
+      where.createdAt = {};
+      if (query.startDate) {
+        where.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.createdAt.lte = new Date(query.endDate);
+      }
+    }
+
+    // Status filters
+    if (query.orderStatus) {
+      where.orderStatus = query.orderStatus;
+    }
+    if (query.paymentStatus) {
+      where.paymentStatus = query.paymentStatus;
+    }
+    if (query.shipmentStatus) {
+      where.shipmentStatus = query.shipmentStatus;
+    }
+
+    // Destination city filter
+    if (query.city && query.city.trim() !== '') {
+      where.shippingCity = {
+        contains: query.city.trim(),
+        mode: 'insensitive',
+      };
+    }
+
+    // Payment method filter
+    if (query.paymentMethod) {
+      where.payments = {
+        some: {
+          method: query.paymentMethod,
+        },
+      };
+    }
+
+    // Search filter across orderNumber, recipient name, phone, city, or user details
+    if (query.search && query.search.trim() !== '') {
+      const term = query.search.trim();
+      where.OR = [
+        { orderNumber: { contains: term, mode: 'insensitive' } },
+        { recipientName: { contains: term, mode: 'insensitive' } },
+        { recipientPhone: { contains: term, mode: 'insensitive' } },
+        { shippingCity: { contains: term, mode: 'insensitive' } },
+        { user: { name: { contains: term, mode: 'insensitive' } } },
+        { user: { email: { contains: term, mode: 'insensitive' } } },
+      ];
+    }
+
+    return where;
+  }
+
+  /**
+   * Retrieves high-level Order KPIs (volume, fulfillment, status rates, basket size)
+   */
+  async getOrdersSummary(
+    query: QueryOrdersReportDto,
+  ): Promise<OrdersSummaryResponseDto> {
+    const where = this.buildOrdersWhereClause(query);
+
+    const currencySetting = await this.prisma.storeSetting.findUnique({
+      where: { key: 'store_currency' },
+    });
+    const currency = currencySetting?.value || 'BDT';
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        id: true,
+        grandTotal: true,
+        orderStatus: true,
+        paymentStatus: true,
+        items: {
+          select: {
+            quantity: true,
+          },
+        },
+      },
+    });
+
+    let totalOrderValue = 0;
+    let totalItemsOrdered = 0;
+    let pendingOrdersCount = 0;
+    let confirmedOrdersCount = 0;
+    let processingOrdersCount = 0;
+    let shippedOrdersCount = 0;
+    let deliveredOrdersCount = 0;
+    let cancelledOrdersCount = 0;
+    let returnedOrdersCount = 0;
+
+    let paidOrdersCount = 0;
+    let pendingPaymentCount = 0;
+    let failedPaymentCount = 0;
+    let refundedOrdersCount = 0;
+
+    for (const order of orders) {
+      totalOrderValue += Number(order.grandTotal || 0);
+
+      switch (order.orderStatus) {
+        case OrderStatus.PENDING:
+          pendingOrdersCount++;
+          break;
+        case OrderStatus.CONFIRMED:
+          confirmedOrdersCount++;
+          break;
+        case OrderStatus.PROCESSING:
+          processingOrdersCount++;
+          break;
+        case OrderStatus.SHIPPED:
+          shippedOrdersCount++;
+          break;
+        case OrderStatus.DELIVERED:
+          deliveredOrdersCount++;
+          break;
+        case OrderStatus.CANCELLED:
+          cancelledOrdersCount++;
+          break;
+        case OrderStatus.RETURNED:
+          returnedOrdersCount++;
+          break;
+      }
+
+      switch (order.paymentStatus) {
+        case PaymentStatus.PAID:
+          paidOrdersCount++;
+          break;
+        case PaymentStatus.PENDING:
+          pendingPaymentCount++;
+          break;
+        case PaymentStatus.FAILED:
+          failedPaymentCount++;
+          break;
+        case PaymentStatus.REFUNDED:
+          refundedOrdersCount++;
+          break;
+      }
+
+      for (const item of order.items || []) {
+        totalItemsOrdered += item.quantity || 0;
+      }
+    }
+
+    const totalOrders = orders.length;
+    const averageOrderValue =
+      totalOrders > 0
+        ? Math.round((totalOrderValue / totalOrders) * 100) / 100
+        : 0;
+    const averageItemsPerOrder =
+      totalOrders > 0
+        ? Math.round((totalItemsOrdered / totalOrders) * 100) / 100
+        : 0;
+    const fulfillmentRate =
+      totalOrders > 0
+        ? Math.round((deliveredOrdersCount / totalOrders) * 10000) / 100
+        : 0;
+    const cancellationRate =
+      totalOrders > 0
+        ? Math.round((cancelledOrdersCount / totalOrders) * 10000) / 100
+        : 0;
+    const returnRate =
+      totalOrders > 0
+        ? Math.round((returnedOrdersCount / totalOrders) * 10000) / 100
+        : 0;
+
+    return {
+      totalOrders,
+      totalOrderValue: Math.round(totalOrderValue * 100) / 100,
+      averageOrderValue,
+      totalItemsOrdered,
+      averageItemsPerOrder,
+      pendingOrdersCount,
+      confirmedOrdersCount,
+      processingOrdersCount,
+      shippedOrdersCount,
+      deliveredOrdersCount,
+      cancelledOrdersCount,
+      returnedOrdersCount,
+      fulfillmentRate,
+      cancellationRate,
+      returnRate,
+      paidOrdersCount,
+      pendingPaymentCount,
+      failedPaymentCount,
+      refundedOrdersCount,
+      currency,
+      startDate: query.startDate,
+      endDate: query.endDate,
+    };
+  }
+
+  /**
+   * Retrieves aggregated chronological timeline points for orders volume & delivery trend
+   */
+  async getOrdersTimeline(
+    query: QueryOrdersReportDto,
+  ): Promise<OrdersTimelineResponseDto> {
+    const where = this.buildOrdersWhereClause(query);
+    const interval = query.interval || 'day';
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        id: true,
+        createdAt: true,
+        grandTotal: true,
+        orderStatus: true,
+        items: {
+          select: {
+            quantity: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const bucketMap = new Map<string, OrdersTimelinePointDto>();
+
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+
+    for (const order of orders) {
+      const d = new Date(order.createdAt);
+      let key = '';
+      let label = '';
+
+      if (interval === 'month') {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        key = `${y}-${m}`;
+        label = `${monthNames[d.getMonth()]} ${y}`;
+      } else if (interval === 'week') {
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(d);
+        mon.setDate(diff);
+        const y = mon.getFullYear();
+        const m = String(mon.getMonth() + 1).padStart(2, '0');
+        const dt = String(mon.getDate()).padStart(2, '0');
+        key = `${y}-W${m}-${dt}`;
+        label = `Wk ${dt} ${monthNames[mon.getMonth()]}`;
+      } else {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dt = String(d.getDate()).padStart(2, '0');
+        key = `${y}-${m}-${dt}`;
+        label = `${monthNames[d.getMonth()]} ${dt}, ${y}`;
+      }
+
+      if (!bucketMap.has(key)) {
+        bucketMap.set(key, {
+          date: key,
+          label,
+          totalOrders: 0,
+          deliveredOrders: 0,
+          processingOrders: 0,
+          cancelledOrders: 0,
+          returnedOrders: 0,
+          totalValue: 0,
+          itemsCount: 0,
+        });
+      }
+
+      const point = bucketMap.get(key)!;
+      point.totalOrders++;
+      point.totalValue += Number(order.grandTotal || 0);
+
+      if (order.orderStatus === OrderStatus.DELIVERED) {
+        point.deliveredOrders++;
+      } else if (order.orderStatus === OrderStatus.CANCELLED) {
+        point.cancelledOrders++;
+      } else if (order.orderStatus === OrderStatus.RETURNED) {
+        point.returnedOrders++;
+      } else if (
+        order.orderStatus === OrderStatus.CONFIRMED ||
+        order.orderStatus === OrderStatus.PROCESSING ||
+        order.orderStatus === OrderStatus.SHIPPED
+      ) {
+        point.processingOrders++;
+      }
+
+      for (const item of order.items || []) {
+        point.itemsCount += item.quantity || 0;
+      }
+    }
+
+    const timeline = Array.from(bucketMap.values()).map((p) => ({
+      ...p,
+      totalValue: Math.round(p.totalValue * 100) / 100,
+    }));
+
+    return {
+      timeline,
+      interval,
+    };
+  }
+
+  /**
+   * Retrieves order volume and monetary breakdown by OrderStatus
+   */
+  async getOrdersByStatus(
+    query: QueryOrdersReportDto,
+  ): Promise<OrderStatusMetricDto[]> {
+    const where = this.buildOrdersWhereClause(query);
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        orderStatus: true,
+        grandTotal: true,
+      },
+    });
+
+    const statusCounts: Record<OrderStatus, { count: number; totalAmount: number }> = {
+      [OrderStatus.PENDING]: { count: 0, totalAmount: 0 },
+      [OrderStatus.CONFIRMED]: { count: 0, totalAmount: 0 },
+      [OrderStatus.PROCESSING]: { count: 0, totalAmount: 0 },
+      [OrderStatus.SHIPPED]: { count: 0, totalAmount: 0 },
+      [OrderStatus.DELIVERED]: { count: 0, totalAmount: 0 },
+      [OrderStatus.CANCELLED]: { count: 0, totalAmount: 0 },
+      [OrderStatus.RETURNED]: { count: 0, totalAmount: 0 },
+    };
+
+    for (const o of orders) {
+      if (statusCounts[o.orderStatus]) {
+        statusCounts[o.orderStatus].count++;
+        statusCounts[o.orderStatus].totalAmount += Number(o.grandTotal || 0);
+      }
+    }
+
+    const totalCount = orders.length;
+    const orderedStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.CONFIRMED,
+      OrderStatus.PROCESSING,
+      OrderStatus.SHIPPED,
+      OrderStatus.DELIVERED,
+      OrderStatus.CANCELLED,
+      OrderStatus.RETURNED,
+    ];
+
+    return orderedStatuses.map((status) => {
+      const data = statusCounts[status];
+      const percentage =
+        totalCount > 0
+          ? Math.round((data.count / totalCount) * 10000) / 100
+          : 0;
+      const averageAmount =
+        data.count > 0
+          ? Math.round((data.totalAmount / data.count) * 100) / 100
+          : 0;
+
+      return {
+        status,
+        count: data.count,
+        percentage,
+        totalAmount: Math.round(data.totalAmount * 100) / 100,
+        averageAmount,
+      };
+    });
+  }
+
+  /**
+   * Retrieves order volume breakdown across Shipment fulfillment statuses
+   */
+  async getOrdersByShipmentStatus(
+    query: QueryOrdersReportDto,
+  ): Promise<ShipmentStatusMetricDto[]> {
+    const where = this.buildOrdersWhereClause(query);
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        shipmentStatus: true,
+        grandTotal: true,
+      },
+    });
+
+    const statusCounts: Record<
+      ShipmentStatus,
+      { count: number; totalAmount: number }
+    > = {
+      [ShipmentStatus.UNFULFILLED]: { count: 0, totalAmount: 0 },
+      [ShipmentStatus.PREPARING]: { count: 0, totalAmount: 0 },
+      [ShipmentStatus.DISPATCHED]: { count: 0, totalAmount: 0 },
+      [ShipmentStatus.IN_TRANSIT]: { count: 0, totalAmount: 0 },
+      [ShipmentStatus.OUT_FOR_DELIVERY]: { count: 0, totalAmount: 0 },
+      [ShipmentStatus.DELIVERED]: { count: 0, totalAmount: 0 },
+      [ShipmentStatus.FAILED_DELIVERY]: { count: 0, totalAmount: 0 },
+      [ShipmentStatus.RETURNED]: { count: 0, totalAmount: 0 },
+    };
+
+    for (const o of orders) {
+      if (statusCounts[o.shipmentStatus]) {
+        statusCounts[o.shipmentStatus].count++;
+        statusCounts[o.shipmentStatus].totalAmount += Number(o.grandTotal || 0);
+      }
+    }
+
+    const totalCount = orders.length;
+    const orderedStatuses: ShipmentStatus[] = [
+      ShipmentStatus.UNFULFILLED,
+      ShipmentStatus.PREPARING,
+      ShipmentStatus.DISPATCHED,
+      ShipmentStatus.IN_TRANSIT,
+      ShipmentStatus.OUT_FOR_DELIVERY,
+      ShipmentStatus.DELIVERED,
+      ShipmentStatus.FAILED_DELIVERY,
+      ShipmentStatus.RETURNED,
+    ];
+
+    return orderedStatuses.map((status) => {
+      const data = statusCounts[status];
+      const percentage =
+        totalCount > 0
+          ? Math.round((data.count / totalCount) * 10000) / 100
+          : 0;
+
+      return {
+        status,
+        count: data.count,
+        percentage,
+        totalAmount: Math.round(data.totalAmount * 100) / 100,
+      };
+    });
+  }
+
+  /**
+   * Retrieves order breakdown across Payment statuses (PAID, PENDING, FAILED, REFUNDED)
+   */
+  async getOrdersByPaymentStatus(
+    query: QueryOrdersReportDto,
+  ): Promise<PaymentStatusMetricDto[]> {
+    const where = this.buildOrdersWhereClause(query);
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        paymentStatus: true,
+        grandTotal: true,
+      },
+    });
+
+    const statusCounts: Record<
+      PaymentStatus,
+      { count: number; totalAmount: number }
+    > = {
+      [PaymentStatus.PENDING]: { count: 0, totalAmount: 0 },
+      [PaymentStatus.PAID]: { count: 0, totalAmount: 0 },
+      [PaymentStatus.FAILED]: { count: 0, totalAmount: 0 },
+      [PaymentStatus.REFUNDED]: { count: 0, totalAmount: 0 },
+    };
+
+    for (const o of orders) {
+      if (statusCounts[o.paymentStatus]) {
+        statusCounts[o.paymentStatus].count++;
+        statusCounts[o.paymentStatus].totalAmount += Number(o.grandTotal || 0);
+      }
+    }
+
+    const totalCount = orders.length;
+    const orderedStatuses: PaymentStatus[] = [
+      PaymentStatus.PAID,
+      PaymentStatus.PENDING,
+      PaymentStatus.FAILED,
+      PaymentStatus.REFUNDED,
+    ];
+
+    return orderedStatuses.map((status) => {
+      const data = statusCounts[status];
+      const percentage =
+        totalCount > 0
+          ? Math.round((data.count / totalCount) * 10000) / 100
+          : 0;
+
+      return {
+        status,
+        count: data.count,
+        percentage,
+        totalAmount: Math.round(data.totalAmount * 100) / 100,
+      };
+    });
+  }
+
+  /**
+   * Retrieves regional/geographic breakdown of orders by shipping city
+   */
+  async getOrdersByShippingCity(
+    query: QueryOrdersReportDto,
+    limit = 10,
+  ): Promise<ShippingCityMetricDto[]> {
+    const where = this.buildOrdersWhereClause(query);
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        shippingCity: true,
+        grandTotal: true,
+      },
+    });
+
+    const totalCount = orders.length;
+    const cityMap = new Map<string, { count: number; totalAmount: number }>();
+
+    for (const o of orders) {
+      const city = o.shippingCity ? o.shippingCity.trim() : 'Unspecified';
+      const normalizedCity =
+        city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
+
+      if (!cityMap.has(normalizedCity)) {
+        cityMap.set(normalizedCity, { count: 0, totalAmount: 0 });
+      }
+      const entry = cityMap.get(normalizedCity)!;
+      entry.count++;
+      entry.totalAmount += Number(o.grandTotal || 0);
+    }
+
+    const sorted = Array.from(cityMap.entries())
+      .map(([city, data]) => {
+        const percentage =
+          totalCount > 0
+            ? Math.round((data.count / totalCount) * 10000) / 100
+            : 0;
+        return {
+          city,
+          count: data.count,
+          percentage,
+          totalAmount: Math.round(data.totalAmount * 100) / 100,
+        };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+
+    return sorted;
+  }
+
+  /**
+   * Retrieves fulfillment breakdown across shipping methods & zones
+   */
+  async getOrdersByShippingMethod(
+    query: QueryOrdersReportDto,
+  ): Promise<ShippingMethodMetricDto[]> {
+    const where = this.buildOrdersWhereClause(query);
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      select: {
+        shippingFee: true,
+        shipments: {
+          select: {
+            courierName: true,
+            shippingMethod: {
+              select: {
+                name: true,
+                zone: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    const totalCount = orders.length;
+    const methodMap = new Map<
+      string,
+      { zoneName?: string; count: number; totalShippingFee: number }
+    >();
+
+    for (const o of orders) {
+      const shipment = o.shipments?.[0];
+      const methodName =
+        shipment?.shippingMethod?.name ||
+        shipment?.courierName ||
+        'Standard Delivery';
+      const zoneName = shipment?.shippingMethod?.zone?.name;
+
+      if (!methodMap.has(methodName)) {
+        methodMap.set(methodName, {
+          zoneName,
+          count: 0,
+          totalShippingFee: 0,
+        });
+      }
+
+      const entry = methodMap.get(methodName)!;
+      entry.count++;
+      entry.totalShippingFee += Number(o.shippingFee || 0);
+    }
+
+    return Array.from(methodMap.entries())
+      .map(([methodName, data]) => {
+        const percentage =
+          totalCount > 0
+            ? Math.round((data.count / totalCount) * 10000) / 100
+            : 0;
+        return {
+          methodName,
+          zoneName: data.zoneName,
+          count: data.count,
+          percentage,
+          totalShippingFee: Math.round(data.totalShippingFee * 100) / 100,
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
+   * Retrieves paginated, filtered orders with audit details for the Orders Report data table
+   */
+  async getOrdersList(
+    query: QueryOrdersReportDto,
+  ): Promise<OrdersReportListResponseDto> {
+    const where = this.buildOrdersWhereClause(query);
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.max(1, Math.min(100, Number(query.limit || 15)));
+    const skip = (page - 1) * limit;
+
+    const validSortFields = ['createdAt', 'grandTotal', 'orderNumber'];
+    const sortBy = validSortFields.includes(query.sortBy || '')
+      ? query.sortBy!
+      : 'createdAt';
+    const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
+
+    const [total, orders] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          payments: {
+            select: {
+              method: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+          shipments: {
+            select: {
+              courierName: true,
+              trackingNumber: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+          items: {
+            select: {
+              id: true,
+              productTitle: true,
+              sku: true,
+              variantAttributes: true,
+              unitPrice: true,
+              quantity: true,
+              totalPrice: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: OrdersReportRecordDto[] = orders.map((order) => {
+      const itemsCount = (order.items || []).reduce(
+        (acc, it) => acc + it.quantity,
+        0,
+      );
+
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        createdAt: order.createdAt.toISOString(),
+        customerName: order.recipientName || order.user?.name || 'Customer',
+        customerEmail: order.user?.email || '',
+        recipientPhone: order.recipientPhone,
+        shippingStreet: order.shippingStreet,
+        shippingCity: order.shippingCity,
+        shippingPostalCode: order.shippingPostalCode,
+        orderStatus: order.orderStatus,
+        paymentStatus: order.paymentStatus,
+        shipmentStatus: order.shipmentStatus,
+        paymentMethod: order.payments?.[0]?.method || null,
+        courierName: order.shipments?.[0]?.courierName || null,
+        trackingNumber: order.shipments?.[0]?.trackingNumber || null,
+        itemsCount,
+        subtotal: Number(order.subtotal || 0),
+        discountAmount: Number(order.discountAmount || 0),
+        shippingFee: Number(order.shippingFee || 0),
+        grandTotal: Number(order.grandTotal || 0),
+        items: (order.items || []).map((it) => ({
+          id: it.id,
+          productTitle: it.productTitle,
+          sku: it.sku,
+          variantAttributes: it.variantAttributes,
+          unitPrice: Number(it.unitPrice),
+          quantity: it.quantity,
+          totalPrice: Number(it.totalPrice),
+        })),
+      };
+    });
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
+  /**
+   * Generates formatted CSV string of orders report for instant download
+   */
+  async exportOrdersCsv(query: QueryOrdersReportDto): Promise<string> {
+    const where = this.buildOrdersWhereClause(query);
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 2000, // Export cap for safety
+      include: {
+        user: { select: { name: true, email: true } },
+        payments: {
+          select: { method: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        shipments: {
+          select: { courierName: true, trackingNumber: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        items: { select: { quantity: true } },
+      },
+    });
+
+    const headers = [
+      'Order Number',
+      'Order Date',
+      'Customer Name',
+      'Customer Email',
+      'Contact Phone',
+      'Destination Street',
+      'Destination City',
+      'Postal Code',
+      'Order Status',
+      'Payment Status',
+      'Shipment Status',
+      'Payment Method',
+      'Courier',
+      'Tracking Number',
+      'Total Items',
+      'Subtotal',
+      'Discount',
+      'Shipping Fee',
+      'Grand Total',
+    ];
+
+    const escapeCsv = (str: any) => {
+      if (str === null || str === undefined) return '""';
+      const s = String(str).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+
+    const rows: string[] = [headers.join(',')];
+
+    for (const order of orders) {
+      const grandTotal = Number(order.grandTotal || 0);
+      const subtotal = Number(order.subtotal || 0);
+      const discount = Number(order.discountAmount || 0);
+      const shipping = Number(order.shippingFee || 0);
+      const itemsCount = (order.items || []).reduce(
+        (acc, it) => acc + it.quantity,
+        0,
+      );
+
+      const row = [
+        escapeCsv(order.orderNumber),
+        escapeCsv(order.createdAt.toISOString().slice(0, 19).replace('T', ' ')),
+        escapeCsv(order.recipientName || order.user?.name || 'Customer'),
+        escapeCsv(order.user?.email || ''),
+        escapeCsv(order.recipientPhone),
+        escapeCsv(order.shippingStreet),
+        escapeCsv(order.shippingCity),
+        escapeCsv(order.shippingPostalCode),
+        escapeCsv(order.orderStatus),
+        escapeCsv(order.paymentStatus),
+        escapeCsv(order.shipmentStatus),
+        escapeCsv(order.payments?.[0]?.method || PaymentMethod.CASH_ON_DELIVERY),
+        escapeCsv(order.shipments?.[0]?.courierName || 'N/A'),
+        escapeCsv(order.shipments?.[0]?.trackingNumber || 'N/A'),
+        escapeCsv(itemsCount),
+        escapeCsv(subtotal.toFixed(2)),
+        escapeCsv(discount.toFixed(2)),
+        escapeCsv(shipping.toFixed(2)),
+        escapeCsv(grandTotal.toFixed(2)),
+      ];
+
+      rows.push(row.join(','));
+    }
+
+    return rows.join('\r\n');
+  }
 }
+
