@@ -4,10 +4,15 @@ import { AuthModule } from '../auth/auth.module.js';
 import { ReportsService } from './reports.service.js';
 import { ReportsAdminController } from './reports.admin.controller.js';
 import { ReportsOrdersAdminController } from './reports.orders.admin.controller.js';
+import { ReportsInventoryAdminController } from './reports.inventory.admin.controller.js';
 
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [ReportsAdminController, ReportsOrdersAdminController],
+  controllers: [
+    ReportsAdminController,
+    ReportsOrdersAdminController,
+    ReportsInventoryAdminController,
+  ],
   providers: [ReportsService],
   exports: [ReportsService],
 })

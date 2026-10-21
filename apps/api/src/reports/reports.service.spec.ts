@@ -5,6 +5,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   ShipmentStatus,
+  StockMovementType,
 } from '@prisma/client';
 
 describe('ReportsService', () => {
@@ -21,6 +22,15 @@ describe('ReportsService', () => {
         count: vi.fn(),
       },
       orderItem: {
+        findMany: vi.fn(),
+      },
+      inventory: {
+        findMany: vi.fn(),
+      },
+      stockMovement: {
+        findMany: vi.fn(),
+      },
+      productVariant: {
         findMany: vi.fn(),
       },
     };
@@ -687,6 +697,299 @@ describe('ReportsService', () => {
       expect(csv).toContain('"Dhaka"');
       expect(csv).toContain('"Steadfast"');
       expect(csv).toContain('"4200.00"');
+    });
+  });
+
+  describe('getInventorySummary', () => {
+    it('should aggregate inventory units, valuations, and stock health correctly', async () => {
+      prismaMock.inventory.findMany.mockResolvedValue([
+        {
+          id: 'inv-1',
+          variantId: 'v-1',
+          quantity: 20,
+          reservedQuantity: 5,
+          lowStockThreshold: 5,
+          variant: {
+            productId: 'p-1',
+            regularPrice: '100.00',
+            salePrice: '90.00',
+          },
+        },
+        {
+          id: 'inv-2',
+          variantId: 'v-2',
+          quantity: 3,
+          reservedQuantity: 0,
+          lowStockThreshold: 5,
+          variant: {
+            productId: 'p-2',
+            regularPrice: '50.00',
+            salePrice: null,
+          },
+        },
+        {
+          id: 'inv-3',
+          variantId: 'v-3',
+          quantity: 0,
+          reservedQuantity: 0,
+          lowStockThreshold: 5,
+          variant: {
+            productId: 'p-2',
+            regularPrice: '30.00',
+            salePrice: null,
+          },
+        },
+      ]);
+
+      const summary = await service.getInventorySummary({});
+
+      expect(summary.totalSkus).toBe(3);
+      expect(summary.totalProducts).toBe(2);
+      expect(summary.totalPhysicalUnits).toBe(23);
+      expect(summary.totalReservedUnits).toBe(5);
+      expect(summary.totalAvailableUnits).toBe(18);
+      // Valuation regular: 20*100 + 3*50 + 0*30 = 2150
+      expect(summary.totalValuationRegular).toBe(2150);
+      // Valuation selling: 20*90 + 3*50 + 0*30 = 1950
+      expect(summary.totalValuationSelling).toBe(1950);
+      // Health: inv-1 avail=15 > 5 (in stock), inv-2 avail=3 <= 5 (low stock), inv-3 avail=0 <= 0 (out of stock)
+      expect(summary.inStockCount).toBe(1);
+      expect(summary.lowStockCount).toBe(1);
+      expect(summary.outOfStockCount).toBe(1);
+      expect(summary.currency).toBe('BDT');
+    });
+  });
+
+  describe('getInventoryTimeline', () => {
+    it('should group stock movements by day interval into inflow and outflow', async () => {
+      prismaMock.stockMovement.findMany.mockResolvedValue([
+        {
+          id: 'sm-1',
+          type: StockMovementType.RESTOCK,
+          quantityChange: 50,
+          previousQuantity: 10,
+          newQuantity: 60,
+          createdAt: new Date('2026-10-15T10:00:00Z'),
+        },
+        {
+          id: 'sm-2',
+          type: StockMovementType.ORDER_FULFILL,
+          quantityChange: -10,
+          previousQuantity: 60,
+          newQuantity: 50,
+          createdAt: new Date('2026-10-15T14:00:00Z'),
+        },
+      ]);
+
+      const res = await service.getInventoryTimeline({ interval: 'day' });
+
+      expect(res.timeline.length).toBe(1);
+      expect(res.timeline[0].inflowUnits).toBe(50);
+      expect(res.timeline[0].outflowUnits).toBe(10);
+      expect(res.timeline[0].netChange).toBe(40);
+      expect(res.timeline[0].movementEventsCount).toBe(2);
+    });
+  });
+
+  describe('getInventoryByStatus', () => {
+    it('should categorize inventory into IN_STOCK, LOW_STOCK, and OUT_OF_STOCK metrics', async () => {
+      prismaMock.inventory.findMany.mockResolvedValue([
+        {
+          quantity: 50,
+          reservedQuantity: 5,
+          lowStockThreshold: 10,
+          variant: { regularPrice: '200.00' },
+        },
+        {
+          quantity: 5,
+          reservedQuantity: 0,
+          lowStockThreshold: 10,
+          variant: { regularPrice: '100.00' },
+        },
+      ]);
+
+      const breakdown = await service.getInventoryByStatus({});
+
+      expect(breakdown).toHaveLength(3);
+      const inStock = breakdown.find((b) => b.status === 'IN_STOCK');
+      const lowStock = breakdown.find((b) => b.status === 'LOW_STOCK');
+      expect(inStock?.count).toBe(1);
+      expect(inStock?.totalValuation).toBe(10000);
+      expect(lowStock?.count).toBe(1);
+      expect(lowStock?.totalValuation).toBe(500);
+    });
+  });
+
+  describe('getInventoryByCategory', () => {
+    it('should aggregate inventory units and valuations by category', async () => {
+      prismaMock.inventory.findMany.mockResolvedValue([
+        {
+          quantity: 10,
+          reservedQuantity: 2,
+          lowStockThreshold: 5,
+          variant: {
+            regularPrice: '500.00',
+            product: {
+              category: { id: 'cat-phones', name: 'Smartphones' },
+            },
+          },
+        },
+      ]);
+
+      const res = await service.getInventoryByCategory({});
+
+      expect(res).toHaveLength(1);
+      expect(res[0].categoryName).toBe('Smartphones');
+      expect(res[0].totalUnits).toBe(10);
+      expect(res[0].availableUnits).toBe(8);
+      expect(res[0].totalValuation).toBe(5000);
+    });
+  });
+
+  describe('getInventoryByBrand', () => {
+    it('should aggregate inventory units and valuations by brand', async () => {
+      prismaMock.inventory.findMany.mockResolvedValue([
+        {
+          quantity: 15,
+          reservedQuantity: 1,
+          lowStockThreshold: 5,
+          variant: {
+            regularPrice: '1000.00',
+            product: {
+              brand: { id: 'brand-apple', name: 'Apple' },
+            },
+          },
+        },
+      ]);
+
+      const res = await service.getInventoryByBrand({});
+
+      expect(res).toHaveLength(1);
+      expect(res[0].brandName).toBe('Apple');
+      expect(res[0].totalUnits).toBe(15);
+      expect(res[0].totalValuation).toBe(15000);
+    });
+  });
+
+  describe('getInventoryMovementsByType', () => {
+    it('should group movements by StockMovementType', async () => {
+      prismaMock.stockMovement.findMany.mockResolvedValue([
+        { type: StockMovementType.RESTOCK, quantityChange: 200 },
+        { type: StockMovementType.DAMAGED, quantityChange: -5 },
+      ]);
+
+      const res = await service.getInventoryMovementsByType({});
+
+      const restock = res.find((r) => r.type === StockMovementType.RESTOCK);
+      const damaged = res.find((r) => r.type === StockMovementType.DAMAGED);
+      expect(restock?.count).toBe(1);
+      expect(restock?.quantityIn).toBe(200);
+      expect(damaged?.count).toBe(1);
+      expect(damaged?.quantityOut).toBe(5);
+    });
+  });
+
+  describe('getInventoryCriticalAlerts', () => {
+    it('should return items below low stock threshold ordered by deficit', async () => {
+      prismaMock.inventory.findMany.mockResolvedValue([
+        {
+          variantId: 'v-crit-1',
+          quantity: 1,
+          reservedQuantity: 1, // available = 0
+          lowStockThreshold: 5, // deficit = 5
+          variant: {
+            sku: 'CRIT-1',
+            product: { title: 'Critical Item 1', category: { name: 'Cat' } },
+          },
+        },
+        {
+          variantId: 'v-safe',
+          quantity: 50,
+          reservedQuantity: 0,
+          lowStockThreshold: 5,
+          variant: {
+            sku: 'SAFE-1',
+            product: { title: 'Safe Item', category: { name: 'Cat' } },
+          },
+        },
+      ]);
+
+      const alerts = await service.getInventoryCriticalAlerts({});
+
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0].sku).toBe('CRIT-1');
+      expect(alerts[0].status).toBe('OUT_OF_STOCK');
+      expect(alerts[0].deficit).toBe(5);
+    });
+  });
+
+  describe('getInventoryList', () => {
+    it('should return sorted and paginated inventory records', async () => {
+      prismaMock.inventory.findMany.mockResolvedValue([
+        {
+          id: 'inv-item-1',
+          variantId: 'v-list-1',
+          quantity: 12,
+          reservedQuantity: 2,
+          lowStockThreshold: 5,
+          updatedAt: new Date('2026-10-21T10:00:00Z'),
+          variant: {
+            sku: 'SKU-001',
+            regularPrice: '150.00',
+            salePrice: null,
+            product: {
+              id: 'p-1',
+              title: 'Product One',
+              slug: 'product-one',
+              category: { name: 'Electronics' },
+            },
+            attributes: [],
+          },
+        },
+      ]);
+
+      const list = await service.getInventoryList({ page: 1, limit: 10 });
+
+      expect(list.total).toBe(1);
+      expect(list.items[0].sku).toBe('SKU-001');
+      expect(list.items[0].availableQuantity).toBe(10);
+      expect(list.items[0].stockStatus).toBe('IN_STOCK');
+      expect(list.items[0].totalValuation).toBe(1800);
+    });
+  });
+
+  describe('exportInventoryCsv', () => {
+    it('should generate CSV with SKU, Category, and Valuation', async () => {
+      prismaMock.inventory.findMany.mockResolvedValue([
+        {
+          id: 'inv-item-1',
+          variantId: 'v-list-1',
+          quantity: 12,
+          reservedQuantity: 2,
+          lowStockThreshold: 5,
+          updatedAt: new Date('2026-10-21T10:00:00Z'),
+          variant: {
+            sku: 'SKU-CSV',
+            regularPrice: '150.00',
+            salePrice: null,
+            product: {
+              id: 'p-1',
+              title: 'Product CSV',
+              slug: 'product-csv',
+              category: { name: 'Gadgets' },
+            },
+            attributes: [],
+          },
+        },
+      ]);
+
+      const csv = await service.exportInventoryCsv({});
+
+      expect(csv).toContain('SKU,Product Title,Category,Brand,Barcode,Stock Status');
+      expect(csv).toContain('"SKU-CSV"');
+      expect(csv).toContain('"Product CSV"');
+      expect(csv).toContain('"Gadgets"');
+      expect(csv).toContain('"1800.00"');
     });
   });
 });

@@ -4,31 +4,45 @@ import {
   PaymentMethod,
   PaymentStatus,
   ShipmentStatus,
+  StockMovementType,
   type Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type {
-  CategorySalesBreakdownDto,
-  OrderStatusBreakdownDto,
-  PaginatedSalesOrdersResponseDto,
-  PaymentMethodBreakdownDto,
-  QuerySalesReportDto,
-  SalesOrderRecordDto,
-  SalesSummaryResponseDto,
-  SalesTimelinePointDto,
-  SalesTimelineResponseDto,
-  TopSellingProductDto,
-  QueryOrdersReportDto,
-  OrdersSummaryResponseDto,
-  OrdersTimelineResponseDto,
-  OrdersTimelinePointDto,
-  OrderStatusMetricDto,
-  ShipmentStatusMetricDto,
-  PaymentStatusMetricDto,
-  ShippingCityMetricDto,
-  ShippingMethodMetricDto,
-  OrdersReportListResponseDto,
-  OrdersReportRecordDto,
+import {
+  InventoryStockStatusFilter,
+  type CategorySalesBreakdownDto,
+  type OrderStatusBreakdownDto,
+  type PaginatedSalesOrdersResponseDto,
+  type PaymentMethodBreakdownDto,
+  type QuerySalesReportDto,
+  type SalesOrderRecordDto,
+  type SalesSummaryResponseDto,
+  type SalesTimelinePointDto,
+  type SalesTimelineResponseDto,
+  type TopSellingProductDto,
+  type QueryOrdersReportDto,
+  type OrdersSummaryResponseDto,
+  type OrdersTimelineResponseDto,
+  type OrdersTimelinePointDto,
+  type OrderStatusMetricDto,
+  type ShipmentStatusMetricDto,
+  type PaymentStatusMetricDto,
+  type ShippingCityMetricDto,
+  type ShippingMethodMetricDto,
+  type OrdersReportListResponseDto,
+  type OrdersReportRecordDto,
+  type QueryInventoryReportDto,
+  type InventorySummaryResponseDto,
+  type InventoryTimelineResponseDto,
+  type InventoryTimelinePointDto,
+  type InventoryStockStatusMetricDto,
+  type InventoryCategoryMetricDto,
+  type InventoryBrandMetricDto,
+  type StockMovementTypeMetricDto,
+  type TopMoverItemDto,
+  type CriticalAlertItemDto,
+  type InventoryReportListResponseDto,
+  type InventoryReportRecordDto,
 } from './dto/index.js';
 
 @Injectable()
@@ -1646,6 +1660,1114 @@ export class ReportsService {
         escapeCsv(grandTotal.toFixed(2)),
       ];
 
+      rows.push(row.join(','));
+    }
+
+    return rows.join('\r\n');
+  }
+
+  // =========================================================================
+  // INVENTORY REPORT IMPLEMENTATION
+  // =========================================================================
+
+  /**
+   * Helper to construct Prisma where criteria for inventory queries
+   */
+  private buildInventoryWhereClause(
+    query: QueryInventoryReportDto,
+  ): Prisma.InventoryWhereInput {
+    const where: Prisma.InventoryWhereInput = {};
+    const variantWhere: Prisma.ProductVariantWhereInput = {};
+
+    // Search filter across variant SKU, barcode, or product title
+    if (query.search && query.search.trim() !== '') {
+      const term = query.search.trim();
+      variantWhere.OR = [
+        { sku: { contains: term, mode: 'insensitive' } },
+        { barcode: { contains: term, mode: 'insensitive' } },
+        { product: { title: { contains: term, mode: 'insensitive' } } },
+      ];
+    }
+
+    const productWhere: Prisma.ProductWhereInput = {};
+    if (query.categoryId) {
+      productWhere.categoryId = query.categoryId;
+    }
+    if (query.brandId) {
+      productWhere.brandId = query.brandId;
+    }
+    if (Object.keys(productWhere).length > 0) {
+      variantWhere.product = productWhere;
+    }
+
+    if (Object.keys(variantWhere).length > 0) {
+      where.variant = variantWhere;
+    }
+
+    // Quantity range filters
+    if (query.minQuantity !== undefined && query.minQuantity !== null) {
+      where.quantity = {
+        ...(typeof where.quantity === 'object' ? where.quantity : {}),
+        gte: Number(query.minQuantity),
+      };
+    }
+
+    if (query.maxQuantity !== undefined && query.maxQuantity !== null) {
+      where.quantity = {
+        ...(typeof where.quantity === 'object' ? where.quantity : {}),
+        lte: Number(query.maxQuantity),
+      };
+    }
+
+    return where;
+  }
+
+  /**
+   * Check whether an inventory record matches the selected stock status filter
+   */
+  private matchesStockStatus(
+    quantity: number,
+    reservedQuantity: number,
+    lowStockThreshold: number,
+    statusFilter?: InventoryStockStatusFilter | string,
+  ): boolean {
+    if (!statusFilter || statusFilter === InventoryStockStatusFilter.ALL) {
+      return true;
+    }
+    const available = quantity - reservedQuantity;
+    if (statusFilter === InventoryStockStatusFilter.OUT_OF_STOCK) {
+      return available <= 0;
+    }
+    if (statusFilter === InventoryStockStatusFilter.LOW_STOCK) {
+      return available > 0 && available <= lowStockThreshold;
+    }
+    if (statusFilter === InventoryStockStatusFilter.IN_STOCK) {
+      return available > lowStockThreshold;
+    }
+    return true;
+  }
+
+  /**
+   * Retrieve high-level inventory valuation, unit balances, and stock health KPIs
+   */
+  async getInventorySummary(
+    query: QueryInventoryReportDto,
+  ): Promise<InventorySummaryResponseDto> {
+    const where = this.buildInventoryWhereClause(query);
+
+    const currencySetting = await this.prisma.storeSetting.findUnique({
+      where: { key: 'store_currency' },
+    });
+    const currency = currencySetting?.value || 'BDT';
+
+    const rawItems = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        variant: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                categoryId: true,
+                brandId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const items = rawItems.filter((item) =>
+      this.matchesStockStatus(
+        item.quantity,
+        item.reservedQuantity,
+        item.lowStockThreshold,
+        query.stockStatus,
+      ),
+    );
+
+    const productIdsSet = new Set<string>();
+    let totalPhysicalUnits = 0;
+    let totalReservedUnits = 0;
+    let totalAvailableUnits = 0;
+    let totalValuationRegular = 0;
+    let totalValuationSelling = 0;
+    let potentialRevenue = 0;
+    let inStockCount = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+
+    for (const item of items) {
+      const variant = item.variant;
+      if (variant?.productId) {
+        productIdsSet.add(variant.productId);
+      }
+
+      const available = item.quantity - item.reservedQuantity;
+      totalPhysicalUnits += item.quantity;
+      totalReservedUnits += item.reservedQuantity;
+      totalAvailableUnits += available;
+
+      const regPrice = Number(variant?.regularPrice || 0);
+      const salePrice =
+        variant?.salePrice !== null && variant?.salePrice !== undefined
+          ? Number(variant.salePrice)
+          : regPrice;
+
+      totalValuationRegular += item.quantity * regPrice;
+      totalValuationSelling += item.quantity * salePrice;
+      potentialRevenue += Math.max(0, available) * salePrice;
+
+      if (available <= 0) {
+        outOfStockCount++;
+      } else if (available <= item.lowStockThreshold) {
+        lowStockCount++;
+      } else {
+        inStockCount++;
+      }
+    }
+
+    const totalSkus = items.length;
+    const inStockPercentage =
+      totalSkus > 0 ? Math.round((inStockCount / totalSkus) * 10000) / 100 : 0;
+    const lowStockPercentage =
+      totalSkus > 0 ? Math.round((lowStockCount / totalSkus) * 10000) / 100 : 0;
+    const outOfStockPercentage =
+      totalSkus > 0
+        ? Math.round((outOfStockCount / totalSkus) * 10000) / 100
+        : 0;
+    const averageUnitValue =
+      totalPhysicalUnits > 0
+        ? Math.round((totalValuationRegular / totalPhysicalUnits) * 100) / 100
+        : 0;
+
+    return {
+      totalSkus,
+      totalProducts: productIdsSet.size,
+      totalPhysicalUnits,
+      totalReservedUnits,
+      totalAvailableUnits,
+      totalValuationRegular: Math.round(totalValuationRegular * 100) / 100,
+      totalValuationSelling: Math.round(totalValuationSelling * 100) / 100,
+      potentialRevenue: Math.round(potentialRevenue * 100) / 100,
+      inStockCount,
+      inStockPercentage,
+      lowStockCount,
+      lowStockPercentage,
+      outOfStockCount,
+      outOfStockPercentage,
+      averageUnitValue,
+      currency,
+    };
+  }
+
+  /**
+   * Retrieve stock movement turnover timeline grouped by interval
+   */
+  async getInventoryTimeline(
+    query: QueryInventoryReportDto,
+  ): Promise<InventoryTimelineResponseDto> {
+    const interval = query.interval || 'day';
+
+    const movementWhere: Prisma.StockMovementWhereInput = {};
+
+    // Date range filter: default to last 30 days if not set
+    if (query.startDate || query.endDate) {
+      movementWhere.createdAt = {};
+      if (query.startDate) {
+        movementWhere.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        movementWhere.createdAt.lte = new Date(query.endDate);
+      }
+    } else {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      movementWhere.createdAt = { gte: thirtyDaysAgo };
+    }
+
+    // Link variant filters
+    const variantWhere: Prisma.ProductVariantWhereInput = {};
+    if (query.search && query.search.trim()) {
+      const term = query.search.trim();
+      variantWhere.OR = [
+        { sku: { contains: term, mode: 'insensitive' } },
+        { barcode: { contains: term, mode: 'insensitive' } },
+        { product: { title: { contains: term, mode: 'insensitive' } } },
+      ];
+    }
+    const productWhere: Prisma.ProductWhereInput = {};
+    if (query.categoryId) {
+      productWhere.categoryId = query.categoryId;
+    }
+    if (query.brandId) {
+      productWhere.brandId = query.brandId;
+    }
+    if (Object.keys(productWhere).length > 0) {
+      variantWhere.product = productWhere;
+    }
+
+    if (Object.keys(variantWhere).length > 0) {
+      movementWhere.variant = variantWhere;
+    }
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where: movementWhere,
+      select: {
+        id: true,
+        type: true,
+        quantityChange: true,
+        previousQuantity: true,
+        newQuantity: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const bucketMap = new Map<string, InventoryTimelinePointDto>();
+
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+
+    for (const m of movements) {
+      const d = new Date(m.createdAt);
+      let key = '';
+      let label = '';
+
+      if (interval === 'month') {
+        const y = d.getFullYear();
+        const mon = String(d.getMonth() + 1).padStart(2, '0');
+        key = `${y}-${mon}`;
+        label = `${monthNames[d.getMonth()]} ${y}`;
+      } else if (interval === 'week') {
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d);
+        monday.setDate(diff);
+        const y = monday.getFullYear();
+        const mon = String(monday.getMonth() + 1).padStart(2, '0');
+        const dt = String(monday.getDate()).padStart(2, '0');
+        key = `${y}-W${mon}-${dt}`;
+        label = `Wk ${dt} ${monthNames[monday.getMonth()]}`;
+      } else {
+        const y = d.getFullYear();
+        const mon = String(d.getMonth() + 1).padStart(2, '0');
+        const dt = String(d.getDate()).padStart(2, '0');
+        key = `${y}-${mon}-${dt}`;
+        label = `${monthNames[d.getMonth()]} ${dt}, ${y}`;
+      }
+
+      if (!bucketMap.has(key)) {
+        bucketMap.set(key, {
+          date: key,
+          label,
+          inflowUnits: 0,
+          outflowUnits: 0,
+          netChange: 0,
+          adjustmentsUnits: 0,
+          movementEventsCount: 0,
+        });
+      }
+
+      const point = bucketMap.get(key)!;
+      point.movementEventsCount++;
+
+      const qty = Math.abs(m.quantityChange);
+
+      switch (m.type) {
+        case StockMovementType.INITIAL:
+        case StockMovementType.RESTOCK:
+        case StockMovementType.CANCEL_RESTORE:
+        case StockMovementType.RETURN_RESTORE:
+          point.inflowUnits += qty;
+          point.netChange += qty;
+          break;
+        case StockMovementType.PURCHASE_RESERVE:
+        case StockMovementType.ORDER_FULFILL:
+        case StockMovementType.DAMAGED:
+          point.outflowUnits += qty;
+          point.netChange -= qty;
+          break;
+        case StockMovementType.MANUAL_ADJUSTMENT:
+          point.adjustmentsUnits += m.quantityChange;
+          point.netChange += m.quantityChange;
+          if (m.quantityChange > 0) {
+            point.inflowUnits += m.quantityChange;
+          } else {
+            point.outflowUnits += Math.abs(m.quantityChange);
+          }
+          break;
+      }
+    }
+
+    const timeline = Array.from(bucketMap.values());
+    return {
+      timeline,
+      interval,
+    };
+  }
+
+  /**
+   * Retrieve inventory status breakdown (In Stock, Low Stock, Out of Stock)
+   */
+  async getInventoryByStatus(
+    query: QueryInventoryReportDto,
+  ): Promise<InventoryStockStatusMetricDto[]> {
+    const where = this.buildInventoryWhereClause(query);
+
+    const items = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        variant: {
+          select: {
+            regularPrice: true,
+          },
+        },
+      },
+    });
+
+    let inStockCount = 0;
+    let inStockUnits = 0;
+    let inStockValuation = 0;
+
+    let lowStockCount = 0;
+    let lowStockUnits = 0;
+    let lowStockValuation = 0;
+
+    let outOfStockCount = 0;
+    let outOfStockUnits = 0;
+    let outOfStockValuation = 0;
+
+    for (const item of items) {
+      const available = item.quantity - item.reservedQuantity;
+      const regPrice = Number(item.variant?.regularPrice || 0);
+      const val = item.quantity * regPrice;
+
+      if (available <= 0) {
+        outOfStockCount++;
+        outOfStockUnits += item.quantity;
+        outOfStockValuation += val;
+      } else if (available <= item.lowStockThreshold) {
+        lowStockCount++;
+        lowStockUnits += item.quantity;
+        lowStockValuation += val;
+      } else {
+        inStockCount++;
+        inStockUnits += item.quantity;
+        inStockValuation += val;
+      }
+    }
+
+    const total = items.length || 1;
+
+    return [
+      {
+        status: 'IN_STOCK',
+        count: inStockCount,
+        percentage: Math.round((inStockCount / total) * 10000) / 100,
+        totalUnits: inStockUnits,
+        totalValuation: Math.round(inStockValuation * 100) / 100,
+      },
+      {
+        status: 'LOW_STOCK',
+        count: lowStockCount,
+        percentage: Math.round((lowStockCount / total) * 10000) / 100,
+        totalUnits: lowStockUnits,
+        totalValuation: Math.round(lowStockValuation * 100) / 100,
+      },
+      {
+        status: 'OUT_OF_STOCK',
+        count: outOfStockCount,
+        percentage: Math.round((outOfStockCount / total) * 10000) / 100,
+        totalUnits: outOfStockUnits,
+        totalValuation: Math.round(outOfStockValuation * 100) / 100,
+      },
+    ];
+  }
+
+  /**
+   * Retrieve inventory breakdown grouped by Category
+   */
+  async getInventoryByCategory(
+    query: QueryInventoryReportDto,
+  ): Promise<InventoryCategoryMetricDto[]> {
+    const where = this.buildInventoryWhereClause(query);
+
+    const items = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        variant: {
+          include: {
+            product: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const categoryMap = new Map<
+      string,
+      {
+        categoryId: string;
+        categoryName: string;
+        skuCount: number;
+        totalUnits: number;
+        availableUnits: number;
+        reservedUnits: number;
+        totalValuation: number;
+      }
+    >();
+
+    let grandValuation = 0;
+
+    for (const item of items) {
+      if (
+        !this.matchesStockStatus(
+          item.quantity,
+          item.reservedQuantity,
+          item.lowStockThreshold,
+          query.stockStatus,
+        )
+      ) {
+        continue;
+      }
+
+      const cat = item.variant?.product?.category;
+      const catId = cat?.id || 'uncategorized';
+      const catName = cat?.name || 'Uncategorized';
+
+      const available = item.quantity - item.reservedQuantity;
+      const regPrice = Number(item.variant?.regularPrice || 0);
+      const val = item.quantity * regPrice;
+      grandValuation += val;
+
+      if (!categoryMap.has(catId)) {
+        categoryMap.set(catId, {
+          categoryId: catId,
+          categoryName: catName,
+          skuCount: 0,
+          totalUnits: 0,
+          availableUnits: 0,
+          reservedUnits: 0,
+          totalValuation: 0,
+        });
+      }
+
+      const entry = categoryMap.get(catId)!;
+      entry.skuCount++;
+      entry.totalUnits += item.quantity;
+      entry.availableUnits += available;
+      entry.reservedUnits += item.reservedQuantity;
+      entry.totalValuation += val;
+    }
+
+    const result: InventoryCategoryMetricDto[] = [];
+    const divisor = grandValuation > 0 ? grandValuation : 1;
+
+    for (const entry of categoryMap.values()) {
+      result.push({
+        categoryId: entry.categoryId,
+        categoryName: entry.categoryName,
+        skuCount: entry.skuCount,
+        totalUnits: entry.totalUnits,
+        availableUnits: entry.availableUnits,
+        reservedUnits: entry.reservedUnits,
+        totalValuation: Math.round(entry.totalValuation * 100) / 100,
+        percentage:
+          Math.round((entry.totalValuation / divisor) * 10000) / 100,
+      });
+    }
+
+    result.sort((a, b) => b.totalValuation - a.totalValuation);
+    return result;
+  }
+
+  /**
+   * Retrieve inventory breakdown grouped by Brand
+   */
+  async getInventoryByBrand(
+    query: QueryInventoryReportDto,
+  ): Promise<InventoryBrandMetricDto[]> {
+    const where = this.buildInventoryWhereClause(query);
+
+    const items = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        variant: {
+          include: {
+            product: {
+              include: {
+                brand: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const brandMap = new Map<
+      string,
+      {
+        brandId?: string;
+        brandName: string;
+        skuCount: number;
+        totalUnits: number;
+        availableUnits: number;
+        reservedUnits: number;
+        totalValuation: number;
+      }
+    >();
+
+    let grandValuation = 0;
+
+    for (const item of items) {
+      if (
+        !this.matchesStockStatus(
+          item.quantity,
+          item.reservedQuantity,
+          item.lowStockThreshold,
+          query.stockStatus,
+        )
+      ) {
+        continue;
+      }
+
+      const brand = item.variant?.product?.brand;
+      const brandId = brand?.id || 'no-brand';
+      const brandName = brand?.name || 'No Brand';
+
+      const available = item.quantity - item.reservedQuantity;
+      const regPrice = Number(item.variant?.regularPrice || 0);
+      const val = item.quantity * regPrice;
+      grandValuation += val;
+
+      if (!brandMap.has(brandId)) {
+        brandMap.set(brandId, {
+          brandId: brand?.id,
+          brandName,
+          skuCount: 0,
+          totalUnits: 0,
+          availableUnits: 0,
+          reservedUnits: 0,
+          totalValuation: 0,
+        });
+      }
+
+      const entry = brandMap.get(brandId)!;
+      entry.skuCount++;
+      entry.totalUnits += item.quantity;
+      entry.availableUnits += available;
+      entry.reservedUnits += item.reservedQuantity;
+      entry.totalValuation += val;
+    }
+
+    const result: InventoryBrandMetricDto[] = [];
+    const divisor = grandValuation > 0 ? grandValuation : 1;
+
+    for (const entry of brandMap.values()) {
+      result.push({
+        brandId: entry.brandId,
+        brandName: entry.brandName,
+        skuCount: entry.skuCount,
+        totalUnits: entry.totalUnits,
+        availableUnits: entry.availableUnits,
+        reservedUnits: entry.reservedUnits,
+        totalValuation: Math.round(entry.totalValuation * 100) / 100,
+        percentage:
+          Math.round((entry.totalValuation / divisor) * 10000) / 100,
+      });
+    }
+
+    result.sort((a, b) => b.totalValuation - a.totalValuation);
+    return result;
+  }
+
+  /**
+   * Retrieve stock movements breakdown by movement type
+   */
+  async getInventoryMovementsByType(
+    query: QueryInventoryReportDto,
+  ): Promise<StockMovementTypeMetricDto[]> {
+    const movementWhere: Prisma.StockMovementWhereInput = {};
+
+    if (query.startDate || query.endDate) {
+      movementWhere.createdAt = {};
+      if (query.startDate) {
+        movementWhere.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        movementWhere.createdAt.lte = new Date(query.endDate);
+      }
+    }
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where: movementWhere,
+      select: {
+        type: true,
+        quantityChange: true,
+      },
+    });
+
+    const typeMap = new Map<
+      StockMovementType,
+      { count: number; inUnits: number; outUnits: number; netUnits: number }
+    >();
+
+    // Initialise all enum values
+    for (const t of Object.values(StockMovementType)) {
+      typeMap.set(t, { count: 0, inUnits: 0, outUnits: 0, netUnits: 0 });
+    }
+
+    for (const m of movements) {
+      const entry = typeMap.get(m.type);
+      if (!entry) continue;
+
+      entry.count++;
+      const qty = Math.abs(m.quantityChange);
+
+      switch (m.type) {
+        case StockMovementType.INITIAL:
+        case StockMovementType.RESTOCK:
+        case StockMovementType.CANCEL_RESTORE:
+        case StockMovementType.RETURN_RESTORE:
+          entry.inUnits += qty;
+          entry.netUnits += qty;
+          break;
+        case StockMovementType.PURCHASE_RESERVE:
+        case StockMovementType.ORDER_FULFILL:
+        case StockMovementType.DAMAGED:
+          entry.outUnits += qty;
+          entry.netUnits -= qty;
+          break;
+        case StockMovementType.MANUAL_ADJUSTMENT:
+          entry.netUnits += m.quantityChange;
+          if (m.quantityChange > 0) {
+            entry.inUnits += m.quantityChange;
+          } else {
+            entry.outUnits += Math.abs(m.quantityChange);
+          }
+          break;
+      }
+    }
+
+    const result: StockMovementTypeMetricDto[] = [];
+    for (const [type, data] of typeMap.entries()) {
+      result.push({
+        type,
+        count: data.count,
+        quantityIn: data.inUnits,
+        quantityOut: data.outUnits,
+        netQuantity: data.netUnits,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Retrieve fast-moving SKUs with highest deductions/orders during period
+   */
+  async getInventoryTopMovers(
+    query: QueryInventoryReportDto,
+    limit = 10,
+  ): Promise<TopMoverItemDto[]> {
+    const movementWhere: Prisma.StockMovementWhereInput = {
+      type: {
+        in: [
+          StockMovementType.ORDER_FULFILL,
+          StockMovementType.PURCHASE_RESERVE,
+        ],
+      },
+    };
+
+    if (query.startDate || query.endDate) {
+      movementWhere.createdAt = {};
+      if (query.startDate) {
+        movementWhere.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        movementWhere.createdAt.lte = new Date(query.endDate);
+      }
+    }
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where: movementWhere,
+      select: {
+        variantId: true,
+        quantityChange: true,
+      },
+    });
+
+    const moverMap = new Map<
+      string,
+      { unitsDeducted: number; movementCount: number }
+    >();
+
+    for (const m of movements) {
+      const current = moverMap.get(m.variantId) || {
+        unitsDeducted: 0,
+        movementCount: 0,
+      };
+      current.unitsDeducted += Math.abs(m.quantityChange);
+      current.movementCount++;
+      moverMap.set(m.variantId, current);
+    }
+
+    const sortedVariantIds = Array.from(moverMap.entries())
+      .sort((a, b) => b[1].unitsDeducted - a[1].unitsDeducted)
+      .slice(0, limit);
+
+    if (sortedVariantIds.length === 0) {
+      return [];
+    }
+
+    const variantDetails = await this.prisma.productVariant.findMany({
+      where: {
+        id: { in: sortedVariantIds.map(([vid]) => vid) },
+      },
+      include: {
+        product: {
+          include: {
+            category: true,
+          },
+        },
+        image: true,
+        inventory: true,
+      },
+    });
+
+    const variantLookup = new Map<string, any>(
+      variantDetails.map((v) => [v.id, v]),
+    );
+
+    const result: TopMoverItemDto[] = [];
+    for (const [variantId, stats] of sortedVariantIds) {
+      const v = variantLookup.get(variantId);
+      if (!v) continue;
+
+      const thumb =
+        v.imageUrl ||
+        v.image?.imageUrl ||
+        v.product?.thumbnailUrl ||
+        undefined;
+
+      const avail = v.inventory
+        ? v.inventory.quantity - v.inventory.reservedQuantity
+        : 0;
+
+      result.push({
+        variantId: v.id,
+        sku: v.sku,
+        productTitle: v.product?.title || '',
+        categoryName: v.product?.category?.name || 'Uncategorized',
+        thumbnailUrl: thumb,
+        currentQuantity: avail,
+        unitsDeducted: stats.unitsDeducted,
+        movementCount: stats.movementCount,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Retrieve depleted or critically low-stock SKUs requiring immediate warehouse restock
+   */
+  async getInventoryCriticalAlerts(
+    query: QueryInventoryReportDto,
+    limit = 10,
+  ): Promise<CriticalAlertItemDto[]> {
+    const where = this.buildInventoryWhereClause(query);
+
+    const items = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        variant: {
+          include: {
+            product: {
+              include: {
+                category: true,
+              },
+            },
+            image: true,
+          },
+        },
+      },
+    });
+
+    const criticalItems: CriticalAlertItemDto[] = [];
+
+    for (const item of items) {
+      const avail = item.quantity - item.reservedQuantity;
+      if (avail > item.lowStockThreshold) {
+        continue;
+      }
+
+      const v = item.variant;
+      const thumb =
+        v?.imageUrl ||
+        v?.image?.imageUrl ||
+        v?.product?.thumbnailUrl ||
+        undefined;
+
+      const deficit = Math.max(0, item.lowStockThreshold - avail);
+
+      criticalItems.push({
+        variantId: item.variantId,
+        sku: v?.sku || '',
+        productTitle: v?.product?.title || '',
+        categoryName: v?.product?.category?.name || 'Uncategorized',
+        thumbnailUrl: thumb,
+        quantity: item.quantity,
+        reservedQuantity: item.reservedQuantity,
+        availableQuantity: avail,
+        lowStockThreshold: item.lowStockThreshold,
+        deficit,
+        status: avail <= 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK',
+      });
+    }
+
+    // Sort by lowest available quantity first, then largest deficit
+    criticalItems.sort((a, b) => {
+      if (a.availableQuantity !== b.availableQuantity) {
+        return a.availableQuantity - b.availableQuantity;
+      }
+      return b.deficit - a.deficit;
+    });
+
+    return criticalItems.slice(0, limit);
+  }
+
+  /**
+   * Retrieve paginated inventory valuation and status list
+   */
+  async getInventoryList(
+    query: QueryInventoryReportDto,
+  ): Promise<InventoryReportListResponseDto> {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.max(1, Math.min(100, query.limit || 15));
+    const where = this.buildInventoryWhereClause(query);
+
+    const rawItems = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        variant: {
+          include: {
+            product: {
+              include: {
+                category: true,
+                brand: true,
+              },
+            },
+            image: true,
+            attributes: {
+              include: {
+                attributeValue: {
+                  include: {
+                    attribute: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Map and filter
+    const records: InventoryReportRecordDto[] = [];
+
+    for (const inv of rawItems) {
+      const avail = inv.quantity - inv.reservedQuantity;
+      if (
+        !this.matchesStockStatus(
+          inv.quantity,
+          inv.reservedQuantity,
+          inv.lowStockThreshold,
+          query.stockStatus,
+        )
+      ) {
+        continue;
+      }
+
+      const v = inv.variant;
+      const p = v?.product;
+      const regPrice = Number(v?.regularPrice || 0);
+      const salePrice =
+        v?.salePrice !== null && v?.salePrice !== undefined
+          ? Number(v.salePrice)
+          : undefined;
+      const effectivePrice = salePrice !== undefined ? salePrice : regPrice;
+
+      const stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' =
+        avail <= 0
+          ? 'OUT_OF_STOCK'
+          : avail <= inv.lowStockThreshold
+            ? 'LOW_STOCK'
+            : 'IN_STOCK';
+
+      const thumb =
+        v?.imageUrl ||
+        v?.image?.imageUrl ||
+        p?.thumbnailUrl ||
+        undefined;
+
+      const attrsFormatted = (v?.attributes || [])
+        .map(
+          (a) =>
+            `${a.attributeValue?.attribute?.name || ''}: ${
+              a.attributeValue?.label || a.attributeValue?.value || ''
+            }`,
+        )
+        .filter(Boolean)
+        .join(', ');
+
+      records.push({
+        variantId: inv.variantId,
+        sku: v?.sku || '',
+        barcode: v?.barcode || undefined,
+        productId: p?.id || '',
+        productTitle: p?.title || '',
+        productSlug: p?.slug || '',
+        categoryName: p?.category?.name || 'Uncategorized',
+        brandName: p?.brand?.name || undefined,
+        thumbnailUrl: thumb,
+        regularPrice: Math.round(regPrice * 100) / 100,
+        salePrice: salePrice !== undefined ? Math.round(salePrice * 100) / 100 : undefined,
+        effectivePrice: Math.round(effectivePrice * 100) / 100,
+        quantity: inv.quantity,
+        reservedQuantity: inv.reservedQuantity,
+        availableQuantity: avail,
+        lowStockThreshold: inv.lowStockThreshold,
+        stockStatus,
+        totalValuation: Math.round(inv.quantity * regPrice * 100) / 100,
+        attributes: attrsFormatted || undefined,
+        updatedAt: inv.updatedAt.toISOString(),
+      });
+    }
+
+    // Sort records
+    const sortBy = query.sortBy || 'updatedAt';
+    const isAsc = query.sortOrder === 'asc';
+
+    records.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'quantity':
+          comparison = a.quantity - b.quantity;
+          break;
+        case 'availableQuantity':
+          comparison = a.availableQuantity - b.availableQuantity;
+          break;
+        case 'reservedQuantity':
+          comparison = a.reservedQuantity - b.reservedQuantity;
+          break;
+        case 'totalValuation':
+          comparison = a.totalValuation - b.totalValuation;
+          break;
+        case 'regularPrice':
+          comparison = a.regularPrice - b.regularPrice;
+          break;
+        case 'productTitle':
+          comparison = a.productTitle.localeCompare(b.productTitle);
+          break;
+        case 'sku':
+          comparison = a.sku.localeCompare(b.sku);
+          break;
+        case 'updatedAt':
+        default:
+          comparison =
+            new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          break;
+      }
+      return isAsc ? comparison : -comparison;
+    });
+
+    const total = records.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const skip = (page - 1) * limit;
+    const paginatedItems = records.slice(skip, skip + limit);
+
+    return {
+      items: paginatedItems,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
+  /**
+   * Export filtered inventory valuation and status report in CSV format
+   */
+  async exportInventoryCsv(
+    query: QueryInventoryReportDto,
+  ): Promise<string> {
+    const listResponse = await this.getInventoryList({
+      ...query,
+      page: 1,
+      limit: 10000,
+    });
+
+    const headers = [
+      'SKU',
+      'Product Title',
+      'Category',
+      'Brand',
+      'Barcode',
+      'Stock Status',
+      'On-Hand Qty',
+      'Reserved Qty',
+      'Available Qty',
+      'Low Stock Threshold',
+      'Regular Price',
+      'Sale Price',
+      'Line Valuation',
+      'Variant Attributes',
+      'Last Updated',
+    ];
+
+    const escapeCsv = (str: any) => {
+      if (str === null || str === undefined) return '""';
+      const s = String(str).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+
+    const rows: string[] = [headers.join(',')];
+
+    for (const item of listResponse.items) {
+      const row = [
+        escapeCsv(item.sku),
+        escapeCsv(item.productTitle),
+        escapeCsv(item.categoryName),
+        escapeCsv(item.brandName || 'N/A'),
+        escapeCsv(item.barcode || ''),
+        escapeCsv(item.stockStatus),
+        escapeCsv(item.quantity),
+        escapeCsv(item.reservedQuantity),
+        escapeCsv(item.availableQuantity),
+        escapeCsv(item.lowStockThreshold),
+        escapeCsv(item.regularPrice.toFixed(2)),
+        escapeCsv(item.salePrice !== undefined ? item.salePrice.toFixed(2) : ''),
+        escapeCsv(item.totalValuation.toFixed(2)),
+        escapeCsv(item.attributes || ''),
+        escapeCsv(item.updatedAt.slice(0, 19).replace('T', ' ')),
+      ];
       rows.push(row.join(','));
     }
 

@@ -524,6 +524,177 @@ export const reportsService = {
     }
     return res.blob();
   },
+
+  // =========================================================================
+  // INVENTORY REPORT
+  // =========================================================================
+
+  /**
+   * Fetch Inventory KPI summary
+   */
+  async getInventorySummary(
+    params?: InventoryReportParams,
+  ): Promise<InventorySummary> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/summary`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch inventory summary');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Inventory Movement Timeline
+   */
+  async getInventoryTimeline(
+    params?: InventoryReportParams,
+  ): Promise<InventoryTimelineResponse> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/timeline`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch inventory timeline');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Inventory by Status
+   */
+  async getInventoryByStatus(
+    params?: InventoryReportParams,
+  ): Promise<InventoryStockStatusMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/by-status`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch inventory status breakdown');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Inventory by Category
+   */
+  async getInventoryByCategory(
+    params?: InventoryReportParams,
+  ): Promise<InventoryCategoryMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/by-category`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch inventory by category');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Inventory by Brand
+   */
+  async getInventoryByBrand(
+    params?: InventoryReportParams,
+  ): Promise<InventoryBrandMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/by-brand`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch inventory by brand');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Stock Movements breakdown by Type
+   */
+  async getInventoryMovementsByType(
+    params?: InventoryReportParams,
+  ): Promise<StockMovementTypeMetric[]> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/movements-by-type`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch movements by type');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Top Moving SKUs
+   */
+  async getInventoryTopMovers(
+    params?: InventoryReportParams,
+  ): Promise<TopMoverItem[]> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/top-movers`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch top movers');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch Critical Alerts (Low Stock / Out of Stock)
+   */
+  async getInventoryCriticalAlerts(
+    params?: InventoryReportParams,
+  ): Promise<CriticalAlertItem[]> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/critical-alerts`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch critical alerts');
+    }
+    return res.json();
+  },
+
+  /**
+   * Fetch paginated inventory report list
+   */
+  async getInventoryList(
+    params?: InventoryReportParams,
+  ): Promise<PaginatedInventoryReport> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/list`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch inventory report list');
+    }
+    return res.json();
+  },
+
+  /**
+   * Download Inventory CSV export
+   */
+  async downloadInventoryCsv(params?: InventoryReportParams): Promise<Blob> {
+    const url = new URL(`${API_BASE}/admin/reports/inventory/export`);
+    appendInventoryParams(url, params);
+
+    const res = await fetchWithAuth(url.toString(), { method: 'GET' });
+    if (!res.ok) {
+      throw new Error('Failed to export inventory CSV');
+    }
+    return res.blob();
+  },
 };
 
 // =========================================================================
@@ -683,6 +854,179 @@ function appendOrdersParams(url: URL, params?: OrdersReportParams): void {
   if (params.page) url.searchParams.set('page', String(params.page));
   if (params.limit) url.searchParams.set('limit', String(params.limit));
   if (params.search) url.searchParams.set('search', params.search);
+  if (params.sortBy) url.searchParams.set('sortBy', params.sortBy);
+  if (params.sortOrder) url.searchParams.set('sortOrder', params.sortOrder);
+}
+
+// =========================================================================
+// INVENTORY REPORT TYPES & HELPERS
+// =========================================================================
+
+export type InventoryStockStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+
+export interface InventoryReportParams {
+  startDate?: string;
+  endDate?: string;
+  stockStatus?: InventoryStockStatus | 'ALL';
+  categoryId?: string;
+  brandId?: string;
+  search?: string;
+  minQuantity?: number;
+  maxQuantity?: number;
+  interval?: 'day' | 'week' | 'month';
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface InventorySummary {
+  totalSkus: number;
+  totalProducts: number;
+  totalPhysicalUnits: number;
+  totalReservedUnits: number;
+  totalAvailableUnits: number;
+  totalValuationRegular: number;
+  totalValuationSelling: number;
+  potentialRevenue: number;
+  inStockCount: number;
+  inStockPercentage: number;
+  lowStockCount: number;
+  lowStockPercentage: number;
+  outOfStockCount: number;
+  outOfStockPercentage: number;
+  averageUnitValue: number;
+  currency: string;
+}
+
+export interface InventoryTimelinePoint {
+  date: string;
+  label: string;
+  inflowUnits: number;
+  outflowUnits: number;
+  netChange: number;
+  adjustmentsUnits: number;
+  movementEventsCount: number;
+}
+
+export interface InventoryTimelineResponse {
+  timeline: InventoryTimelinePoint[];
+  interval: string;
+}
+
+export interface InventoryStockStatusMetric {
+  status: InventoryStockStatus;
+  count: number;
+  percentage: number;
+  totalUnits: number;
+  totalValuation: number;
+}
+
+export interface InventoryCategoryMetric {
+  categoryId: string;
+  categoryName: string;
+  skuCount: number;
+  totalUnits: number;
+  availableUnits: number;
+  reservedUnits: number;
+  totalValuation: number;
+  percentage: number;
+}
+
+export interface InventoryBrandMetric {
+  brandId?: string;
+  brandName: string;
+  skuCount: number;
+  totalUnits: number;
+  availableUnits: number;
+  reservedUnits: number;
+  totalValuation: number;
+  percentage: number;
+}
+
+export interface StockMovementTypeMetric {
+  type: string;
+  count: number;
+  quantityIn: number;
+  quantityOut: number;
+  netQuantity: number;
+}
+
+export interface TopMoverItem {
+  variantId: string;
+  sku: string;
+  productTitle: string;
+  categoryName: string;
+  thumbnailUrl?: string;
+  currentQuantity: number;
+  unitsDeducted: number;
+  movementCount: number;
+}
+
+export interface CriticalAlertItem {
+  variantId: string;
+  sku: string;
+  productTitle: string;
+  categoryName: string;
+  thumbnailUrl?: string;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  lowStockThreshold: number;
+  deficit: number;
+  status: 'LOW_STOCK' | 'OUT_OF_STOCK';
+}
+
+export interface InventoryReportRecord {
+  variantId: string;
+  sku: string;
+  barcode?: string;
+  productId: string;
+  productTitle: string;
+  productSlug: string;
+  categoryName: string;
+  brandName?: string;
+  thumbnailUrl?: string;
+  regularPrice: number;
+  salePrice?: number;
+  effectivePrice: number;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  lowStockThreshold: number;
+  stockStatus: InventoryStockStatus;
+  totalValuation: number;
+  attributes?: string;
+  updatedAt: string;
+}
+
+export interface PaginatedInventoryReport {
+  items: InventoryReportRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+function appendInventoryParams(url: URL, params?: InventoryReportParams): void {
+  if (!params) return;
+  if (params.startDate) url.searchParams.set('startDate', params.startDate);
+  if (params.endDate) url.searchParams.set('endDate', params.endDate);
+  if (params.stockStatus && params.stockStatus !== 'ALL') {
+    url.searchParams.set('stockStatus', params.stockStatus);
+  }
+  if (params.categoryId) url.searchParams.set('categoryId', params.categoryId);
+  if (params.brandId) url.searchParams.set('brandId', params.brandId);
+  if (params.search) url.searchParams.set('search', params.search);
+  if (params.minQuantity !== undefined && params.minQuantity !== null) {
+    url.searchParams.set('minQuantity', String(params.minQuantity));
+  }
+  if (params.maxQuantity !== undefined && params.maxQuantity !== null) {
+    url.searchParams.set('maxQuantity', String(params.maxQuantity));
+  }
+  if (params.interval) url.searchParams.set('interval', params.interval);
+  if (params.page) url.searchParams.set('page', String(params.page));
+  if (params.limit) url.searchParams.set('limit', String(params.limit));
   if (params.sortBy) url.searchParams.set('sortBy', params.sortBy);
   if (params.sortOrder) url.searchParams.set('sortOrder', params.sortOrder);
 }
