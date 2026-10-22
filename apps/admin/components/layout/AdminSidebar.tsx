@@ -189,11 +189,6 @@ export function AdminSidebar() {
                         <span>{item.title}</span>
                       </div>
                       <div className="d-flex align-items-center gap-2">
-                        {item.phase && item.phase > 1 && (
-                          <span className="badge bg-secondary-subtle text-secondary" style={{ fontSize: "0.58rem" }}>
-                            P{item.phase}
-                          </span>
-                        )}
                         <i
                           className={`bi bi-chevron-right small text-secondary`}
                           style={{
@@ -233,18 +228,11 @@ export function AdminSidebar() {
                                   )}
                                   <span>{child.title}</span>
                                 </div>
-                                {child.badge ? (
+                                {child.badge && (
                                   <span className={`badge bg-${child.badge.variant || "secondary"}`} style={{ fontSize: "0.58rem" }}>
                                     {child.badge.text}
                                   </span>
-                                ) : child.phase && child.phase > 1 ? (
-                                  <span
-                                    className="badge bg-secondary-subtle text-secondary opacity-75"
-                                    style={{ fontSize: "0.55rem" }}
-                                  >
-                                    P{child.phase}
-                                  </span>
-                                ) : null}
+                                )}
                               </Link>
                             </li>
                           );
@@ -274,15 +262,11 @@ export function AdminSidebar() {
                       {item.icon && <i className={`${item.icon}`} style={{ fontSize: "0.95rem" }}></i>}
                       <span>{item.title}</span>
                     </div>
-                    {item.badge ? (
+                    {item.badge && (
                       <span className={`badge bg-${item.badge.variant || "primary"}`} style={{ fontSize: "0.58rem" }}>
                         {item.badge.text}
                       </span>
-                    ) : item.phase && item.phase > 1 ? (
-                      <span className="badge bg-secondary-subtle text-secondary" style={{ fontSize: "0.58rem" }}>
-                        P{item.phase}
-                      </span>
-                    ) : null}
+                    )}
                   </Link>
                 </li>
               );

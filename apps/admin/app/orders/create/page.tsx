@@ -12,6 +12,10 @@ import {
 import { customersService, CustomerItem } from "../../../services/customers";
 import { getProducts, ProductItem, ProductVariantItem } from "../../../services/products";
 import { getInventory } from "../../../services/inventory";
+import {
+  SearchableVariantSelect,
+  VariantOption,
+} from "../../../components/orders/SearchableVariantSelect";
 
 interface OrderDraftItem {
   variantId: string;
@@ -63,6 +67,7 @@ export default function CreateOrderPage() {
   const [inventoryMap, setInventoryMap] = useState<Record<string, number>>({});
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState("");
+  const [selectedVariant, setSelectedVariant] = useState<VariantOption | null>(null);
   const [itemQuantity, setItemQuantity] = useState(1);
   const [itemCustomPrice, setItemCustomPrice] = useState("");
 
@@ -119,6 +124,25 @@ export default function CreateOrderPage() {
     }
   };
 
+  const handleVariantSelect = (variant: VariantOption | null) => {
+    setSelectedVariant(variant);
+    if (variant) {
+      setSelectedVariantId(variant.variantId);
+      setItemCustomPrice(String(variant.price));
+    } else {
+      setSelectedVariantId("");
+      setItemCustomPrice("");
+    }
+  };
+
+  const handleProductsLoaded = (newProducts: ProductItem[]) => {
+    setCatalogProducts((prev) => {
+      const existingIds = new Set(prev.map((p) => p.id));
+      const toAdd = newProducts.filter((p) => !existingIds.has(p.id));
+      return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+    });
+  };
+
   // Add Item to Draft
   const handleAddItem = () => {
     if (!selectedVariantId) {
@@ -126,7 +150,7 @@ export default function CreateOrderPage() {
       return;
     }
 
-    // Find the variant across catalog products
+    // Find the variant across catalog products or use selectedVariant
     let foundVariant: ProductVariantItem | null = null;
     let foundProduct: ProductItem | null = null;
 
@@ -139,30 +163,33 @@ export default function CreateOrderPage() {
       }
     }
 
-    if (!foundVariant || !foundProduct) {
-      setAlert({ type: "danger", text: "Selected product variant not found in catalog" });
-      return;
-    }
-
-    const availableStock = inventoryMap[foundVariant.id] ?? 99;
+    const availableStock = selectedVariant?.stock ?? (inventoryMap[selectedVariantId] ?? 99);
     const basePrice =
-      foundVariant.salePrice !== null && foundVariant.salePrice !== undefined
-        ? Number(foundVariant.salePrice)
-        : Number(foundVariant.regularPrice);
+      selectedVariant?.price ??
+      (foundVariant
+        ? foundVariant.salePrice !== null && foundVariant.salePrice !== undefined
+          ? Number(foundVariant.salePrice)
+          : Number(foundVariant.regularPrice)
+        : 0);
 
-    const price = itemCustomPrice !== "" ? parseFloat(itemCustomPrice) : basePrice;
+    const price = itemCustomPrice !== "" ? parseFloat(itemCustomPrice) : Number(basePrice);
 
     if (isNaN(price) || price < 0) {
       setAlert({ type: "warning", text: "Please enter a valid price" });
       return;
     }
 
-    const attrSummary = (foundVariant.attributes || [])
-      .map((a) => `${a.attributeName}: ${a.value}`)
-      .join(", ");
+    const productTitle = selectedVariant?.productTitle || foundProduct?.title || "Product";
+    const sku = selectedVariant?.sku || foundVariant?.sku || "SKU";
+    const attrSummary =
+      selectedVariant?.attributesSummary ||
+      (foundVariant?.attributes || []).map((a) => `${a.attributeName}: ${a.value}`).join(", ") ||
+      "Standard";
+    const thumb =
+      selectedVariant?.thumbnailUrl || foundVariant?.imageUrl || foundProduct?.thumbnailUrl;
 
     // Check if already in draft
-    const existingIndex = items.findIndex((i) => i.variantId === foundVariant!.id);
+    const existingIndex = items.findIndex((i) => i.variantId === selectedVariantId);
     if (existingIndex > -1) {
       const updated = [...items];
       updated[existingIndex].quantity += itemQuantity;
@@ -172,20 +199,21 @@ export default function CreateOrderPage() {
       setItems([
         ...items,
         {
-          variantId: foundVariant.id,
-          productTitle: foundProduct.title,
-          sku: foundVariant.sku,
-          attributesSummary: attrSummary || "Standard",
+          variantId: selectedVariantId,
+          productTitle,
+          sku,
+          attributesSummary: attrSummary,
           unitPrice: price,
-          originalPrice: basePrice,
+          originalPrice: selectedVariant?.regularPrice ?? Number(basePrice),
           quantity: itemQuantity,
           availableStock,
-          thumbnailUrl: foundVariant.imageUrl || foundProduct.thumbnailUrl,
+          thumbnailUrl: thumb,
         },
       ]);
     }
 
     // Reset picker inputs
+    setSelectedVariant(null);
     setSelectedVariantId("");
     setItemQuantity(1);
     setItemCustomPrice("");
@@ -511,56 +539,28 @@ export default function CreateOrderPage() {
                 <div className="p-3 bg-light rounded border mb-3">
                   <div className="row g-2 align-items-end">
                     <div className="col-md-6">
-                      <label className="form-label small fw-semibold text-dark mb-1">
-                        Select Product & Variant
+                      <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: "12px" }}>
+                        Select Product & Variant <span className="text-danger">*</span>
                       </label>
                       {loadingCatalog ? (
-                        <div className="small text-muted py-1">
-                          <span className="spinner-border spinner-border-sm me-1"></span> Loading catalog...
+                        <div className="small text-muted py-2 border rounded px-2 bg-light">
+                          <span className="spinner-border spinner-border-sm me-1"></span> Loading catalog products...
                         </div>
                       ) : (
-                        <select
-                          className="form-select form-select-sm"
-                          value={selectedVariantId}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSelectedVariantId(val);
-                            // Set default custom price input to variant price
-                            for (const prod of catalogProducts) {
-                              const v = (prod.variants || []).find((varItem) => varItem.id === val);
-                              if (v) {
-                                setItemCustomPrice(
-                                  String(v.salePrice !== null ? v.salePrice : v.regularPrice)
-                                );
-                                break;
-                              }
-                            }
-                          }}
-                        >
-                          <option value="">-- Choose Product Variant --</option>
-                          {catalogProducts.map((p) => (
-                            <optgroup key={p.id} label={p.title}>
-                              {(p.variants || []).map((v) => {
-                                const stock = inventoryMap[v.id] ?? 0;
-                                const price = v.salePrice !== null ? v.salePrice : v.regularPrice;
-                                const attrStr = (v.attributes || [])
-                                  .map((a) => a.value)
-                                  .join(" / ");
-                                return (
-                                  <option key={v.id} value={v.id}>
-                                    {p.title} [{v.sku}] {attrStr ? `(${attrStr})` : ""} — BDT {price} (Stock:{" "}
-                                    {stock})
-                                  </option>
-                                );
-                              })}
-                            </optgroup>
-                          ))}
-                        </select>
+                        <SearchableVariantSelect
+                          products={catalogProducts}
+                          inventoryMap={inventoryMap}
+                          selectedVariantId={selectedVariantId}
+                          onSelect={handleVariantSelect}
+                          onProductsLoaded={handleProductsLoaded}
+                        />
                       )}
                     </div>
 
                     <div className="col-md-2">
-                      <label className="form-label small fw-semibold text-dark mb-1">Quantity</label>
+                      <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: "12px" }}>
+                        Quantity
+                      </label>
                       <input
                         type="number"
                         className="form-control form-control-sm"
@@ -571,7 +571,7 @@ export default function CreateOrderPage() {
                     </div>
 
                     <div className="col-md-2">
-                      <label className="form-label small fw-semibold text-dark mb-1">
+                      <label className="form-label fw-semibold text-dark mb-1" style={{ fontSize: "12px" }}>
                         Unit Price (BDT)
                       </label>
                       <input
@@ -588,6 +588,7 @@ export default function CreateOrderPage() {
                       <button
                         type="button"
                         className="btn btn-primary btn-sm w-100"
+                        style={{ fontSize: "12px" }}
                         onClick={handleAddItem}
                         disabled={!selectedVariantId}
                       >
