@@ -127,6 +127,32 @@ export interface UpdateOrderStatusPayload {
   notes?: string;
 }
 
+export interface CreateAdminOrderItemPayload {
+  variantId: string;
+  quantity: number;
+  unitPrice?: number;
+}
+
+export interface CreateAdminOrderPayload {
+  userId?: string;
+  customerEmail?: string;
+  recipientName: string;
+  recipientPhone: string;
+  shippingStreet: string;
+  shippingCity: string;
+  shippingState?: string;
+  shippingPostalCode: string;
+  shippingFee?: number;
+  discountAmount?: number;
+  orderStatus?: OrderStatus;
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: 'CASH_ON_DELIVERY' | 'CREDIT_CARD' | 'MOBILE_BANKING';
+  paymentRef?: string;
+  customerNotes?: string;
+  adminNotes?: string;
+  items: CreateAdminOrderItemPayload[];
+}
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
@@ -261,4 +287,20 @@ export const ordersService = {
     }
     return res.json();
   },
+
+  /**
+   * Create an order directly from admin dashboard
+   */
+  async createOrder(payload: CreateAdminOrderPayload): Promise<AdminOrder> {
+    const res = await fetchWithAuth(`${API_BASE}/admin/orders`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to create order');
+    }
+    return res.json();
+  },
 };
+

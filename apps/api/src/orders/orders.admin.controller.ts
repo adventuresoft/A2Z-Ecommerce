@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -26,6 +27,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { OrdersService } from './orders.service.js';
 import {
+  CreateAdminOrderDto,
   OrderResponseDto,
   PaginatedOrdersResponseDto,
   QueryOrdersDto,
@@ -39,6 +41,20 @@ import {
 @Controller('admin/orders')
 export class OrdersAdminController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  @Post()
+  @RequirePermission('orders', 'create')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Administrative manual order creation with custom customer, shipping and item options',
+  })
+  @ApiResponse({ status: 201, type: OrderResponseDto })
+  async createOrder(
+    @Body() dto: CreateAdminOrderDto,
+    @CurrentUser() user: AccessPayload,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.createAdminOrder(user.sub, dto);
+  }
 
   @Get()
   @RequirePermission('orders', 'read')

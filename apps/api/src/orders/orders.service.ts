@@ -7,14 +7,18 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  Role,
   ShipmentStatus,
   StockMovementType,
   type Prisma,
 } from '@prisma/client';
+import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
+import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
 import type {
   CancelOrderDto,
+  CreateAdminOrderDto,
   CreateOrderDto,
   OrderResponseDto,
   PaginatedOrdersResponseDto,
@@ -27,6 +31,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventoryService: InventoryService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   private readonly orderIncludes = {
@@ -370,6 +375,221 @@ export class OrdersService {
   }
 
   /**
+   * Administrative order placement (Manual / Phone / Walk-in / Direct order creation)
+   */
+  async createAdminOrder(
+    adminUserId: string,
+    dto: CreateAdminOrderDto,
+  ): Promise<OrderResponseDto> {
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('Order must contain at least one item');
+    }
+
+    // Consolidate duplicate variant IDs if any
+    const itemMap = new Map<string, { quantity: number; unitPrice?: number }>();
+    for (const item of dto.items) {
+      const existing = itemMap.get(item.variantId);
+      if (existing) {
+        existing.quantity += item.quantity;
+        if (item.unitPrice !== undefined) existing.unitPrice = item.unitPrice;
+      } else {
+        itemMap.set(item.variantId, { quantity: item.quantity, unitPrice: item.unitPrice });
+      }
+    }
+
+    const variantIds = Array.from(itemMap.keys());
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Determine customer user
+      let customerUserId = dto.userId;
+      if (customerUserId) {
+        const userExists = await tx.user.findUnique({ where: { id: customerUserId } });
+        if (!userExists) {
+          throw new NotFoundException(`Customer with ID '${customerUserId}' not found`);
+        }
+      } else if (dto.customerEmail) {
+        const normalizedEmail = dto.customerEmail.toLowerCase().trim();
+        const existingUser = await tx.user.findUnique({ where: { email: normalizedEmail } });
+        if (existingUser) {
+          customerUserId = existingUser.id;
+        } else {
+          const randomHash = await argon2.hash(Math.random().toString(36) + 'Az@2026!', {
+            type: argon2.argon2id,
+          });
+          const newUser = await tx.user.create({
+            data: {
+              email: normalizedEmail,
+              name: dto.recipientName.trim(),
+              phone: dto.recipientPhone.trim(),
+              passwordHash: randomHash,
+              role: Role.CUSTOMER,
+              isActive: true,
+            },
+          });
+          customerUserId = newUser.id;
+        }
+      } else {
+        customerUserId = adminUserId;
+      }
+
+      // 2. Fetch all requested variants with product and attribute details
+      const variants = await tx.productVariant.findMany({
+        where: { id: { in: variantIds } },
+        include: {
+          product: true,
+          image: true,
+          attributes: {
+            include: {
+              attributeValue: {
+                include: {
+                  attribute: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (variants.length !== variantIds.length) {
+        throw new NotFoundException('One or more requested product variants were not found');
+      }
+
+      let subtotal = 0;
+      const orderItemsData: Array<{
+        variantId: string;
+        productTitle: string;
+        sku: string;
+        variantAttributes: string | null;
+        unitPrice: number;
+        quantity: number;
+        totalPrice: number;
+      }> = [];
+
+      for (const variant of variants) {
+        if (!variant.isActive) {
+          throw new BadRequestException(`Variant '${variant.sku}' is currently inactive`);
+        }
+
+        const itemConf = itemMap.get(variant.id)!;
+        const quantity = itemConf.quantity;
+        const price =
+          itemConf.unitPrice !== undefined && itemConf.unitPrice >= 0
+            ? Number(itemConf.unitPrice)
+            : variant.salePrice !== null
+            ? Number(variant.salePrice)
+            : Number(variant.regularPrice);
+        const totalPrice = price * quantity;
+        subtotal += totalPrice;
+
+        const variantAttributes = this.formatAttributes(variant.attributes) || null;
+
+        orderItemsData.push({
+          variantId: variant.id,
+          productTitle: variant.product.title,
+          sku: variant.sku,
+          variantAttributes,
+          unitPrice: price,
+          quantity,
+          totalPrice,
+        });
+      }
+
+      const shippingFee = dto.shippingFee !== undefined ? Number(dto.shippingFee) : 60.0;
+      const discountAmount = dto.discountAmount !== undefined ? Number(dto.discountAmount) : 0.0;
+      const grandTotal = Math.max(0, subtotal + shippingFee - discountAmount);
+
+      const targetOrderStatus = dto.orderStatus || OrderStatus.CONFIRMED;
+      const targetPaymentStatus = dto.paymentStatus || PaymentStatus.PENDING;
+      const targetPaymentMethod = dto.paymentMethod || PaymentMethod.CASH_ON_DELIVERY;
+
+      // 3. Generate unique order number
+      let orderNumber = this.generateOrderNumber();
+      let exists = await tx.order.findUnique({ where: { orderNumber } });
+      while (exists) {
+        orderNumber = this.generateOrderNumber();
+        exists = await tx.order.findUnique({ where: { orderNumber } });
+      }
+
+      // 4. Create Order
+      const createdOrder = await tx.order.create({
+        data: {
+          orderNumber,
+          userId: customerUserId,
+          orderStatus: targetOrderStatus,
+          paymentStatus: targetPaymentStatus,
+          shipmentStatus: ShipmentStatus.UNFULFILLED,
+          subtotal,
+          discountAmount,
+          shippingFee,
+          grandTotal,
+          recipientName: dto.recipientName.trim(),
+          recipientPhone: dto.recipientPhone.trim(),
+          shippingStreet: dto.shippingStreet.trim(),
+          shippingCity: dto.shippingCity.trim(),
+          shippingState: dto.shippingState?.trim() || null,
+          shippingPostalCode: dto.shippingPostalCode.trim(),
+          customerNotes: dto.customerNotes?.trim() || null,
+          items: {
+            create: orderItemsData,
+          },
+          statusHistory: {
+            create: {
+              fromStatus: null,
+              toStatus: targetOrderStatus,
+              notes: dto.adminNotes?.trim() || 'Order created manually by administrator',
+              changedByUserId: adminUserId,
+            },
+          },
+          payments: {
+            create: {
+              method: targetPaymentMethod,
+              status: targetPaymentStatus,
+              amount: grandTotal,
+              currency: 'BDT',
+              transactionRef: dto.paymentRef?.trim() || null,
+              paidAt: targetPaymentStatus === PaymentStatus.PAID ? new Date() : null,
+              notes: 'Initial payment record from admin order creation',
+            },
+          },
+        },
+      });
+
+      // 5. Reserve inventory
+      for (const item of orderItemsData) {
+        await this.inventoryService.reserveStock(
+          item.variantId,
+          item.quantity,
+          createdOrder.id,
+          tx,
+        );
+      }
+
+      // 6. Log audit entry
+      await this.auditLogsService.log({
+        userId: adminUserId,
+        action: 'ORDER_CREATE',
+        entityType: 'Order',
+        entityId: createdOrder.id,
+        newValues: {
+          orderNumber: createdOrder.orderNumber,
+          grandTotal,
+          recipientName: dto.recipientName,
+          orderStatus: targetOrderStatus,
+          paymentStatus: targetPaymentStatus,
+        },
+      });
+
+      // 7. Return complete order
+      const fullOrder = await tx.order.findUniqueOrThrow({
+        where: { id: createdOrder.id },
+        include: this.orderIncludes,
+      });
+
+      return this.mapOrder(fullOrder);
+    });
+  }
+
+  /**
    * Retrieve paginated order history for authenticated customer
    */
   async getCustomerOrders(
@@ -696,6 +916,19 @@ export class OrdersService {
         await tx.order.update({
           where: { id: order.id },
           data: updateData,
+        });
+
+        await this.auditLogsService.log({
+          userId: adminUserId || null,
+          action: 'ORDER_STATUS_UPDATE',
+          entityType: 'Order',
+          entityId: order.id,
+          oldValues: {
+            orderStatus: prevOrderStatus,
+            paymentStatus: order.paymentStatus,
+            shipmentStatus: order.shipmentStatus,
+          },
+          newValues: updateData,
         });
       }
 

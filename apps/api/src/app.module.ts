@@ -20,6 +20,7 @@ import { ReviewsModule } from './reviews/reviews.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { CustomersModule } from './customers/customers.module.js';
+import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { CustomersModule } from './customers/customers.module.js';
     NotificationsModule,
     ReportsModule,
     CustomersModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

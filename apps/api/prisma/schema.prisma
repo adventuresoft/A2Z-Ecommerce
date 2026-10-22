@@ -44,6 +44,7 @@ model User {
   reviews         Review[]
   notifications   Notification[]
   addresses       UserAddress[]
+  auditLogs       AuditLog[]
 
   @@map("User")
 }
@@ -628,3 +629,24 @@ model Notification {
   @@map("Notification")
 }
 
+model AuditLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  action      String    @db.VarChar(100)
+  entityType  String    @db.VarChar(100)
+  entityId    String    @db.VarChar(100)
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?   @db.VarChar(45)
+  userAgent   String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now())
+
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("AuditLog")
+}

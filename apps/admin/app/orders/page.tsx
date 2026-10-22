@@ -137,7 +137,10 @@ export default function OrdersListPage() {
             Track customer orders, manage status transitions, and oversee fulfillment.
           </p>
         </div>
-        <div className="col-sm-6 text-sm-end mt-2 mt-sm-0">
+        <div className="col-sm-6 text-sm-end mt-2 mt-sm-0 d-flex align-items-center justify-content-sm-end gap-2">
+          <Link href="/orders/create" className="btn btn-primary btn-sm">
+            <i className="bi bi-plus-lg me-1"></i> Create Order
+          </Link>
           <button
             onClick={() => fetchOrders()}
             className="btn btn-outline-secondary btn-sm"

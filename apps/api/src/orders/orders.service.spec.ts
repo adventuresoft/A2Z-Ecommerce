@@ -35,7 +35,14 @@ describe('OrdersService', () => {
       restoreStock: vi.fn().mockResolvedValue(undefined),
     };
 
-    service = new OrdersService(prismaMock, inventoryServiceMock);
+    const auditLogsServiceMock: any = {
+      log: vi.fn().mockResolvedValue(undefined),
+      getAuditLogs: vi.fn().mockResolvedValue({ data: [], meta: {} }),
+      getFilterOptions: vi.fn().mockResolvedValue({ actions: [], entityTypes: [] }),
+      getAuditLogById: vi.fn().mockResolvedValue(null),
+    };
+
+    service = new OrdersService(prismaMock, inventoryServiceMock, auditLogsServiceMock);
   });
 
   describe('createOrder', () => {
