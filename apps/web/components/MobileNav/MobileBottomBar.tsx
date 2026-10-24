@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import Link from "next/link";
 import { Home, Grid, Flame, ShoppingBag } from "lucide-react";
 
 interface MobileBottomBarProps {
@@ -16,13 +16,13 @@ export function MobileBottomBar({
 }: MobileBottomBarProps) {
   return (
     <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-6 flex items-center justify-between z-40 lg:hidden shadow-lg">
-      <a
-        href="#"
+      <Link
+        href="/"
         className="flex flex-col items-center text-blue-700 hover:text-blue-800 transition-colors"
       >
         <Home className="w-5 h-5" />
         <span className="text-[10px] font-bold mt-1">Home</span>
-      </a>
+      </Link>
 
       <button
         onClick={onOpenCategories}
@@ -32,13 +32,13 @@ export function MobileBottomBar({
         <span className="text-[10px] font-bold mt-1">Categories</span>
       </button>
 
-      <a
-        href="#flash-sale"
+      <Link
+        href="/archive"
         className="flex flex-col items-center text-orange-600 hover:text-orange-700 transition-colors"
       >
         <Flame className="w-5 h-5" />
         <span className="text-[10px] font-bold mt-1">Deals</span>
-      </a>
+      </Link>
 
       <button
         onClick={onOpenCartModal}

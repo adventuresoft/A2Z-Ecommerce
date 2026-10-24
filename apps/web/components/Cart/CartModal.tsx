@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   X,
   Trash2,
@@ -34,6 +35,7 @@ export function CartModal({
   onClearCart,
   onUpdateQuantity,
 }: CartModalProps) {
+  const router = useRouter();
   const [checkoutFeedback, setCheckoutFeedback] = useState(false);
 
   // Close on Escape key
@@ -67,15 +69,13 @@ export function CartModal({
   );
 
   const handleProceedCheckout = () => {
-    setCheckoutFeedback(true);
-    setTimeout(() => {
-      setCheckoutFeedback(false);
-      alert(
-        `🎉 Proceeding to Secure Checkout!\nTotal Payable: ${formatBDT(
-          subtotal
-        )}\nItems: ${totalItemsCount} item(s).\n\nThank you for choosing A to Z Ecommerce!`
-      );
-    }, 350);
+    onClose();
+    router.push("/checkout");
+  };
+
+  const handleViewFullCart = () => {
+    onClose();
+    router.push("/cart");
   };
 
   return (
@@ -313,13 +313,23 @@ export function CartModal({
               </div>
             </button>
 
-            {/* Secondary Option: Continue Shopping */}
-            <button
-              onClick={onClose}
-              className="w-full text-center py-1.5 text-[11px] font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg transition-all cursor-pointer"
-            >
-              Continue Shopping
-            </button>
+            {/* Secondary Options: View Full Cart & Continue Shopping */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleViewFullCart}
+                className="w-full text-center py-2 px-3 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all cursor-pointer border border-blue-200 shadow-2xs"
+              >
+                View Full Cart
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full text-center py-2 px-3 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer border border-slate-200"
+              >
+                Continue Shopping
+              </button>
+            </div>
 
             {/* Trust Assurances */}
             <div className="pt-1 flex items-center justify-around text-[9px] text-slate-500 font-semibold border-t border-slate-200/60">

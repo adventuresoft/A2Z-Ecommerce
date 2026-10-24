@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, ShoppingCart, User, ChevronDown, Menu, X, ArrowRight, Heart } from "lucide-react";
 import { formatBDT } from "../../data/mock-catalog";
 
@@ -37,6 +39,17 @@ export function Header({
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setShowSuggestions(false);
+    if (searchQuery.trim()) {
+      router.push(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      router.push("/shop");
+    }
+  };
 
   const categoriesList = [
     "All Categories",
@@ -82,7 +95,7 @@ export function Header({
           </button>
 
           {/* Official Logo */}
-          <a href="#" className="flex items-center space-x-2.5 group">
+          <Link href="/" className="flex items-center space-x-2.5 group">
             <div className="relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-xl overflow-hidden bg-white border border-slate-200/90 shadow-2xs flex items-center justify-center p-1 group-hover:border-blue-500 group-hover:shadow-md transition-all">
               <Image
                 src="/brand/Logo.png"
@@ -106,7 +119,7 @@ export function Header({
                 Trusted Shopping, Always
               </span>
             </div>
-          </a>
+          </Link>
         </div>
 
         {/* Global Search Bar with Category Filter & Live Autocomplete */}
@@ -170,7 +183,7 @@ export function Header({
 
             {/* Search Submit Button */}
             <button
-              onClick={() => setShowSuggestions(false)}
+              onClick={() => handleSearchSubmit()}
               className="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 transition-colors flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
               aria-label="Submit search"
             >
@@ -193,6 +206,7 @@ export function Header({
                       onClick={() => {
                         setSearchQuery(item.title);
                         setShowSuggestions(false);
+                        router.push(`/shop?q=${encodeURIComponent(item.title)}`);
                       }}
                       className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors group"
                     >

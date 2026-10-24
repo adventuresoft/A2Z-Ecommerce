@@ -35,6 +35,10 @@
 | 10 | Search, listing filters, sorting & URL sync | **Approved** | Live suggestions; category/brand/price/in-stock/attribute filters; URL param sync; mobile drawer |
 | 11 | Mobile UX, navigation & PDP sticky bar | **Approved** | 4-tab bottom nav; slide-out drawer with language switcher; sticky Add-to-Cart bar on mobile PDP; min 44px tap targets |
 | 12 | CSS styling & Mockup-first strategy | **Approved** | Tailwind CSS v4 with brand tokens; Interactive Homepage Mockup first |
+| 13 | Full-journey pages sequencing & global state | **Approved** | Shared Cart & Wishlist context with localStorage; build PDP -> Shop/Category/Archive -> Cart -> Checkout -> Wishlist |
+| 14 | Single Product Page (PDP) architecture | **Approved** | Dual-column: sticky multi-image gallery + right buy-box (variants, trust, dual CTAs), specs matrix & reviews tabs |
+| 15 | Unified Catalog Engine for Shop, Category & Archive | **Approved** | Reusable ProductCatalogView with desktop sticky filter sidebar, mobile drawer, active filter pills, search & URL sync |
+| 16 | Cart, Bangladesh Checkout & Wishlist flow | **Approved** | Dedicated Cart with coupon & shipping estimator; BD-optimized Checkout (COD/bKash/Nagad, district selectors) & instant success; Wishlist with 1-click move |
 
 ---
 
@@ -185,5 +189,59 @@
   - **Step 2 (Post-Approval):**
     - Subsequent browsing pages (Product Listing/Catalog, Search Filtering, PDP) mockup and review.
     - Backend API integration and dynamic database wiring.
+
+### Decision 13: Full-Journey Pages Sequencing & Global State Foundation
+- **Approved:**
+  - Build persistent **`CartContext`** and **`WishlistContext`** (with `localStorage` hydration) to wrap the entire storefront.
+  - Ensures cart quantities, price calculations, wishlist toggles, and count badges update in real-time across Navbar Header, Mobile Bottom Bar, Mini-Cart Drawer, Single Product Page, Catalog, Full Cart, and Wishlist.
+  - Step-by-step implementation order:
+    1. Shared Global Cart & Wishlist Context (`CartContext`, `WishlistContext`).
+    2. Step 1: Single Product Page (PDP) (`/products/[slug]`).
+    3. Step 2: Shop / Category / Archive Pages (`/shop`, `/category/[slug]`, `/archive`).
+    4. Step 3: Full Cart Page (`/cart`).
+    5. Step 4: Checkout Page (`/checkout`).
+    6. Step 5: Wishlist Page (`/wishlist`).
+
+### Decision 14: Single Product Page (PDP) Architecture & Design
+- **Approved:**
+  - **Dual-column e-commerce layout:**
+    - **Left sticky gallery:** Multi-image gallery with high-resolution main viewer, zoom-on-hover effect, thumbnail strip, and discount badge overlay.
+    - **Right buy-box:** Breadcrumbs, product title, brand badge, SKU, live stock badge ("In Stock"), star ratings with reviews count, pricing block (sale price in BDT `৳`, crossed regular price, savings badge).
+    - **Key Highlights:** 3–4 bulleted technical/feature takeaways.
+    - **Interactive Variant Selectors:** Color swatches (with active ring) and size/storage pill buttons that update displayed price, SKU, stock status, and active gallery image.
+    - **Delivery & Trust Card:** Configured shipping estimate (Inside Dhaka ৳60 / Outside Dhaka ৳120), 7-day replacement guarantee, and 100% genuine product seal.
+    - **Action CTAs:** Quantity counter (- / +), primary **"Add to Cart"** button (triggers mini-cart drawer + toast), secondary high-contrast **"Buy Now"** button (navigates directly to `/checkout`), and wishlist toggle button.
+  - **Tabbed Deep-Dive Section:**
+    - Tab 1: **Full Specifications Matrix** (structured table with grouped specs).
+    - Tab 2: **Product Overview & Details** (rich descriptions and feature highlights).
+    - Tab 3: **Customer Reviews & Ratings** (rating score bar breakdown, verified buyer reviews, and review submission trigger).
+  - **Related & Recommended Products Carousel:** Curated similar products from the same category.
+  - **Mobile Sticky Action Bar:** Bottom docked bar with current variant price and prominent "Add to Cart" CTA.
+
+### Decision 15: Unified Catalog Engine for Shop, Category & Archive
+- **Approved:**
+  - Reusable **`ProductCatalogView`** powering:
+    - `/shop`: All catalog products.
+    - `/category/[slug]`: Scoped by category with category header banner, breadcrumbs, and subcategory pill shortcuts.
+    - `/archive`: Filterable archive / clearance / deal showcase.
+  - **Desktop Filter Sidebar:** Sticky left column with collapsible sections: Category tree, Brand checkboxes (with search & count badges), Price Range slider / numeric min-max in BDT, In-Stock toggle, and Star Rating filter.
+  - **Mobile Filter Drawer:** Animated slide-up bottom sheet with active filter counts and "Apply Filters" button.
+  - **Top Toolbar:** Results count, Active filter tags (with 1-click remove & "Clear All"), Grid/List display toggle, and Sort dropdown (Featured, Price: Low to High, Price: High to Low, Newest, Best Rating).
+
+### Decision 16: Cart, Bangladesh-Optimized Checkout & Wishlist Flow
+- **Approved:**
+  - **Full Cart Page (`/cart`):**
+    - Itemized table/cards with product thumbnail, title, selected variant, unit price, quantity increment/decrement, line total, and remove item action.
+    - Promo / Coupon input with real-time discount calculation.
+    - Shipping cost estimator (Inside Dhaka / Outside Dhaka / Free threshold).
+    - Sticky Order Summary card with Subtotal, Discount, Shipping, Total, and "Proceed to Checkout" CTA.
+  - **Checkout Page (`/checkout`):**
+    - **Step 1: Contact & Delivery Information:** Customer name, phone number (with Bangladesh +880 format helper), Division / District / Upazila selection, full street address, and delivery instructions.
+    - **Step 2: Delivery Speed:** Standard Delivery (৳60 / ৳120) or Express Courier.
+    - **Step 3: Payment Method:** Cash on Delivery (COD) pre-selected with zero hassle; tabs for bKash, Nagad, and Card payments.
+    - **Order Summary Sidebar & Instant Order Success:** Live review of items and costs; placing order triggers an instant animated Order Confirmation screen with generated Order ID, delivery timeline, and "Continue Shopping" or "Track Order" CTAs.
+  - **Wishlist Page (`/wishlist`):**
+    - Dedicated view of all saved products with stock status and direct "Move to Cart" action.
+
 
 

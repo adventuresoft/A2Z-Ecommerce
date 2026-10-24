@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Menu, ChevronDown, Flame, Sparkles, Tag, ChevronRight } from "lucide-react";
 import { CATEGORIES } from "../../data/mock-catalog";
 
@@ -29,15 +30,15 @@ export function MainNav() {
                 className="absolute top-full left-0 w-64 bg-white shadow-xl border border-slate-200 rounded-b-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
               >
                 {CATEGORIES.map((cat) => (
-                  <a
+                  <Link
                     key={cat.id}
-                    href={`#${cat.id}`}
+                    href={cat.id === "all" ? "/shop" : `/category/${cat.id}`}
                     onClick={() => setShowCategoryMenu(false)}
                     className="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-slate-700 hover:text-blue-700 transition-colors text-xs font-medium group"
                   >
                     <span>{cat.name}</span>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-700 group-hover:translate-x-0.5 transition-all" />
-                  </a>
+                  </Link>
                 ))}
               </div>
             )}
@@ -45,21 +46,21 @@ export function MainNav() {
 
           {/* Horizontal Nav Links */}
           <div className="flex items-center space-x-7 text-xs font-semibold text-slate-700">
-            <a
-              href="#"
+            <Link
+              href="/"
               className="text-blue-700 font-bold border-b-2 border-blue-700 py-3.5 transition-colors"
             >
               Home
-            </a>
-            <a href="#featured" className="hover:text-blue-700 py-3.5 transition-colors">
+            </Link>
+            <Link href="/shop" className="hover:text-blue-700 py-3.5 transition-colors">
               Shop
-            </a>
-            <a href="#categories" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+            </Link>
+            <Link href="/shop" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
               <span>Categories</span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
-            </a>
-            <a
-              href="#flash-sale"
+            </Link>
+            <Link
+              href="/#flash-sale"
               className="hover:text-orange-600 py-3.5 transition-colors flex items-center space-x-1.5"
             >
               <span>Flash Sale</span>
@@ -67,21 +68,15 @@ export function MainNav() {
                 <Flame className="w-2.5 h-2.5 mr-0.5" />
                 HOT
               </span>
-            </a>
-            <a href="#featured" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+            </Link>
+            <Link href="/shop" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
               <span>New Arrivals</span>
               <Sparkles className="w-3 h-3 text-amber-500" />
-            </a>
-            <a href="#brands" className="hover:text-blue-700 py-3.5 transition-colors">
-              Brands
-            </a>
-            <a href="#promo" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+            </Link>
+            <Link href="/archive" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
               <Tag className="w-3 h-3 text-blue-600" />
-              <span>Offers</span>
-            </a>
-            <a href="#" className="hover:text-blue-700 py-3.5 transition-colors">
-              Blog
-            </a>
+              <span>Archive & Clearance</span>
+            </Link>
           </div>
         </div>
 

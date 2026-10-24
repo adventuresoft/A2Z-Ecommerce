@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { X, ChevronRight, PhoneCall, ShieldCheck, Tag } from "lucide-react";
 import { CATEGORIES } from "../../data/mock-catalog";
 
@@ -52,37 +53,37 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             Browse Categories
           </div>
           {CATEGORIES.map((cat) => (
-            <a
+            <Link
               key={cat.id}
-              href={`#${cat.id}`}
+              href={cat.id === "all" ? "/shop" : `/category/${cat.id}`}
               onClick={onClose}
               className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
             >
               <span>{cat.name}</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
-            </a>
+            </Link>
           ))}
 
           <div className="pt-4 border-t border-slate-100 space-y-1">
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
               Quick Shortcuts
             </div>
-            <a
-              href="#flash-sale"
+            <Link
+              href="/archive"
               onClick={onClose}
               className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-orange-50 text-orange-600 text-xs font-bold"
             >
               <Tag className="w-4 h-4" />
-              <span>Flash Sale Deals</span>
-            </a>
-            <a
-              href="#featured"
+              <span>Archive & Clearance Deals</span>
+            </Link>
+            <Link
+              href="/shop"
               onClick={onClose}
               className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-700 text-xs font-semibold"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>Official Brands</span>
-            </a>
+              <span>All Products Catalog</span>
+            </Link>
           </div>
         </div>
 

@@ -1,7 +1,29 @@
+export interface ProductVariantItem {
+  id: string;
+  type: "color" | "storage" | "size";
+  label: string;
+  value: string;
+  colorCode?: string;
+  priceDelta?: number;
+  image?: string;
+  inStock: boolean;
+}
+
+export interface ProductReviewItem {
+  id: string;
+  userName: string;
+  rating: number;
+  date: string;
+  comment: string;
+  isVerified: boolean;
+}
+
 export interface Product {
   id: string;
   title: string;
   category: string;
+  brand?: string;
+  sku?: string;
   specs?: string;
   price: number;
   regularPrice?: number;
@@ -9,9 +31,16 @@ export interface Product {
   rating: number;
   reviewsCount: number;
   image: string;
+  images?: string[];
   badge?: string;
   soldCount?: number;
   stockTotal?: number;
+  inStock?: boolean;
+  description?: string;
+  keyFeatures?: string[];
+  specifications?: Record<string, Record<string, string>>;
+  variants?: ProductVariantItem[];
+  reviews?: ProductReviewItem[];
 }
 
 export interface HeroSlide {
@@ -709,4 +738,504 @@ export const TOP_VIEWED_PRODUCTS: Product[] = [
     badge: "6.9k Views",
   },
 ];
+
+// Comprehensive consolidated catalog for PDP, Shop, Category, Archive, Cart, and Wishlist
+export const ALL_PRODUCTS: Product[] = [
+  // Products with full PDP specs and rich details
+  {
+    id: "fs-1",
+    title: "AMD Ryzen 5 5600G Processor with Radeon Graphics",
+    category: "PC Components",
+    brand: "AMD",
+    sku: "AMD-R5-5600G-BOX",
+    specs: "6 Cores, 12 Threads, 3.9GHz Base, 4.4GHz Boost, 19MB Cache, AM4 Socket",
+    price: 13500,
+    regularPrice: 18000,
+    discountPercent: 25,
+    rating: 4.8,
+    reviewsCount: 120,
+    image: "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=800&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=800&q=80"
+    ],
+    soldCount: 120,
+    stockTotal: 150,
+    inStock: true,
+    description: "The AMD Ryzen 5 5600G desktop processor features 6 cores and 12 threads with advanced Radeon graphics built-in. Perfect for budget-conscious gamers, streamers, and content creators looking for incredible multi-threaded speed and smooth 1080p esports gaming without a dedicated GPU.",
+    keyFeatures: [
+      "6 CPU Cores & 12 Processing Threads",
+      "Base Clock: 3.9GHz, Max Boost Clock: up to 4.4GHz",
+      "Integrated AMD Radeon Graphics (7 GPU Cores)",
+      "Bundled with genuine AMD Wraith Stealth Cooler",
+      "PCIe 3.0 Support & AM4 Motherboard Compatibility"
+    ],
+    variants: [
+      { id: "var-5600g-box", type: "storage", label: "Package", value: "Box with Cooler", inStock: true },
+      { id: "var-5600g-tray", type: "storage", label: "Package", value: "Tray (No Cooler)", priceDelta: -800, inStock: true }
+    ],
+    specifications: {
+      "General Specifications": {
+        "Platform": "Desktop",
+        "Product Line": "AMD Ryzen 5 5000 G-Series Desktop Processors",
+        "CPU Cores": "6",
+        "Threads": "12",
+        "Base Clock": "3.9 GHz",
+        "Max Boost Clock": "Up to 4.4 GHz",
+        "Total L3 Cache": "16 MB",
+        "Default TDP": "65W"
+      },
+      "Graphics Capabilities": {
+        "Graphics Model": "Radeon Graphics",
+        "Graphics Core Count": "7",
+        "Graphics Frequency": "1900 MHz"
+      },
+      "Warranty & Support": {
+        "Official Warranty": "3 Years Official AMD Replacement Warranty",
+        "Origin": "USA (Manufactured in Malaysia/China)"
+      }
+    },
+    reviews: [
+      {
+        id: "rev-1",
+        userName: "Tariqul Islam",
+        rating: 5,
+        date: "14 Oct 2026",
+        comment: "Excellent APU for budget gaming. GTA V and Valorant run at 60+ FPS smoothly without any external graphics card!",
+        isVerified: true
+      },
+      {
+        id: "rev-2",
+        userName: "Farhan Ahmed",
+        rating: 5,
+        date: "02 Oct 2026",
+        comment: "Authentic product with official warranty sticker. Delivered to Dhanmondi within 24 hours.",
+        isVerified: true
+      }
+    ]
+  },
+  {
+    id: "feat-1",
+    title: "Apple MacBook Pro 16 M3 Max",
+    category: "Laptops",
+    brand: "Apple",
+    sku: "APL-MBP16-M3MAX-BLK",
+    specs: "36GB Unified Memory, 1TB SSD Storage, Liquid Retina XDR, Space Black",
+    price: 315000,
+    regularPrice: 340000,
+    discountPercent: 7,
+    rating: 5.0,
+    reviewsCount: 48,
+    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=800&q=80"
+    ],
+    badge: "Staff Pick",
+    inStock: true,
+    description: "MacBook Pro 16-inch with M3 Max blazes through extreme workflows with its 16-core CPU, up to 40-core GPU, and support for up to 128GB of unified memory. Features an expansive Liquid Retina XDR display with up to 1600 nits peak brightness and up to 22 hours of battery life.",
+    keyFeatures: [
+      "Apple M3 Max chip with 16-core CPU and 40-core GPU",
+      "16.2-inch Liquid Retina XDR display (3456 x 2234) with ProMotion 120Hz",
+      "36GB high-bandwidth Unified Memory",
+      "1TB superfast PCIe SSD storage",
+      "Six-speaker sound system with force-cancelling woofers",
+      "Space Black finish with breakthrough anodization seal to reduce fingerprints"
+    ],
+    variants: [
+      { id: "var-mbp-spb", type: "color", label: "Color", value: "Space Black", colorCode: "#1C1C1E", inStock: true },
+      { id: "var-mbp-sil", type: "color", label: "Color", value: "Silver", colorCode: "#E2E4E6", inStock: true },
+      { id: "var-mbp-1tb", type: "storage", label: "Storage", value: "1TB SSD", inStock: true },
+      { id: "var-mbp-2tb", type: "storage", label: "Storage", value: "2TB SSD", priceDelta: 45000, inStock: true }
+    ],
+    specifications: {
+      "Performance": {
+        "Processor": "Apple M3 Max (16-core CPU with 12 performance cores)",
+        "Graphics": "40-core GPU with hardware-accelerated ray tracing",
+        "Neural Engine": "16-core Neural Engine",
+        "RAM": "36GB Unified Memory"
+      },
+      "Display": {
+        "Screen Size": "16.2-inch Liquid Retina XDR",
+        "Resolution": "3456 x 2234 native resolution at 254 pixels per inch",
+        "Refresh Rate": "ProMotion technology for adaptive refresh rates up to 120Hz",
+        "Brightness": "1000 nits sustained, 1600 nits peak (HDR)"
+      },
+      "Battery & Power": {
+        "Battery Life": "Up to 22 hours Apple TV app movie playback",
+        "Adapter": "140W USB-C Power Adapter with MagSafe 3 cable"
+      }
+    },
+    reviews: [
+      {
+        id: "rev-mbp-1",
+        userName: "Sabbir Hossain",
+        rating: 5,
+        date: "20 Oct 2026",
+        comment: "The speed of the M3 Max for 4K video rendering and Docker containers is unbelievable. Worth every single taka.",
+        isVerified: true
+      }
+    ]
+  },
+  {
+    id: "seed-1",
+    title: "Sony WH-1000XM5 Wireless Headphones",
+    category: "Audio Gear",
+    brand: "Sony",
+    sku: "SNY-WH1000XM5-BLK",
+    specs: "Industry-leading Noise Canceling, 30hr Battery, Auto NC Optimizer, Hi-Res Audio",
+    price: 38500,
+    regularPrice: 42000,
+    discountPercent: 8,
+    rating: 4.9,
+    reviewsCount: 140,
+    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=800&q=80"
+    ],
+    inStock: true,
+    description: "The Sony WH-1000XM5 wireless noise-canceling headphones rewrite the rules for distraction-free listening. With two processors controlling eight microphones, Auto NC Optimizer, and a specially designed driver unit, music sounds richer than ever.",
+    keyFeatures: [
+      "Two processors and eight microphones for unprecedented noise cancelation",
+      "Magnificent Sound engineered with the new Integrated Processor V1",
+      "Crystal clear hands-free calling with 4 beamforming microphones",
+      "Up to 30-hour battery life with quick charging (3 min charge for 3 hours playback)",
+      "Ultra-comfortable, lightweight design with soft fit leather"
+    ],
+    variants: [
+      { id: "var-xm5-blk", type: "color", label: "Color", value: "Black", colorCode: "#111111", inStock: true },
+      { id: "var-xm5-sil", type: "color", label: "Color", value: "Silver", colorCode: "#E5E5E5", inStock: true },
+      { id: "var-xm5-blu", type: "color", label: "Color", value: "Midnight Blue", colorCode: "#1E2A38", inStock: false }
+    ],
+    specifications: {
+      "Audio": {
+        "Driver Unit": "30mm (Dome type, carbon fiber composite)",
+        "Frequency Response": "4Hz - 40,000Hz (JEITA)",
+        "Hi-Res Wireless": "LDAC, AAC, SBC supported"
+      },
+      "Battery": {
+        "Playback Time": "Max 30 hrs (NC ON), Max 40 hrs (NC OFF)",
+        "Charge Method": "USB Type-C"
+      }
+    },
+    reviews: [
+      {
+        id: "rev-xm5-1",
+        userName: "Mahmudul Hasan",
+        rating: 5,
+        date: "18 Oct 2026",
+        comment: "ANC is magical. Dhaka traffic noise completely disappears when turned on. Very lightweight on ears.",
+        isVerified: true
+      }
+    ]
+  },
+  {
+    id: "phone-1",
+    title: "Samsung Galaxy S24 Ultra 5G (12GB/256GB)",
+    category: "Smartphones",
+    brand: "Samsung",
+    sku: "SAM-S24U-256-GRY",
+    specs: "Snapdragon 8 Gen 3, 200MP Quad Camera, Titanium Frame, S-Pen Built-in",
+    price: 154999,
+    regularPrice: 175000,
+    discountPercent: 11,
+    rating: 4.9,
+    reviewsCount: 142,
+    image: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&w=800&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80"
+    ],
+    badge: "Official BTRC",
+    inStock: true,
+    description: "Welcome to the era of mobile AI with Samsung Galaxy S24 Ultra. Unleash whole new levels of creativity, productivity and possibility starting with the most important device in your life.",
+    keyFeatures: [
+      "Galaxy AI features: Live Translate, Circle to Search, Note Assist",
+      "Titanium shield built right into the frame and Corning Gorilla Armor",
+      "200MP camera with AI processing and 5x optical zoom",
+      "Snapdragon 8 Gen 3 for Galaxy with optimized vapor chamber cooling"
+    ],
+    variants: [
+      { id: "var-s24-gry", type: "color", label: "Color", value: "Titanium Gray", colorCode: "#5E5F61", inStock: true },
+      { id: "var-s24-blk", type: "color", label: "Color", value: "Titanium Black", colorCode: "#272728", inStock: true },
+      { id: "var-s24-vio", type: "color", label: "Color", value: "Titanium Violet", colorCode: "#4C4656", inStock: true },
+      { id: "var-s24-256", type: "storage", label: "Storage", value: "256GB", inStock: true },
+      { id: "var-s24-512", type: "storage", label: "Storage", value: "512GB", priceDelta: 20000, inStock: true }
+    ],
+    specifications: {
+      "Display": {
+        "Size": "6.8-inch Dynamic AMOLED 2X",
+        "Resolution": "QHD+ 3120 x 1440, 120Hz adaptive"
+      },
+      "Camera": {
+        "Main": "200MP Wide + 50MP Periscope + 12MP Ultra-wide + 10MP Telephoto",
+        "Front": "12MP Dual Pixel AF"
+      }
+    },
+    reviews: [
+      {
+        id: "rev-s24-1",
+        userName: "Kazi Nabil",
+        rating: 5,
+        date: "22 Oct 2026",
+        comment: "Original BTRC approved handset with official Samsung Bangladesh warranty. Outstanding camera zoom!",
+        isVerified: true
+      }
+    ]
+  },
+  {
+    id: "fs-2",
+    title: "MSI GeForce RTX 3060 Ventus 2X 12GB OC Graphics Card",
+    category: "PC Components",
+    brand: "MSI",
+    sku: "MSI-RTX3060-V2X-12G",
+    specs: "12GB GDDR6, Dual Fan TORX 3.0, Ray Tracing, DLSS, PCIe 4.0",
+    price: 32900,
+    regularPrice: 41000,
+    discountPercent: 20,
+    rating: 4.9,
+    reviewsCount: 85,
+    image: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=800&q=80",
+    inStock: true,
+    soldCount: 85,
+    stockTotal: 100
+  },
+  {
+    id: "fs-3",
+    title: "Corsair Vengeance LPX 16GB (8x2) 3200MHz DDR4 RAM Kit",
+    category: "PC Components",
+    brand: "Corsair",
+    sku: "COR-LPX-16G-3200",
+    specs: "DDR4 3200MHz, CL16, Pure Aluminum Heat Spreader, XMP 2.0",
+    price: 4250,
+    regularPrice: 5000,
+    discountPercent: 15,
+    rating: 4.7,
+    reviewsCount: 200,
+    image: "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=800&q=80",
+    inStock: true,
+    soldCount: 200,
+    stockTotal: 250
+  },
+  {
+    id: "fs-4",
+    title: "Samsung 980 1TB PCIe 3.0 NVMe M.2 Internal SSD",
+    category: "PC Components",
+    brand: "Samsung",
+    sku: "SAM-980-1TB-NVME",
+    specs: "Up to 3,500 MB/s Read, 3,000 MB/s Write, V-NAND 3-bit MLC",
+    price: 8200,
+    regularPrice: 10000,
+    discountPercent: 18,
+    rating: 4.9,
+    reviewsCount: 150,
+    image: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=800&q=80",
+    inStock: true,
+    soldCount: 150,
+    stockTotal: 180
+  },
+  {
+    id: "fs-5",
+    title: "Fantech GC-183 Alpha High-Density Foam Gaming Chair",
+    category: "Gaming",
+    brand: "Fantech",
+    sku: "FNT-GC183-BLK",
+    specs: "Class 4 Hydraulic Piston, 180° Recline, Ergonomic Lumbar Support",
+    price: 11500,
+    regularPrice: 14700,
+    discountPercent: 22,
+    rating: 4.6,
+    reviewsCount: 60,
+    image: "https://images.unsplash.com/photo-1598550476439-6847785fdd52?auto=format&fit=crop&w=800&q=80",
+    inStock: true,
+    soldCount: 60,
+    stockTotal: 80
+  },
+  {
+    id: "feat-2",
+    title: "Keychron Q1 Pro Wireless Custom Mechanical Keyboard",
+    category: "Accessories",
+    brand: "Keychron",
+    sku: "KEY-Q1PRO-BANANA",
+    specs: "Hot-swappable RGB, QMK/VIA programmable, CNC aluminum body",
+    price: 18500,
+    regularPrice: 20500,
+    rating: 4.9,
+    reviewsCount: 24,
+    image: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=800&q=80",
+    badge: "Best Seller",
+    inStock: true
+  },
+  {
+    id: "feat-3",
+    title: "Logitech MX Master 3S Wireless Performance Mouse",
+    category: "Accessories",
+    brand: "Logitech",
+    sku: "LOG-MXM3S-PGRY",
+    specs: "8000 DPI track-on-glass sensor, quiet clicks, MagSpeed wheel",
+    price: 11200,
+    regularPrice: 12500,
+    rating: 4.9,
+    reviewsCount: 92,
+    image: "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=800&q=80",
+    inStock: true
+  },
+  {
+    id: "feat-4",
+    title: "Sony PlayStation 5 Slim Disc Edition Gaming Console",
+    category: "Gaming",
+    brand: "Sony",
+    sku: "SNY-PS5-SLIM-DISC",
+    specs: "1TB Custom NVMe SSD, Ray Tracing, 4K-TV Gaming, DualSense Controller",
+    price: 66000,
+    regularPrice: 72000,
+    discountPercent: 8,
+    rating: 4.9,
+    reviewsCount: 89,
+    image: "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?auto=format&fit=crop&w=800&q=80",
+    badge: "Popular",
+    inStock: true
+  },
+  {
+    id: "feat-5",
+    title: "LG UltraGear 27GR95QE-B 27\" OLED 240Hz 0.03ms Gaming Monitor",
+    category: "Monitors",
+    brand: "LG",
+    sku: "LG-27GR95QE-OLED",
+    specs: "QHD 2560x1440 OLED, 240Hz, 0.03ms GtG, DCI-P3 98.5%, G-SYNC Compatible",
+    price: 98000,
+    regularPrice: 110000,
+    discountPercent: 11,
+    rating: 4.9,
+    reviewsCount: 38,
+    image: "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=800&q=80",
+    badge: "OLED King",
+    inStock: true
+  },
+  {
+    id: "phone-2",
+    title: "Apple iPhone 15 Pro Max 256GB Natural Titanium",
+    category: "Smartphones",
+    brand: "Apple",
+    sku: "APL-IP15PM-256-NT",
+    specs: "A17 Pro chip, Action button, 5x Optical Telephoto, USB-C 3.0",
+    price: 168000,
+    regularPrice: 185000,
+    discountPercent: 9,
+    rating: 5.0,
+    reviewsCount: 115,
+    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&w=800&q=80",
+    inStock: true
+  },
+  {
+    id: "phone-3",
+    title: "Xiaomi 14 Ultra 5G (16GB/512GB) Leica Quad Camera",
+    category: "Smartphones",
+    brand: "Xiaomi",
+    sku: "XIA-14U-512-WHT",
+    specs: "1-inch Sony LYT-900 sensor, Snapdragon 8 Gen 3, 90W HyperCharge",
+    price: 132000,
+    regularPrice: 145000,
+    discountPercent: 9,
+    rating: 4.8,
+    reviewsCount: 64,
+    image: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=800&q=80",
+    inStock: true
+  },
+  {
+    id: "phone-4",
+    title: "Google Pixel 8 Pro 128GB Obsidian Black",
+    category: "Smartphones",
+    brand: "Google",
+    sku: "GGL-PX8P-128-OBS",
+    specs: "Google Tensor G3, Best-in-class computational AI camera, 7 Years OS updates",
+    price: 88500,
+    regularPrice: 98000,
+    discountPercent: 10,
+    rating: 4.8,
+    reviewsCount: 88,
+    image: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=800&q=80",
+    inStock: true
+  },
+  {
+    id: "na-1",
+    title: "ASUS ROG Zephyrus G16 OLED Core Ultra 9 RTX 4080",
+    category: "Laptops",
+    brand: "ASUS",
+    sku: "ASU-ROG-G16-OLED",
+    specs: "Intel Core Ultra 9 185H, 32GB LPDDR5X, 1TB SSD, 2.5K 240Hz ROG Nebula OLED",
+    price: 365000,
+    regularPrice: 385000,
+    discountPercent: 5,
+    rating: 4.9,
+    reviewsCount: 16,
+    image: "https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=800&q=80",
+    badge: "New 2026",
+    inStock: true
+  },
+  {
+    id: "na-2",
+    title: "Sony WF-1000XM5 True Wireless Noise Canceling Earbuds",
+    category: "Audio Gear",
+    brand: "Sony",
+    sku: "SNY-WF1000XM5-BLK",
+    specs: "Dynamic Driver X, Integrated Processor V2, Bone conduction sensor, IPX4",
+    price: 26500,
+    regularPrice: 29000,
+    discountPercent: 9,
+    rating: 4.8,
+    reviewsCount: 41,
+    image: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80",
+    badge: "Hi-Res Wireless",
+    inStock: true
+  },
+  {
+    id: "na-3",
+    title: "DJI Osmo Pocket 3 Creator Combo 1-Inch CMOS 4K/120fps",
+    category: "Accessories",
+    brand: "DJI",
+    sku: "DJI-OP3-CREATOR",
+    specs: "Rotatable 2\" OLED touchscreen, 3-Axis Gimbal, ActiveTrack 6.0, Mic 2 included",
+    price: 76000,
+    regularPrice: 82000,
+    discountPercent: 7,
+    rating: 4.9,
+    reviewsCount: 53,
+    image: "https://images.unsplash.com/photo-1527977966376-1c8408f9f108?auto=format&fit=crop&w=800&q=80",
+    badge: "Hot Creator Gear",
+    inStock: true
+  }
+];
+
+// Helper functions for catalog queries
+export function getProductById(id: string): Product | undefined {
+  return ALL_PRODUCTS.find((p) => p.id === id) || 
+         FLASH_SALE_PRODUCTS.find((p) => p.id === id) ||
+         FEATURED_PRODUCTS.find((p) => p.id === id);
+}
+
+export function getRelatedProducts(productId: string, limit = 4): Product[] {
+  const current = getProductById(productId);
+  if (!current) return ALL_PRODUCTS.slice(0, limit);
+  return ALL_PRODUCTS.filter(
+    (p) => p.id !== productId && (p.category === current.category || p.brand === current.brand)
+  ).slice(0, limit);
+}
+
+export function getAllCategories(): string[] {
+  const set = new Set<string>();
+  ALL_PRODUCTS.forEach((p) => set.add(p.category));
+  return Array.from(set);
+}
+
+export function getAllBrands(): string[] {
+  const set = new Set<string>();
+  ALL_PRODUCTS.forEach((p) => {
+    if (p.brand) set.add(p.brand);
+  });
+  return Array.from(set);
+}
 

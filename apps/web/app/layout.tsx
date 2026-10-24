@@ -20,6 +20,8 @@ export const metadata: Metadata = {
   description: "Bangladesh's trusted destination for genuine electronics, smartphones, laptops, audio gear and everyday essentials with best prices and official warranty.",
 };
 
+import { StoreProvider } from "../context/StoreContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${hindSiliguri.variable}`}>
       <body className="font-sans antialiased bg-[#F8FAFC] text-[#0F172A] min-h-screen overflow-x-hidden">
-        {children}
+        <StoreProvider>{children}</StoreProvider>
       </body>
     </html>
   );

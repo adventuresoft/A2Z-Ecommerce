@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Star, ShoppingCart, Heart } from "lucide-react";
 import { motion } from "motion/react";
 import { Product, formatBDT } from "../../data/mock-catalog";
@@ -88,7 +89,10 @@ export function ProductCard({
       </div>
 
       {/* Standardized 1:1 Aspect Ratio Image Frame */}
-      <div className="relative w-full aspect-square bg-slate-50/80 rounded-xl overflow-hidden mb-3 border border-slate-100 flex items-center justify-center p-2">
+      <Link
+        href={`/products/${product.id}`}
+        className="relative w-full aspect-square bg-slate-50/80 rounded-xl overflow-hidden mb-3 border border-slate-100 flex items-center justify-center p-2 block group-hover:border-blue-200 transition-colors"
+      >
         <Image
           src={product.image}
           alt={product.title}
@@ -96,7 +100,7 @@ export function ProductCard({
           className="object-contain p-2 group-hover:scale-106 transition-transform duration-300 ease-out"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
         />
-      </div>
+      </Link>
 
       {/* Product Content Details */}
       <div className="flex-1 flex flex-col justify-between">
@@ -107,9 +111,11 @@ export function ProductCard({
           </div>
 
           {/* Product Title */}
-          <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-blue-700 transition-colors mb-1.5 min-h-[2.5rem]">
-            {product.title}
-          </h3>
+          <Link href={`/products/${product.id}`} className="block">
+            <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-blue-700 transition-colors mb-1.5 min-h-[2.5rem]">
+              {product.title}
+            </h3>
+          </Link>
 
           {/* Star Ratings */}
           <div className="flex items-center space-x-1 mb-2">
