@@ -323,6 +323,14 @@ export const navigationConfig: NavItem[] = [
         badge: { text: "Live", variant: "success" },
       },
       {
+        id: "system-taxes",
+        title: "Taxes & VAT",
+        href: "/system/taxes",
+        icon: "bi bi-receipt",
+        phase: 2,
+        badge: { text: "Live", variant: "success" },
+      },
+      {
         id: "system-settings",
         title: "Store Settings",
         href: "/system/settings",

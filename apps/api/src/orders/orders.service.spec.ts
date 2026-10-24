@@ -42,7 +42,38 @@ describe('OrdersService', () => {
       getAuditLogById: vi.fn().mockResolvedValue(null),
     };
 
-    service = new OrdersService(prismaMock, inventoryServiceMock, auditLogsServiceMock);
+    const taxesServiceMock: any = {
+      resolveEffectiveTaxClass: vi.fn().mockResolvedValue({
+        taxRate: 5,
+        taxClassName: 'Standard Electronics VAT',
+        taxClassId: 'tax-1',
+      }),
+      calculateLineItemTax: vi.fn().mockImplementation((unitPrice: number, qty: number, taxRate: number, name?: string) => {
+        const gross = Number((unitPrice * qty).toFixed(2));
+        const netUnit = Number((unitPrice / (1 + taxRate / 100)).toFixed(2));
+        const unitTax = Number((unitPrice - netUnit).toFixed(2));
+        const totalTax = Number((unitTax * qty).toFixed(2));
+        const totalNet = Number((gross - totalTax).toFixed(2));
+        return {
+          unitPrice,
+          quantity: qty,
+          netUnitPrice: netUnit,
+          unitTax,
+          totalGross: gross,
+          totalTax,
+          totalNet,
+          taxRate,
+          taxClassName: name || 'Standard Electronics VAT',
+        };
+      }),
+    };
+
+    service = new OrdersService(
+      prismaMock,
+      inventoryServiceMock,
+      auditLogsServiceMock,
+      taxesServiceMock,
+    );
   });
 
   describe('createOrder', () => {
@@ -151,6 +182,95 @@ describe('OrdersService', () => {
         'order-1',
         expect.anything(),
       );
+    });
+
+    it('should calculate and persist tax snapshots during order creation', async () => {
+      const mockVariant = {
+        id: 'var-tax',
+        productId: 'prod-tax',
+        sku: 'ELEC-KEYBOARD',
+        regularPrice: 1050,
+        salePrice: null,
+        isActive: true,
+        product: {
+          id: 'prod-tax',
+          title: 'Mechanical Keyboard',
+          categoryId: 'cat-elec',
+        },
+        attributes: [],
+      };
+
+      let capturedOrderData: any = null;
+
+      prismaMock.$transaction.mockImplementation(async (cb: any) => {
+        const tx = {
+          productVariant: {
+            findMany: vi.fn().mockResolvedValue([mockVariant]),
+          },
+          order: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockImplementation(({ data }: any) => {
+              capturedOrderData = data;
+              return { id: 'order-tax-1' };
+            }),
+            findUniqueOrThrow: vi.fn().mockImplementation(() => ({
+              id: 'order-tax-1',
+              orderNumber: 'AZ-2026-TAX001',
+              userId: 'user-1',
+              orderStatus: OrderStatus.PENDING,
+              paymentStatus: PaymentStatus.PENDING,
+              shipmentStatus: ShipmentStatus.UNFULFILLED,
+              subtotal: capturedOrderData.subtotal,
+              discountAmount: capturedOrderData.discountAmount,
+              shippingFee: capturedOrderData.shippingFee,
+              totalTaxAmount: capturedOrderData.totalTaxAmount,
+              grandTotal: capturedOrderData.grandTotal,
+              recipientName: capturedOrderData.recipientName,
+              recipientPhone: capturedOrderData.recipientPhone,
+              shippingStreet: capturedOrderData.shippingStreet,
+              shippingCity: capturedOrderData.shippingCity,
+              shippingState: null,
+              shippingPostalCode: capturedOrderData.shippingPostalCode,
+              customerNotes: null,
+              items: capturedOrderData.items.create.map((item: any, idx: number) => ({
+                id: `item-${idx + 1}`,
+                ...item,
+                variant: { imageUrl: null },
+              })),
+              statusHistory: [],
+              shipments: [],
+              payments: [],
+              refunds: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })),
+          },
+        };
+        return cb(tx);
+      });
+
+      const res = await service.createOrder('user-1', {
+        recipientName: 'Tax Customer',
+        recipientPhone: '+8801700000000',
+        shippingStreet: '123 Tech St',
+        shippingCity: 'Dhaka',
+        shippingPostalCode: '1205',
+        items: [{ variantId: 'var-tax', quantity: 1 }],
+      });
+
+      expect(capturedOrderData).toBeDefined();
+      // 5% tax on 1050 tax-inclusive:
+      // netUnitPrice = 1050 / 1.05 = 1000.00, tax = 50.00
+      expect(capturedOrderData.totalTaxAmount).toBe(50);
+      expect(capturedOrderData.items.create[0]).toMatchObject({
+        taxRate: 5,
+        taxAmount: 50,
+        taxClassName: 'Standard Electronics VAT',
+      });
+      expect(res.totalTaxAmount).toBe(50);
+      expect(res.items[0].taxRate).toBe(5);
+      expect(res.items[0].taxAmount).toBe(50);
+      expect(res.items[0].taxClassName).toBe('Standard Electronics VAT');
     });
 
     it('should throw BadRequestException if order has no items', async () => {

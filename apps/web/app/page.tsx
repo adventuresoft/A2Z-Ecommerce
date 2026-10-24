@@ -63,18 +63,8 @@ export default function HomePage() {
       return [...prev, { ...product, quantity: 1 }];
     });
 
-    const toastId = Math.random().toString(36).substring(2, 9);
-    const newToast: ToastMessage = {
-      id: toastId,
-      title: "Added to Cart!",
-      desc: `${product.title} (${formatBDT(product.price)}) has been added.`,
-      type: "success",
-    };
-
-    setToasts((prev) => [...prev, newToast]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== toastId));
-    }, 4000);
+    // Automatically slide open the mini-cart drawer
+    setIsCartModalOpen(true);
   };
 
   const handleToggleWishlist = (productId: string) => {
@@ -104,6 +94,20 @@ export default function HomePage() {
 
       return next;
     });
+  };
+
+  const handleUpdateQuantity = (id: string, delta: number) => {
+    setCartItems((prev) =>
+      prev
+        .map((item) => {
+          if (item.id === id) {
+            const nextQty = item.quantity + delta;
+            return nextQty > 0 ? { ...item, quantity: nextQty } : null;
+          }
+          return item;
+        })
+        .filter((item): item is (Product & { quantity: number }) => item !== null)
+    );
   };
 
   const handleRemoveFromCart = (id: string) => {
@@ -225,6 +229,8 @@ export default function HomePage() {
           cartItems={cartItems}
           onRemoveItem={handleRemoveFromCart}
           onClearCart={handleClearCart}
+          onUpdateQuantity={handleUpdateQuantity}
+          onAddToCart={handleAddToCart}
         />
 
         {/* Dynamic Toast Feedback Container */}

@@ -32,6 +32,8 @@ erDiagram
     Category ||--o{ Category : "parent of"
     Category ||--o{ Product : "classifies"
     Brand ||--o{ Product : "manufactures"
+    TaxClass ||--o{ Category : "default tax for"
+    TaxClass ||--o{ Product : "overrides tax for"
 
     Product ||--o{ ProductImage : "displays"
     Product ||--o{ ProductVariant : "offers"
@@ -137,6 +139,7 @@ Self-referencing tree supporting nested product taxonomies.
 | `description` | `TEXT` | Nullable | Category summary. |
 | `imageUrl` | `VARCHAR(255)` | Nullable | Category header or icon image. |
 | `parentId` | `UUID` | FK → `Category.id` (Set Null), Nullable | Self-reference to parent category. |
+| `taxClassId` | `UUID` | FK → `TaxClass.id` (Set Null), Nullable | Category-level default tax class. |
 | `isActive` | `BOOLEAN` | Not Null, Default `true` | Display toggle. |
 | `sortOrder` | `INTEGER` | Not Null, Default `0` | Navigation menu ranking. |
 | `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Timestamp. |
@@ -168,6 +171,7 @@ Conceptual product master holding shared marketing attributes and descriptions.
 | `shortDescription` | `VARCHAR(500)`| Nullable | Concise teaser for card listings. |
 | `categoryId` | `UUID` | FK → `Category.id` (Restrict), Not Null | Primary taxonomy category. |
 | `brandId` | `UUID` | FK → `Brand.id` (Restrict), Nullable | Brand reference. |
+| `taxClassId` | `UUID` | FK → `TaxClass.id` (Set Null), Nullable | Product-level tax class override. |
 | `isFeatured` | `BOOLEAN` | Not Null, Default `false` | Featured on homepage flag. |
 | `isActive` | `BOOLEAN` | Not Null, Default `true` | Catalog visibility toggle. |
 | `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Creation timestamp. |
@@ -314,6 +318,7 @@ Customer order header containing financial totals, three-axis statuses, and froz
 | `subtotal` | `DECIMAL(10,2)`| Not Null | Sum of items before shipping & discounts. |
 | `discountAmount` | `DECIMAL(10,2)`| Not Null, Default `0.00` | Total promotional discount applied. |
 | `shippingFee` | `DECIMAL(10,2)`| Not Null, Default `0.00` | Shipping delivery cost. |
+| `totalTaxAmount` | `DECIMAL(10,2)`| Not Null, Default `0.00` | Total reverse-extracted VAT across line items. |
 | `grandTotal` | `DECIMAL(10,2)`| Not Null | Total payable amount (`subtotal - discount + shipping`). |
 | `recipientName` | `VARCHAR(150)` | Not Null | Frozen snapshot of recipient. |
 | `recipientPhone` | `VARCHAR(30)` | Not Null | Frozen snapshot of contact phone. |
@@ -338,6 +343,9 @@ Immutable line items freezing product titles, SKUs, and purchased prices at the 
 | `variantAttributes`| `VARCHAR(255)`| Nullable | Text snapshot of chosen options (e.g. "Color: Black"). |
 | `unitPrice` | `DECIMAL(10,2)`| Not Null | Frozen purchase price per unit. |
 | `quantity` | `INTEGER` | Not Null | Units ordered. |
+| `taxRate` | `DECIMAL(5,2)` | Not Null, Default `0.00` | Applicable tax rate percentage snapshot. |
+| `taxAmount` | `DECIMAL(10,2)`| Not Null, Default `0.00` | Extracted tax amount for line item. |
+| `taxClassName` | `VARCHAR(100)` | Nullable | Human-readable tax class name snapshot. |
 | `totalPrice` | `DECIMAL(10,2)`| Not Null | `unitPrice * quantity`. |
 
 #### `OrderStatusHistory`
@@ -507,6 +515,29 @@ Administrative action audit trail.
 
 ---
 
+### 4.11 Taxes & VAT
+
+#### `TaxClass`
+Configurable tax definitions supporting VAT/tax-inclusive pricing models and statutory rates.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `UUID` | PK, default `gen_random_uuid()` | Unique tax class identifier. |
+| `name` | `VARCHAR(100)` | Not Null | Tax class display name (e.g. "Standard Electronics VAT"). |
+| `code` | `VARCHAR(50)` | Unique, Not Null | Normalized uppercase code (e.g. `VAT_5_ELEC`). |
+| `rate` | `DECIMAL(5,2)` | Not Null | Percentage rate (e.g. `5.00` for 5%). |
+| `isDefault` | `BOOLEAN` | Not Null, Default `false` | Global store fallback indicator. |
+| `isActive` | `BOOLEAN` | Not Null, Default `true` | Active calculation flag. |
+| `description` | `TEXT` | Nullable | Administrative documentation or NBR statutory notes. |
+| `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Timestamp. |
+| `updatedAt` | `TIMESTAMP` | Not Null | Timestamp. |
+
+*(Rule 1: Tax-Inclusive Retail Pricing — Product variant salePrice/regularPrice includes VAT; VAT is reverse-calculated at checkout).*  
+*(Rule 2: Tax Inheritance Order — Product override -> Category default -> Store default -> 0% zero-tax fallback).*  
+*(Rule 3: Shipping VAT Exemption — Delivery fees are strictly 0% VAT exempt).*
+
+---
+
 ## 5. Critical Database Invariants & Business Rules
 
 1. **Concurrency-Safe Stock Reservations:**
@@ -525,3 +556,5 @@ Administrative action audit trail.
    SELECT COUNT(*) FROM "CouponUsage" WHERE coupon_id = $1 AND user_id = $2;
    ```
    Rejecting if count is greater than or equal to `Coupon.perCustomerLimit`.
+5. **Tax & Financial Snapshot Immutability:**
+   On order placement, `OrderItem.taxRate`, `OrderItem.taxAmount`, `OrderItem.taxClassName`, and `Order.totalTaxAmount` are permanently frozen. Future edits to tax classes or category mappings never alter historic order invoices.

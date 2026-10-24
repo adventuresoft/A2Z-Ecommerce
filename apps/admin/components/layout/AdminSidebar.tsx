@@ -45,6 +45,7 @@ const ITEM_MODULE_MAP: Record<string, AppModule> = {
   "reports-customers": "reports",
   system: "settings",
   "system-users": "users",
+  "system-taxes": "settings",
   "system-settings": "settings",
   "system-logs": "settings",
 };

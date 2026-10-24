@@ -21,6 +21,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
+import { TaxesModule } from './taxes/taxes.module.js';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
     ReportsModule,
     CustomersModule,
     AuditLogsModule,
+    TaxesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

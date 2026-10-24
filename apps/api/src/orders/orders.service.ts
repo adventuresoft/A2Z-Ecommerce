@@ -16,6 +16,7 @@ import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
+import { TaxesService } from '../taxes/taxes.service.js';
 import type {
   CancelOrderDto,
   CreateAdminOrderDto,
@@ -32,6 +33,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly inventoryService: InventoryService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly taxesService: TaxesService,
   ) {}
 
   private readonly orderIncludes = {
@@ -108,6 +110,9 @@ export class OrdersService {
         unitPrice: Number(item.unitPrice),
         quantity: item.quantity,
         totalPrice: Number(item.totalPrice),
+        taxRate: Number(item.taxRate ?? 0),
+        taxAmount: Number(item.taxAmount ?? 0),
+        taxClassName: item.taxClassName ?? null,
         thumbnailUrl,
       };
     });
@@ -163,6 +168,7 @@ export class OrdersService {
       subtotal: Number(order.subtotal),
       discountAmount: Number(order.discountAmount),
       shippingFee: Number(order.shippingFee),
+      totalTaxAmount: Number(order.totalTaxAmount ?? 0),
       grandTotal: Number(order.grandTotal),
       recipientName: order.recipientName,
       recipientPhone: order.recipientPhone,
@@ -268,6 +274,9 @@ export class OrdersService {
         unitPrice: number;
         quantity: number;
         totalPrice: number;
+        taxRate: number;
+        taxAmount: number;
+        taxClassName: string | null;
       }> = [];
 
       for (const variant of variants) {
@@ -288,6 +297,18 @@ export class OrdersService {
         const variantAttributes =
           this.formatAttributes(variant.attributes) || null;
 
+        const taxResolution = await this.taxesService.resolveEffectiveTaxClass({
+          productId: variant.productId,
+          categoryId: variant.product.categoryId ?? undefined,
+        });
+
+        const lineTax = this.taxesService.calculateLineItemTax(
+          price,
+          quantity,
+          taxResolution.taxRate,
+          taxResolution.taxClassName,
+        );
+
         orderItemsData.push({
           variantId: variant.id,
           productTitle: variant.product.title,
@@ -296,8 +317,15 @@ export class OrdersService {
           unitPrice: price,
           quantity,
           totalPrice,
+          taxRate: lineTax.taxRate,
+          taxAmount: lineTax.totalTax,
+          taxClassName: lineTax.taxClassName,
         });
       }
+
+      const totalTaxAmount = Number(
+        orderItemsData.reduce((acc, item) => acc + item.taxAmount, 0).toFixed(2),
+      );
 
       // Standard delivery fee (flat 60 BDT for default standard shipping)
       const shippingFee = 60.0;
@@ -323,6 +351,7 @@ export class OrdersService {
           subtotal,
           discountAmount,
           shippingFee,
+          totalTaxAmount,
           grandTotal,
           recipientName: dto.recipientName.trim(),
           recipientPhone: dto.recipientPhone.trim(),
@@ -463,6 +492,9 @@ export class OrdersService {
         unitPrice: number;
         quantity: number;
         totalPrice: number;
+        taxRate: number;
+        taxAmount: number;
+        taxClassName: string | null;
       }> = [];
 
       for (const variant of variants) {
@@ -483,6 +515,18 @@ export class OrdersService {
 
         const variantAttributes = this.formatAttributes(variant.attributes) || null;
 
+        const taxResolution = await this.taxesService.resolveEffectiveTaxClass({
+          productId: variant.productId,
+          categoryId: variant.product.categoryId ?? undefined,
+        });
+
+        const lineTax = this.taxesService.calculateLineItemTax(
+          price,
+          quantity,
+          taxResolution.taxRate,
+          taxResolution.taxClassName,
+        );
+
         orderItemsData.push({
           variantId: variant.id,
           productTitle: variant.product.title,
@@ -491,8 +535,15 @@ export class OrdersService {
           unitPrice: price,
           quantity,
           totalPrice,
+          taxRate: lineTax.taxRate,
+          taxAmount: lineTax.totalTax,
+          taxClassName: lineTax.taxClassName,
         });
       }
+
+      const totalTaxAmount = Number(
+        orderItemsData.reduce((acc, item) => acc + item.taxAmount, 0).toFixed(2),
+      );
 
       const shippingFee = dto.shippingFee !== undefined ? Number(dto.shippingFee) : 60.0;
       const discountAmount = dto.discountAmount !== undefined ? Number(dto.discountAmount) : 0.0;
@@ -521,6 +572,7 @@ export class OrdersService {
           subtotal,
           discountAmount,
           shippingFee,
+          totalTaxAmount,
           grandTotal,
           recipientName: dto.recipientName.trim(),
           recipientPhone: dto.recipientPhone.trim(),

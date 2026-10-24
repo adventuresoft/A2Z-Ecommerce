@@ -2487,8 +2487,54 @@ const DEFAULT_STORE_SETTINGS = [
   },
 ];
 
+const TAX_CLASSES_DATA = [
+  {
+    name: 'Standard Electronics VAT',
+    code: 'VAT-ELEC-5',
+    rate: 5.00,
+    isDefault: true,
+    isActive: true,
+    description: 'Standard 5% VAT rate for consumer electronics, laptops, and IT hardware.',
+  },
+  {
+    name: 'General VAT',
+    code: 'VAT-GEN-15',
+    rate: 15.00,
+    isDefault: false,
+    isActive: true,
+    description: 'General 15% statutory VAT rate for lifestyle goods and accessories.',
+  },
+  {
+    name: 'Zero-Rated / Exempt',
+    code: 'VAT-ZERO-0',
+    rate: 0.00,
+    isDefault: false,
+    isActive: true,
+    description: '0% tax rate for exempt educational materials or zero-rated goods.',
+  },
+];
+
+async function seedTaxClasses() {
+  console.log('Seeding baseline Tax Classes...');
+  for (const tc of TAX_CLASSES_DATA) {
+    await prisma.taxClass.upsert({
+      where: { code: tc.code },
+      update: {
+        name: tc.name,
+        rate: tc.rate,
+        isDefault: tc.isDefault,
+        isActive: tc.isActive,
+        description: tc.description,
+      },
+      create: tc,
+    });
+  }
+  console.log('Tax classes seeded successfully.');
+}
+
 async function seed() {
   await seedDemoUsers();
+  await seedTaxClasses();
   await seedCategories();
   await seedBrands();
   await seedAttributes();
@@ -2505,4 +2551,5 @@ seed()
     await prisma.$disconnect();
     await pool.end();
   });
+
 

@@ -26,6 +26,15 @@ export class OrderItemResponseDto {
   @ApiProperty({ example: 900.0 })
   totalPrice: number;
 
+  @ApiProperty({ example: 15.0, description: 'Frozen VAT percentage rate applied at checkout' })
+  taxRate: number;
+
+  @ApiProperty({ example: 117.39, description: 'Frozen total VAT amount for this line item' })
+  taxAmount: number;
+
+  @ApiPropertyOptional({ example: 'General VAT', description: 'Frozen tax class name' })
+  taxClassName?: string | null;
+
   @ApiPropertyOptional({ example: 'https://images.example.com/tshirt.png' })
   thumbnailUrl?: string | null;
 }
@@ -152,6 +161,9 @@ export class OrderResponseDto {
 
   @ApiProperty({ example: 60.0 })
   shippingFee: number;
+
+  @ApiProperty({ example: 117.39, description: 'Total VAT/tax amount included in the order total' })
+  totalTaxAmount: number;
 
   @ApiProperty({ example: 960.0 })
   grandTotal: number;
