@@ -22,6 +22,7 @@ import { ReportsModule } from './reports/reports.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { TaxesModule } from './taxes/taxes.module.js';
+import { AccountModule } from './account/account.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { TaxesModule } from './taxes/taxes.module.js';
     HealthModule,
     UsersModule,
     AuthModule,
+    AccountModule,
     CategoriesModule,
     BrandsModule,
     AttributesModule,

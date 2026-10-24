@@ -22,11 +22,11 @@ The system SHALL provide an endpoint at `POST /api/v1/auth/register` allowing ne
 - **THEN** system rejects the request with HTTP 400 Bad Request detailing validation errors
 
 ### Requirement: User Authentication and Token Issuance
-The system SHALL provide an endpoint at `POST /api/v1/auth/login` validating user credentials against stored argon2id hashes and issuing a pair of signed JWT tokens: a short-lived access token and a long-lived refresh token containing the user identifier, role, and current tokenVersion.
+The system SHALL provide an endpoint at `POST /api/v1/auth/login` validating user credentials against stored argon2id hashes, issuing a signed access token in the response body, and attaching the long-lived refresh token as an HTTP-only cookie (`refreshToken`) scoped to `/api/v1/auth` with `SameSite=Lax`.
 
 #### Scenario: Valid credentials submitted
 - **WHEN** client submits matching email and password for an active account
-- **THEN** system responds with HTTP 200 OK containing `accessToken`, `refreshToken`, and a user summary object (id, email, name, role)
+- **THEN** system responds with HTTP 200 OK containing `accessToken`, `user` summary object, and sets an `HttpOnly` cookie for `refreshToken` with a 7-day expiration
 
 #### Scenario: Invalid password or non-existent email
 - **WHEN** client submits non-existent email or incorrect password
@@ -37,11 +37,11 @@ The system SHALL provide an endpoint at `POST /api/v1/auth/login` validating use
 - **THEN** system responds with HTTP 403 Forbidden indicating account deactivation
 
 ### Requirement: Refresh Token Rotation and Invalidation
-The system SHALL provide `POST /api/v1/auth/refresh` to exchange a valid refresh token for a newly issued access token and refresh token, and `POST /api/v1/auth/logout` to invalidate existing refresh tokens by incrementing the user's `tokenVersion`.
+The system SHALL provide `POST /api/v1/auth/refresh` to exchange a valid refresh token (provided via HTTP-only cookie or request body) for a newly issued access token and rotated refresh token cookie, and `POST /api/v1/auth/logout` to clear the refresh token cookie and invalidate sessions by incrementing the user's `tokenVersion`.
 
 #### Scenario: Refreshing with valid token
-- **WHEN** client submits a valid, unexpired refresh token matching the user's current `tokenVersion`
-- **THEN** system issues a new access token and rotated refresh token with HTTP 200 OK
+- **WHEN** client submits a valid, unexpired refresh token via HTTP-only cookie or request body matching the user's current `tokenVersion`
+- **THEN** system issues a new access token in the response body and rotated refresh token cookie with HTTP 200 OK
 
 #### Scenario: Refreshing with revoked token version
 - **WHEN** client submits a refresh token whose encoded `tokenVersion` does not match the database `tokenVersion`
@@ -49,7 +49,7 @@ The system SHALL provide `POST /api/v1/auth/refresh` to exchange a valid refresh
 
 #### Scenario: User logout execution
 - **WHEN** authenticated user calls `POST /api/v1/auth/logout`
-- **THEN** system increments the user's `tokenVersion` in the database and returns HTTP 200 OK
+- **THEN** system clears the `refreshToken` HTTP-only cookie, increments the user's `tokenVersion` in the database, and returns HTTP 200 OK
 
 ### Requirement: Authenticated User Profile Retrieval
 The system SHALL expose `GET /api/v1/auth/me` protected by JWT access token verification that returns the current authenticated user's profile details.

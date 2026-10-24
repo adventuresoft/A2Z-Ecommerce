@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 };
 
 import { StoreProvider } from "../context/StoreContext";
+import { AuthProvider } from "../context/AuthContext";
 
 export default function RootLayout({
   children,
@@ -30,7 +31,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${hindSiliguri.variable}`}>
       <body className="font-sans antialiased bg-[#F8FAFC] text-[#0F172A] min-h-screen overflow-x-hidden">
-        <StoreProvider>{children}</StoreProvider>
+        <AuthProvider>
+          <StoreProvider>{children}</StoreProvider>
+        </AuthProvider>
       </body>
     </html>
   );

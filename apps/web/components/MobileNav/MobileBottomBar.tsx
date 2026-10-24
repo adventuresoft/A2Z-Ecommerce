@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Home, Grid, Flame, ShoppingBag } from "lucide-react";
+import { Home, Grid, Flame, ShoppingBag, User } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 interface MobileBottomBarProps {
   cartCount: number;
@@ -14,6 +15,7 @@ export function MobileBottomBar({
   onOpenCategories,
   onOpenCartModal,
 }: MobileBottomBarProps) {
+  const { isAuthenticated, user } = useAuth();
   return (
     <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-6 flex items-center justify-between z-40 lg:hidden shadow-lg">
       <Link
@@ -38,6 +40,16 @@ export function MobileBottomBar({
       >
         <Flame className="w-5 h-5" />
         <span className="text-[10px] font-bold mt-1">Deals</span>
+      </Link>
+
+      <Link
+        href={isAuthenticated ? "/account" : "/login"}
+        className="flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
+      >
+        <User className="w-5 h-5" />
+        <span className="text-[10px] font-bold mt-1">
+          {isAuthenticated ? "Account" : "Sign In"}
+        </span>
       </Link>
 
       <button

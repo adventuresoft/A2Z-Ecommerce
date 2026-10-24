@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import { join } from 'node:path';
 import { ensureUploadDirs } from './common/uploads/image-upload.js';
@@ -13,6 +14,9 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  // Cookie parser middleware
+  app.use(cookieParser());
 
   // Static uploads directories
   ensureUploadDirs(['categories', 'brands', 'products']);

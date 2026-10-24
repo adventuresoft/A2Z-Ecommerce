@@ -32,12 +32,22 @@ export class AuthService {
       phone: dto.phone,
     });
 
+    const tokens = await this.tokenService.generateTokens(user);
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       phone: user.phone,
       role: user.role,
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+      },
     };
   }
 
@@ -73,6 +83,9 @@ export class AuthService {
   }
 
   async refreshToken(dto: RefreshTokenDto) {
+    if (!dto.refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
     const payload = await this.tokenService.verifyRefreshToken(
       dto.refreshToken,
     );
