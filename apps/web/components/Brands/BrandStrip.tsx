@@ -21,7 +21,25 @@ const BRANDS: BrandItem[] = [
   { name: "LOGITECH", tagline: "Defy Logic", badgeColor: "text-slate-900 font-black tracking-widest" },
 ];
 
-export function BrandStrip() {
+interface BrandStripProps {
+  brands?: any[];
+}
+
+export function BrandStrip({ brands }: BrandStripProps = {}) {
+  // If brands is explicitly passed as an empty array, hide cleanly
+  if (brands !== undefined && brands.length === 0) {
+    return null;
+  }
+
+  const items =
+    brands && brands.length > 0
+      ? brands.map((b) => ({
+          name: b.name,
+          tagline: b.tagline || "Official Partner Brand",
+          badgeColor: "text-slate-900 font-black tracking-widest",
+          slug: b.slug,
+        }))
+      : BRANDS.map((b) => ({ ...b, slug: b.name.toLowerCase() }));
   return (
     <section id="brands" className="py-10 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -45,9 +63,10 @@ export function BrandStrip() {
 
         {/* Brand Card Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {BRANDS.map((brand) => (
-            <div
+          {items.map((brand) => (
+            <a
               key={brand.name}
+              href={brand.slug ? `/products?brand=${encodeURIComponent(brand.slug)}` : "/products"}
               className="bg-slate-50/80 hover:bg-white rounded-2xl py-4 px-3 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 hover:-translate-y-1 transition-all flex flex-col items-center justify-center text-center cursor-pointer group"
             >
               <div className="h-7 flex items-center justify-center">
@@ -58,7 +77,7 @@ export function BrandStrip() {
               <span className="text-[9px] text-slate-400 font-medium mt-1 truncate max-w-full">
                 {brand.tagline}
               </span>
-            </div>
+            </a>
           ))}
         </div>
       </div>

@@ -11,8 +11,8 @@ export interface AuditLogItem {
   action: string;
   entityType: string;
   entityId: string;
-  oldValues: Record<string, any> | null;
-  newValues: Record<string, any> | null;
+  oldValues: Record<string, unknown> | null;
+  newValues: Record<string, unknown> | null;
   ipAddress: string | null;
   userAgent: string | null;
   createdAt: string;

@@ -4,18 +4,35 @@ import React from "react";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { ProductCard } from "../UI/ProductCard";
 import { NEW_ARRIVALS_PRODUCTS, Product } from "../../data/mock-catalog";
+import { mapSummaryToProduct } from "../../lib/curated";
 
 interface NewArrivalsSectionProps {
   onAddToCart: (product: Product) => void;
   onToggleWishlist?: (productId: string) => void;
   wishlistIds?: Set<string>;
+  products?: any[];
 }
 
 export function NewArrivalsSection({
   onAddToCart,
   onToggleWishlist,
   wishlistIds = new Set(),
+  products,
 }: NewArrivalsSectionProps) {
+  // If products is explicitly an empty array, hide section cleanly
+  if (products !== undefined && products.length === 0) {
+    return null;
+  }
+
+  const items: Product[] =
+    products !== undefined
+      ? products.map((p) =>
+          typeof p.category === "string" && !p.primaryImage
+            ? (p as Product)
+            : mapSummaryToProduct(p)
+        )
+      : NEW_ARRIVALS_PRODUCTS;
+
   return (
     <section id="new-arrivals" className="py-10 bg-slate-50 border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -36,7 +53,7 @@ export function NewArrivalsSection({
           </div>
 
           <a
-            href="#"
+            href="/products?sortBy=newest"
             className="text-xs sm:text-sm font-bold text-blue-700 hover:text-blue-800 flex items-center space-x-1 group"
           >
             <span>View All</span>
@@ -44,9 +61,9 @@ export function NewArrivalsSection({
           </a>
         </div>
 
-        {/* 6 Products Grid with Unified ProductCard */}
+        {/* Product Cards Grid with Unified ProductCard */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
-          {NEW_ARRIVALS_PRODUCTS.map((product, idx) => (
+          {items.map((product, idx) => (
             <ProductCard
               key={product.id}
               product={product}

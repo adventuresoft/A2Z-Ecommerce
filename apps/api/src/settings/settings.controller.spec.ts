@@ -109,6 +109,18 @@ describe('SettingsControllers', () => {
       });
     });
 
+    it('should return public settings dictionary via getPublicSettingsExplicit', async () => {
+      (settingsServiceMock.getPublicSettings as any).mockResolvedValue({
+        store_name: 'A2Z Store',
+        heroBanners: [{ id: 'b-1', title: 'Banner 1' }],
+      });
+      const res = await publicController.getPublicSettingsExplicit();
+      expect(res).toEqual({
+        store_name: 'A2Z Store',
+        heroBanners: [{ id: 'b-1', title: 'Banner 1' }],
+      });
+    });
+
     it('should return setting by key if isPublic is true', async () => {
       (settingsServiceMock.findByKey as any).mockResolvedValue({
         key: 'store_name',

@@ -81,7 +81,7 @@ export default function WishlistPage() {
 
                 {/* Image Frame */}
                 <Link
-                  href={`/products/${product.id}`}
+                  href={`/products/${product.slug || product.id}`}
                   className="relative w-full aspect-square bg-slate-50/80 rounded-2xl overflow-hidden mb-3 border border-slate-100 flex items-center justify-center p-3 block"
                 >
                   <Image
@@ -100,7 +100,7 @@ export default function WishlistPage() {
                       {product.category}
                     </span>
 
-                    <Link href={`/products/${product.id}`} className="block mt-1">
+                    <Link href={`/products/${product.slug || product.id}`} className="block mt-1">
                       <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-snug">
                         {product.title}
                       </h3>

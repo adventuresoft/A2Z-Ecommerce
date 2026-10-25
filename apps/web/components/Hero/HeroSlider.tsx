@@ -6,8 +6,32 @@ import { ChevronLeft, ChevronRight, ArrowRight, ShieldCheck, Award, Truck, Lock 
 import { motion, AnimatePresence } from "motion/react";
 import gsap from "gsap";
 import { HERO_SLIDES, HeroSlide } from "../../data/mock-catalog";
+import { PublicHeroBannerItem } from "../../lib/curated";
 
-export function HeroSlider() {
+interface HeroSliderProps {
+  banners?: PublicHeroBannerItem[];
+}
+
+export function HeroSlider({ banners }: HeroSliderProps = {}) {
+  const slides: HeroSlide[] =
+    banners && banners.length > 0
+      ? banners.map((b, idx) => ({
+          id: b.id || `banner-${idx}`,
+          tagline: b.badgeText || "Special Offer",
+          title: b.title,
+          subtitle:
+            b.subtitle ||
+            "Discover our premium selection with official warranty and fast delivery.",
+          primaryCtaText: "Shop Now",
+          primaryCtaLink: b.linkUrl || "/products",
+          secondaryCtaText: "Explore More",
+          secondaryCtaLink: "/products",
+          badgeText: b.badgeText || "Featured Collection",
+          image: b.imageUrl || "/placeholder.png",
+          bgColor: "from-slate-900 via-blue-950 to-slate-900",
+        }))
+      : HERO_SLIDES;
+
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -16,12 +40,12 @@ export function HeroSlider() {
 
   // Auto-play interval
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || slides.length <= 1) return;
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [isPaused]);
+  }, [isPaused, slides.length]);
 
   // GSAP subtle floating timeline for ambient depth
   useEffect(() => {
@@ -51,7 +75,7 @@ export function HeroSlider() {
     return () => ctx.revert();
   }, [currentSlide]);
 
-  const slide: HeroSlide = HERO_SLIDES[currentSlide] ?? HERO_SLIDES[0]!;
+  const slide: HeroSlide = slides[currentSlide] ?? slides[0]!;
 
   return (
     <section
@@ -189,7 +213,7 @@ export function HeroSlider() {
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+            onClick={() => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)}
             className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-800/60 hover:bg-slate-700 text-white flex items-center justify-center backdrop-blur-xs transition-colors z-20 cursor-pointer"
             aria-label="Previous Slide"
           >
@@ -198,7 +222,7 @@ export function HeroSlider() {
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
+            onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
             className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-800/60 hover:bg-slate-700 text-white flex items-center justify-center backdrop-blur-xs transition-colors z-20 cursor-pointer"
             aria-label="Next Slide"
           >
@@ -207,7 +231,7 @@ export function HeroSlider() {
 
           {/* Pagination Dots */}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center space-x-2 z-20">
-            {HERO_SLIDES.map((_, idx) => (
+            {slides.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentSlide(idx)}

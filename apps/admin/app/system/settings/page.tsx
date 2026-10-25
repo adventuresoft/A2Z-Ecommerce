@@ -6,6 +6,7 @@ import {
   StoreSetting,
   SettingItemUpdate,
 } from "../../../services/settings";
+import { HeroBannersManager } from "../../../components/settings/HeroBannersManager";
 
 type TabKey =
   | "GENERAL"
@@ -14,7 +15,8 @@ type TabKey =
   | "INVENTORY"
   | "SHIPPING"
   | "NOTIFICATION"
-  | "SECURITY";
+  | "SECURITY"
+  | "HERO_BANNERS";
 
 interface TabDefinition {
   key: TabKey;
@@ -66,6 +68,12 @@ const TABS: TabDefinition[] = [
     icon: "bi-shield-check",
     description: "Maintenance mode, customer registration, and meta tags",
   },
+  {
+    key: "HERO_BANNERS",
+    label: "Hero Banners",
+    icon: "bi-images",
+    description: "Homepage hero carousel slides, headlines, badges, and CTA redirects",
+  },
 ];
 
 export default function StoreSettingsPage() {
@@ -103,10 +111,10 @@ export default function StoreSettingsPage() {
       }
       setFormValues(valMap);
       setInitialValues(valMap);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAlert({
         type: "danger",
-        message: err.message || "Failed to load store settings from server.",
+        message: err instanceof Error ? err.message : "Failed to load store settings from server.",
       });
     } finally {
       setLoading(false);
@@ -126,10 +134,16 @@ export default function StoreSettingsPage() {
 
   // Check if active tab has unsaved changes
   const hasChangesInActiveTab = useMemo(() => {
+    if (activeTab === "HERO_BANNERS") {
+      return (
+        (formValues["storefront.hero_banners"] || "[]") !==
+        (initialValues["storefront.hero_banners"] || "[]")
+      );
+    }
     return activeSettings.some(
       (s) => formValues[s.key] !== initialValues[s.key],
     );
-  }, [activeSettings, formValues, initialValues]);
+  }, [activeSettings, formValues, initialValues, activeTab]);
 
   // Handle single input field change
   const handleInputChange = (key: string, value: string) => {
@@ -147,8 +161,13 @@ export default function StoreSettingsPage() {
   // Reset active tab changes
   const handleResetActiveTab = () => {
     const updated = { ...formValues };
-    for (const s of activeSettings) {
-      updated[s.key] = initialValues[s.key] ?? s.value;
+    if (activeTab === "HERO_BANNERS") {
+      updated["storefront.hero_banners"] =
+        initialValues["storefront.hero_banners"] ?? "[]";
+    } else {
+      for (const s of activeSettings) {
+        updated[s.key] = initialValues[s.key] ?? s.value;
+      }
     }
     setFormValues(updated);
     setAlert({
@@ -163,12 +182,24 @@ export default function StoreSettingsPage() {
     setAlert(null);
     try {
       const changedItems: SettingItemUpdate[] = [];
-      for (const s of activeSettings) {
-        if (formValues[s.key] !== undefined && formValues[s.key] !== initialValues[s.key]) {
+      if (activeTab === "HERO_BANNERS") {
+        const val = formValues["storefront.hero_banners"] || "[]";
+        if (val !== (initialValues["storefront.hero_banners"] || "[]")) {
           changedItems.push({
-            key: s.key,
-            value: formValues[s.key],
+            key: "storefront.hero_banners",
+            value: val,
+            isPublic: true,
+            description: "Storefront homepage hero carousel slides",
           });
+        }
+      } else {
+        for (const s of activeSettings) {
+          if (formValues[s.key] !== undefined && formValues[s.key] !== initialValues[s.key]) {
+            changedItems.push({
+              key: s.key,
+              value: formValues[s.key],
+            });
+          }
         }
       }
 
@@ -196,10 +227,10 @@ export default function StoreSettingsPage() {
           TABS.find((t) => t.key === activeTab)?.label
         }!`,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAlert({
         type: "danger",
-        message: err.message || "Failed to update store settings.",
+        message: err instanceof Error ? err.message : "Failed to update store settings.",
       });
     } finally {
       setSaving(false);
@@ -231,10 +262,10 @@ export default function StoreSettingsPage() {
         message: `Setting '${newKey.toLowerCase()}' created successfully!`,
       });
       await fetchSettings();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAlert({
         type: "danger",
-        message: err.message || "Failed to create setting.",
+        message: err instanceof Error ? err.message : "Failed to create setting.",
       });
     } finally {
       setCreating(false);
@@ -316,9 +347,13 @@ export default function StoreSettingsPage() {
               const tabSettings = settings.filter(
                 (s) => (s.group || "GENERAL").toUpperCase() === tab.key,
               );
-              const tabHasUnsaved = tabSettings.some(
-                (s) => formValues[s.key] !== initialValues[s.key],
-              );
+              const tabHasUnsaved =
+                tab.key === "HERO_BANNERS"
+                  ? (formValues["storefront.hero_banners"] || "[]") !==
+                    (initialValues["storefront.hero_banners"] || "[]")
+                  : tabSettings.some(
+                      (s) => formValues[s.key] !== initialValues[s.key],
+                    );
 
               return (
                 <li className="nav-item text-nowrap" key={tab.key}>
@@ -368,7 +403,14 @@ export default function StoreSettingsPage() {
 
         {/* Card Body Form */}
         <div className="card-body p-4">
-          {loading ? (
+          {activeTab === "HERO_BANNERS" ? (
+            <HeroBannersManager
+              bannersJson={formValues["storefront.hero_banners"] || initialValues["storefront.hero_banners"] || "[]"}
+              onChange={(updatedJson) => handleInputChange("storefront.hero_banners", updatedJson)}
+              onSave={handleSaveActiveTab}
+              saving={saving}
+            />
+          ) : loading ? (
             <div className="text-center py-5">
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading settings...</span>

@@ -11,13 +11,19 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CreateProductDto,
   CreateProductVariantDto,
+  CuratedProductsDto,
   PaginatedProductResponseDto,
+  PaginatedPublicProductResponseDto,
   PaginatedVariantResponseDto,
   ProductImageResponseDto,
   ProductQueryDto,
   ProductResponseDto,
   ProductVariantResponseDto,
+  PublicProductDetailDto,
+  PublicProductQueryDto,
+  PublicProductSummaryDto,
   ReorderProductImagesDto,
+  SearchSuggestionsDto,
   UpdateProductDto,
   UpdateProductImageDto,
   UpdateProductVariantDto,
@@ -1156,6 +1162,822 @@ export class ProductsService {
     return {
       success: true,
       message: `Variant '${variant.sku}' deleted successfully`,
+    };
+  }
+
+  /**
+   * Find public products with faceted filtering, search, sorting and pagination
+   */
+  async findPublicProducts(
+    query: PublicProductQueryDto,
+  ): Promise<PaginatedPublicProductResponseDto> {
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query.limit ?? 12));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {
+      isActive: true,
+    };
+
+    if (query.categoryId) {
+      where.categoryId = query.categoryId;
+    }
+
+    if (query.categorySlug) {
+      where.category = {
+        slug: query.categorySlug,
+        isActive: true,
+      };
+    }
+
+    if (query.brandId) {
+      where.brandId = query.brandId;
+    }
+
+    if (query.brandSlug) {
+      where.brand = {
+        slug: query.brandSlug,
+        isActive: true,
+      };
+    }
+
+    if (query.q && query.q.trim()) {
+      const term = query.q.trim();
+      where.OR = [
+        { title: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+        { slug: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    const variantConditions: Prisma.ProductVariantWhereInput[] = [
+      { isActive: true },
+    ];
+
+    if (query.hasDiscount) {
+      variantConditions.push({
+        salePrice: { not: null },
+      });
+    }
+
+    if (query.inStock) {
+      variantConditions.push({
+        inventory: {
+          quantity: { gt: 0 },
+        },
+      });
+    }
+
+    if (query.minPrice !== undefined && query.minPrice >= 0) {
+      variantConditions.push({
+        OR: [
+          { salePrice: { gte: query.minPrice } },
+          {
+            AND: [
+              { salePrice: null },
+              { regularPrice: { gte: query.minPrice } },
+            ],
+          },
+        ],
+      });
+    }
+
+    if (query.maxPrice !== undefined && query.maxPrice >= 0) {
+      variantConditions.push({
+        OR: [
+          { salePrice: { lte: query.maxPrice } },
+          {
+            AND: [
+              { salePrice: null },
+              { regularPrice: { lte: query.maxPrice } },
+            ],
+          },
+        ],
+      });
+    }
+
+    if (variantConditions.length > 1) {
+      where.variants = {
+        some: {
+          AND: variantConditions,
+        },
+      };
+    }
+
+    let orderBy:
+      | Prisma.ProductOrderByWithRelationInput
+      | Prisma.ProductOrderByWithRelationInput[] = {
+      createdAt: 'desc',
+    };
+
+    if (query.sortBy === 'featured') {
+      orderBy = [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
+    } else if (query.sortBy === 'newest') {
+      orderBy = { createdAt: 'desc' };
+    }
+
+    const [total, products] = await Promise.all([
+      this.prisma.product.count({ where }),
+      this.prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy,
+        include: {
+          category: {
+            select: { id: true, name: true, slug: true },
+          },
+          brand: {
+            select: { id: true, name: true, slug: true, logoUrl: true },
+          },
+          images: {
+            orderBy: { sortOrder: 'asc' },
+          },
+          variants: {
+            where: { isActive: true },
+            include: {
+              inventory: true,
+            },
+          },
+          reviews: {
+            where: { status: 'APPROVED' },
+            select: { rating: true },
+          },
+        },
+      }),
+    ]);
+
+    const items: PublicProductSummaryDto[] = products.map((product) => {
+      const primaryImage =
+        product.images.find((img) => img.isPrimary) || product.images[0] || null;
+
+      const activeVariants = product.variants || [];
+      const prices: number[] = [];
+      let lowestRegularPrice = 0;
+      let lowestSalePrice: number | null = null;
+      let hasAnyStock = false;
+
+      if (activeVariants.length > 0) {
+        lowestRegularPrice = Number(activeVariants[0].regularPrice);
+        for (const v of activeVariants) {
+          const reg = Number(v.regularPrice);
+          const sale = v.salePrice !== null ? Number(v.salePrice) : null;
+          const effective = sale !== null ? sale : reg;
+          prices.push(effective);
+
+          if (reg < lowestRegularPrice) {
+            lowestRegularPrice = reg;
+          }
+          if (
+            sale !== null &&
+            (lowestSalePrice === null || sale < lowestSalePrice)
+          ) {
+            lowestSalePrice = sale;
+          }
+
+          const stock =
+            (v.inventory?.quantity ?? 0) - (v.inventory?.reservedQuantity ?? 0);
+          if (stock > 0) {
+            hasAnyStock = true;
+          }
+        }
+      }
+
+      const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+      const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
+      let discountPercent: number | null = null;
+      if (
+        lowestSalePrice !== null &&
+        lowestSalePrice < lowestRegularPrice &&
+        lowestRegularPrice > 0
+      ) {
+        discountPercent = Math.round(
+          ((lowestRegularPrice - lowestSalePrice) / lowestRegularPrice) * 100,
+        );
+      }
+
+      const reviews = product.reviews || [];
+      const reviewsCount = reviews.length;
+      const rating =
+        reviewsCount > 0
+          ? Number(
+              (
+                reviews.reduce((acc, r) => acc + r.rating, 0) / reviewsCount
+              ).toFixed(1),
+            )
+          : 0;
+
+      return {
+        id: product.id,
+        title: product.title,
+        slug: product.slug,
+        shortDescription: product.shortDescription,
+        category: product.category,
+        brand: product.brand,
+        primaryImage: primaryImage
+          ? {
+              id: primaryImage.id,
+              imageUrl: primaryImage.imageUrl,
+              altText: primaryImage.altText,
+              isPrimary: primaryImage.isPrimary,
+              sortOrder: primaryImage.sortOrder,
+            }
+          : null,
+        regularPrice: lowestRegularPrice,
+        salePrice: lowestSalePrice,
+        minPrice,
+        maxPrice,
+        discountPercent,
+        inStock: hasAnyStock,
+        isFeatured: product.isFeatured,
+        rating,
+        reviewsCount,
+        createdAt: product.createdAt,
+      };
+    });
+
+    if (query.sortBy === 'price_asc') {
+      items.sort((a, b) => a.minPrice - b.minPrice);
+    } else if (query.sortBy === 'price_desc') {
+      items.sort((a, b) => b.minPrice - a.minPrice);
+    } else if (query.sortBy === 'rating') {
+      items.sort((a, b) => b.rating - a.rating);
+    }
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  /**
+   * Find a single active public product by unique slug
+   */
+  async findPublicProductBySlug(slug: string): Promise<PublicProductDetailDto> {
+    const product = await this.prisma.product.findUnique({
+      where: { slug },
+      include: {
+        category: {
+          select: { id: true, name: true, slug: true },
+        },
+        brand: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+        images: {
+          orderBy: { sortOrder: 'asc' },
+        },
+        variants: {
+          where: { isActive: true },
+          include: {
+            inventory: true,
+            attributes: {
+              include: {
+                attributeValue: {
+                  include: {
+                    attribute: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        reviews: {
+          where: { status: 'APPROVED' },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!product || !product.isActive) {
+      throw new NotFoundException(`Product with slug '${slug}' not found`);
+    }
+
+    const reviews = product.reviews || [];
+    const reviewsCount = reviews.length;
+    const rating =
+      reviewsCount > 0
+        ? Number(
+            (
+              reviews.reduce((acc, r) => acc + r.rating, 0) / reviewsCount
+            ).toFixed(1),
+          )
+        : 0;
+
+    const mappedVariants = product.variants.map((v) => {
+      const reg = Number(v.regularPrice);
+      const sale = v.salePrice !== null ? Number(v.salePrice) : null;
+      const stock = Math.max(
+        0,
+        (v.inventory?.quantity ?? 0) - (v.inventory?.reservedQuantity ?? 0),
+      );
+      const inStock = stock > 0;
+      let discountPercent: number | null = null;
+      if (sale !== null && sale < reg && reg > 0) {
+        discountPercent = Math.round(((reg - sale) / reg) * 100);
+      }
+
+      const attributes = (v.attributes || []).map((rel) => ({
+        attributeName: rel.attributeValue?.attribute?.name || '',
+        attributeSlug: rel.attributeValue?.attribute?.slug || '',
+        attributeType: rel.attributeValue?.attribute?.type || 'TEXT',
+        value: rel.attributeValue?.value || '',
+        label: rel.attributeValue?.label || null,
+        colorCode: rel.attributeValue?.colorCode || null,
+      }));
+
+      return {
+        id: v.id,
+        sku: v.sku,
+        barcode: v.barcode,
+        regularPrice: reg,
+        salePrice: sale,
+        discountPercent,
+        weightGrams: v.weightGrams,
+        imageUrl: v.imageUrl,
+        inStock,
+        stockQuantity: stock,
+        attributes,
+      };
+    });
+
+    // Related products in the same category
+    const related = await this.prisma.product.findMany({
+      where: {
+        categoryId: product.categoryId,
+        id: { not: product.id },
+        isActive: true,
+      },
+      take: 4,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        category: {
+          select: { id: true, name: true, slug: true },
+        },
+        brand: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+        images: {
+          orderBy: { sortOrder: 'asc' },
+        },
+        variants: {
+          where: { isActive: true },
+          include: {
+            inventory: true,
+          },
+        },
+        reviews: {
+          where: { status: 'APPROVED' },
+          select: { rating: true },
+        },
+      },
+    });
+
+    const relatedProducts: PublicProductSummaryDto[] = related.map(
+      (relProd) => {
+        const primaryImage =
+          relProd.images.find((img) => img.isPrimary) ||
+          relProd.images[0] ||
+          null;
+        const activeVariants = relProd.variants || [];
+        const prices: number[] = [];
+        let lowestRegularPrice = 0;
+        let lowestSalePrice: number | null = null;
+        let hasAnyStock = false;
+
+        if (activeVariants.length > 0) {
+          lowestRegularPrice = Number(activeVariants[0].regularPrice);
+          for (const v of activeVariants) {
+            const r = Number(v.regularPrice);
+            const s = v.salePrice !== null ? Number(v.salePrice) : null;
+            prices.push(s !== null ? s : r);
+            if (r < lowestRegularPrice) lowestRegularPrice = r;
+            if (
+              s !== null &&
+              (lowestSalePrice === null || s < lowestSalePrice)
+            ) {
+              lowestSalePrice = s;
+            }
+            if (
+              (v.inventory?.quantity ?? 0) -
+                (v.inventory?.reservedQuantity ?? 0) >
+              0
+            ) {
+              hasAnyStock = true;
+            }
+          }
+        }
+
+        const relReviews = relProd.reviews || [];
+        const relCount = relReviews.length;
+        const relRating =
+          relCount > 0
+            ? Number(
+                (
+                  relReviews.reduce((acc, r) => acc + r.rating, 0) / relCount
+                ).toFixed(1),
+              )
+            : 0;
+
+        return {
+          id: relProd.id,
+          title: relProd.title,
+          slug: relProd.slug,
+          shortDescription: relProd.shortDescription,
+          category: relProd.category,
+          brand: relProd.brand,
+          primaryImage: primaryImage
+            ? {
+                id: primaryImage.id,
+                imageUrl: primaryImage.imageUrl,
+                altText: primaryImage.altText,
+                isPrimary: primaryImage.isPrimary,
+                sortOrder: primaryImage.sortOrder,
+              }
+            : null,
+          regularPrice: lowestRegularPrice,
+          salePrice: lowestSalePrice,
+          minPrice: prices.length > 0 ? Math.min(...prices) : 0,
+          maxPrice: prices.length > 0 ? Math.max(...prices) : 0,
+          discountPercent:
+            lowestSalePrice !== null &&
+            lowestSalePrice < lowestRegularPrice &&
+            lowestRegularPrice > 0
+              ? Math.round(
+                  ((lowestRegularPrice - lowestSalePrice) /
+                    lowestRegularPrice) *
+                    100,
+                )
+              : null,
+          inStock: hasAnyStock,
+          isFeatured: relProd.isFeatured,
+          rating: relRating,
+          reviewsCount: relCount,
+          createdAt: relProd.createdAt,
+        };
+      },
+    );
+
+    return {
+      id: product.id,
+      title: product.title,
+      slug: product.slug,
+      description: product.description,
+      shortDescription: product.shortDescription,
+      isFeatured: product.isFeatured,
+      category: product.category,
+      brand: product.brand,
+      images: product.images.map((img) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        altText: img.altText,
+        isPrimary: img.isPrimary,
+        sortOrder: img.sortOrder,
+      })),
+      variants: mappedVariants,
+      rating,
+      reviewsCount,
+      reviews: reviews.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        title: r.title,
+        comment: r.comment,
+        reviewerName: r.user?.name || 'Verified Customer',
+        isVerifiedPurchase: r.isVerifiedPurchase,
+        createdAt: r.createdAt,
+      })),
+      relatedProducts,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
+  }
+
+  /**
+   * Search suggestions for autocomplete header search
+   */
+  async getSearchSuggestions(q?: string): Promise<SearchSuggestionsDto> {
+    if (!q || !q.trim()) {
+      return { products: [], categories: [] };
+    }
+    const term = q.trim();
+
+    const [products, categories] = await Promise.all([
+      this.prisma.product.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { title: { contains: term, mode: 'insensitive' } },
+            { slug: { contains: term, mode: 'insensitive' } },
+          ],
+        },
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          category: { select: { name: true } },
+          images: { where: { isPrimary: true }, take: 1 },
+          variants: {
+            where: { isActive: true },
+            take: 1,
+            select: { regularPrice: true, salePrice: true },
+          },
+        },
+      }),
+      this.prisma.category.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { name: { contains: term, mode: 'insensitive' } },
+            { slug: { contains: term, mode: 'insensitive' } },
+          ],
+        },
+        take: 3,
+        select: { id: true, name: true, slug: true },
+      }),
+    ]);
+
+    return {
+      products: products.map((p) => {
+        const v = p.variants[0];
+        const price = v
+          ? v.salePrice !== null
+            ? Number(v.salePrice)
+            : Number(v.regularPrice)
+          : 0;
+        const img = p.images[0]?.imageUrl || null;
+        return {
+          id: p.id,
+          title: p.title,
+          slug: p.slug,
+          price,
+          image: img,
+          category: p.category?.name || 'General',
+        };
+      }),
+      categories: categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+      })),
+    };
+  }
+
+  /**
+   * Helper to map raw product model to PublicProductSummaryDto
+   */
+  mapProductToSummary(product: any): PublicProductSummaryDto {
+    const primaryImage =
+      product.images?.find((img: any) => img.isPrimary) ||
+      product.images?.[0] ||
+      null;
+
+    const activeVariants = (product.variants || []).filter(
+      (v: any) => v.isActive !== false,
+    );
+    let lowestRegularPrice = 0;
+    let lowestSalePrice: number | null = null;
+    let hasAnyStock = false;
+    const prices: number[] = [];
+
+    if (activeVariants.length > 0) {
+      lowestRegularPrice = Number(activeVariants[0].regularPrice);
+      for (const v of activeVariants) {
+        const reg = Number(v.regularPrice);
+        const sale = v.salePrice !== null ? Number(v.salePrice) : null;
+        const effective = sale !== null && sale < reg ? sale : reg;
+        prices.push(effective);
+
+        if (reg < lowestRegularPrice) {
+          lowestRegularPrice = reg;
+        }
+        if (
+          sale !== null &&
+          (lowestSalePrice === null || sale < lowestSalePrice)
+        ) {
+          lowestSalePrice = sale;
+        }
+
+        const stock =
+          (v.inventory?.quantity ?? 0) - (v.inventory?.reservedQuantity ?? 0);
+        if (stock > 0) {
+          hasAnyStock = true;
+        }
+      }
+    }
+
+    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
+    let discountPercent: number | null = null;
+    if (
+      lowestSalePrice !== null &&
+      lowestSalePrice < lowestRegularPrice &&
+      lowestRegularPrice > 0
+    ) {
+      discountPercent = Math.round(
+        ((lowestRegularPrice - lowestSalePrice) / lowestRegularPrice) * 100,
+      );
+    }
+
+    const reviews = product.reviews || [];
+    const reviewsCount = reviews.length;
+    const rating =
+      reviewsCount > 0
+        ? Number(
+            (
+              reviews.reduce((acc: number, r: any) => acc + r.rating, 0) /
+              reviewsCount
+            ).toFixed(1),
+          )
+        : 0;
+
+    return {
+      id: product.id,
+      title: product.title,
+      slug: product.slug,
+      shortDescription: product.shortDescription,
+      category: product.category,
+      brand: product.brand,
+      primaryImage: primaryImage
+        ? {
+            id: primaryImage.id,
+            imageUrl: primaryImage.imageUrl,
+            altText: primaryImage.altText,
+            isPrimary: primaryImage.isPrimary,
+            sortOrder: primaryImage.sortOrder,
+          }
+        : null,
+      regularPrice: lowestRegularPrice,
+      salePrice: lowestSalePrice,
+      minPrice,
+      maxPrice,
+      discountPercent,
+      inStock: hasAnyStock,
+      isFeatured: product.isFeatured,
+      rating,
+      reviewsCount,
+      createdAt: product.createdAt,
+    };
+  }
+
+  /**
+   * Get curated products for storefront homepage (Flash Deals, Featured, New Arrivals, Best Sellers)
+   */
+  async getCuratedProducts(): Promise<CuratedProductsDto> {
+    const publicInclude = {
+      category: { select: { id: true, name: true, slug: true } },
+      brand: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      images: {
+        select: {
+          id: true,
+          imageUrl: true,
+          altText: true,
+          isPrimary: true,
+          sortOrder: true,
+        },
+        orderBy: { sortOrder: 'asc' as const },
+      },
+      variants: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          sku: true,
+          regularPrice: true,
+          salePrice: true,
+          weightGrams: true,
+          inventory: {
+            select: {
+              quantity: true,
+              reservedQuantity: true,
+            },
+          },
+        },
+      },
+      reviews: {
+        where: { isApproved: true },
+        select: {
+          rating: true,
+        },
+      },
+    };
+
+    // 1. Flash Deals: Active products with at least one active variant on sale
+    const flashDealsPromise = this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        variants: {
+          some: {
+            isActive: true,
+            salePrice: { not: null },
+          },
+        },
+      },
+      take: 12,
+      include: publicInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // 2. Featured: Products with isFeatured: true
+    const featuredPromise = this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        isFeatured: true,
+      },
+      take: 12,
+      include: publicInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // 3. New Arrivals: Products ordered by createdAt desc
+    const newArrivalsPromise = this.prisma.product.findMany({
+      where: {
+        isActive: true,
+      },
+      take: 12,
+      include: publicInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // 4. Best Sellers: Top sold or high demand products
+    const bestSellersPromise = (async () => {
+      try {
+        const topVariantGroups = await this.prisma.orderItem.groupBy({
+          by: ['variantId'],
+          _sum: { quantity: true },
+          where: { variantId: { not: null } },
+          orderBy: { _sum: { quantity: 'desc' } },
+          take: 20,
+        });
+
+        const variantIds = topVariantGroups
+          .map((g) => g.variantId)
+          .filter((id): id is string => id !== null);
+
+        if (variantIds.length > 0) {
+          const variantsWithProduct = await this.prisma.productVariant.findMany({
+            where: { id: { in: variantIds } },
+            select: { productId: true },
+          });
+
+          const productIds = Array.from(
+            new Set(variantsWithProduct.map((v) => v.productId)),
+          ).slice(0, 12);
+
+          if (productIds.length > 0) {
+            const bestSellerProducts = await this.prisma.product.findMany({
+              where: {
+                id: { in: productIds },
+                isActive: true,
+              },
+              include: publicInclude,
+            });
+
+            if (bestSellerProducts.length > 0) {
+              return bestSellerProducts;
+            }
+          }
+        }
+      } catch (_err) {
+        // Fallback to high demand or featured products if order history table is empty
+      }
+
+      // Fallback: active products ordered by createdAt
+      return this.prisma.product.findMany({
+        where: { isActive: true },
+        take: 12,
+        include: publicInclude,
+        orderBy: { createdAt: 'desc' },
+      });
+    })();
+
+    const [rawFlash, rawFeatured, rawNew, rawBest] = await Promise.all([
+      flashDealsPromise,
+      featuredPromise,
+      newArrivalsPromise,
+      bestSellersPromise,
+    ]);
+
+    const flashDeals = rawFlash
+      .map((p) => this.mapProductToSummary(p))
+      .filter((p) => p.salePrice !== null && p.discountPercent !== null && p.discountPercent > 0)
+      .sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+
+    const featured = rawFeatured.map((p) => this.mapProductToSummary(p));
+    const newArrivals = rawNew.map((p) => this.mapProductToSummary(p));
+    const bestSellers = rawBest.map((p) => this.mapProductToSummary(p));
+
+    return {
+      flashDeals,
+      featured,
+      newArrivals,
+      bestSellers,
     };
   }
 }

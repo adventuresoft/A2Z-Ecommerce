@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -100,6 +101,32 @@ export class SettingsService {
     return this.mapToResponseDto(setting);
   }
 
+  private validateSettingValue(key: string, value: string): void {
+    if (key === 'storefront.hero_banners') {
+      try {
+        const parsed = JSON.parse(value);
+        if (!Array.isArray(parsed)) {
+          throw new Error('Expected an array of hero banners');
+        }
+        for (const item of parsed) {
+          if (!item.id || typeof item.id !== 'string') {
+            throw new Error('Each banner must have an id string');
+          }
+          if (!item.title || typeof item.title !== 'string') {
+            throw new Error('Each banner must have a title string');
+          }
+          if (!item.imageUrl || typeof item.imageUrl !== 'string') {
+            throw new Error('Each banner must have an imageUrl string');
+          }
+        }
+      } catch (err: any) {
+        throw new BadRequestException(
+          `Invalid storefront.hero_banners payload: ${err.message}`,
+        );
+      }
+    }
+  }
+
   /**
    * Retrieve all public settings as a key-value dictionary for storefront clients
    */
@@ -115,6 +142,17 @@ export class SettingsService {
         setting.dataType,
       );
     }
+
+    // Include processed active heroBanners array if present
+    if (
+      result['storefront.hero_banners'] &&
+      Array.isArray(result['storefront.hero_banners'])
+    ) {
+      result.heroBanners = result['storefront.hero_banners']
+        .filter((b: any) => b.isActive !== false)
+        .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    }
+
     return result;
   }
 
@@ -134,6 +172,8 @@ export class SettingsService {
    * Create a new setting
    */
   async create(dto: CreateSettingDto): Promise<SettingResponseDto> {
+    this.validateSettingValue(dto.key, dto.value);
+
     const existing = await this.prisma.storeSetting.findUnique({
       where: { key: dto.key },
     });
@@ -163,6 +203,10 @@ export class SettingsService {
    */
   async update(key: string, dto: UpdateSettingDto): Promise<SettingResponseDto> {
     await this.findByKey(key);
+
+    if (dto.value !== undefined) {
+      this.validateSettingValue(key, dto.value);
+    }
 
     const updated = await this.prisma.storeSetting.update({
       where: { key },

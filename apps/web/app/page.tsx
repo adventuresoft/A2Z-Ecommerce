@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { StorefrontShell } from "../components/Shell/StorefrontShell";
 import { useStore } from "../context/StoreContext";
 import { HeroSlider } from "../components/Hero/HeroSlider";
@@ -14,20 +14,59 @@ import { NewArrivalsSection } from "../components/NewArrivals/NewArrivalsSection
 import { BrandStrip } from "../components/Brands/BrandStrip";
 import { TrustStrip } from "../components/Trust/TrustStrip";
 import { NewsletterBanner } from "../components/Newsletter/NewsletterBanner";
+import { apiClient } from "../lib/api-client";
+import { CuratedProductsResponse, PublicSettingsResponse } from "../lib/curated";
 
 export default function HomePage() {
   const { addToCart, toggleWishlist, wishlistIds } = useStore();
+  const [curatedData, setCuratedData] = useState<CuratedProductsResponse | null>(null);
+  const [publicSettings, setPublicSettings] = useState<PublicSettingsResponse | null>(null);
+  const [brands, setBrands] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadHomepageMerchandising() {
+      try {
+        const [curatedRes, settingsRes, brandsRes] = await Promise.allSettled([
+          apiClient.get<CuratedProductsResponse>("/products/curated", { skipAuth: true }),
+          apiClient.get<PublicSettingsResponse>("/settings/public", { skipAuth: true }),
+          apiClient.get<any[]>("/brands/public", { skipAuth: true }),
+        ]);
+
+        if (!isMounted) return;
+
+        if (curatedRes.status === "fulfilled" && curatedRes.value) {
+          setCuratedData(curatedRes.value);
+        }
+        if (settingsRes.status === "fulfilled" && settingsRes.value) {
+          setPublicSettings(settingsRes.value);
+        }
+        if (brandsRes.status === "fulfilled" && Array.isArray(brandsRes.value)) {
+          setBrands(brandsRes.value);
+        }
+      } catch (err) {
+        console.warn("Could not load dynamic homepage merchandising, using fallbacks:", err);
+      }
+    }
+
+    loadHomepageMerchandising();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <StorefrontShell>
-      {/* 1. Interactive Hero Carousel with GSAP Parallax & Inline Trust */}
-      <HeroSlider />
+      {/* 1. Interactive Hero Carousel with Dynamic Settings / Banners */}
+      <HeroSlider banners={publicSettings?.heroBanners} />
 
       {/* 2. Circular Category Strip */}
       <CategoryPills />
 
-      {/* 3. Flash Sale Section with Live Countdown & Unified Cards */}
+      {/* 3. Flash Sale Section with Live Deals & Countdown (auto-hides when empty) */}
       <FlashSaleSection
+        products={curatedData ? curatedData.flashDeals : undefined}
         onAddToCart={addToCart}
         onToggleWishlist={toggleWishlist}
         wishlistIds={wishlistIds}
@@ -43,29 +82,32 @@ export default function HomePage() {
         wishlistIds={wishlistIds}
       />
 
-      {/* 6. Tabbed Featured Products Grid with Layout Animation */}
+      {/* 6. Tabbed Featured Products Grid with Layout Animation (auto-hides when empty) */}
       <FeaturedSection
+        products={curatedData ? curatedData.featured : undefined}
         onAddToCart={addToCart}
         onToggleWishlist={toggleWishlist}
         wishlistIds={wishlistIds}
       />
 
-      {/* 7. Trending Showcase: Best Sellers & Top Viewed Products */}
+      {/* 7. Trending Showcase: Best Sellers & Top Viewed Products (auto-hides when empty) */}
       <BestSellersTopViewSection
+        bestSellers={curatedData ? curatedData.bestSellers : undefined}
         onAddToCart={addToCart}
         onToggleWishlist={toggleWishlist}
         wishlistIds={wishlistIds}
       />
 
-      {/* 8. New Arrivals Shelf with Motion Scroll Reveal */}
+      {/* 8. New Arrivals Shelf with Motion Scroll Reveal (auto-hides when empty) */}
       <NewArrivalsSection
+        products={curatedData ? curatedData.newArrivals : undefined}
         onAddToCart={addToCart}
         onToggleWishlist={toggleWishlist}
         wishlistIds={wishlistIds}
       />
 
       {/* 9. Official Brand Partners */}
-      <BrandStrip />
+      <BrandStrip brands={brands ?? undefined} />
 
       {/* 10. Storefront Value Propositions */}
       <TrustStrip />

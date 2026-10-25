@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CreateProductDto } from './create-product.dto.js';
 import { CreateProductVariantDto } from './variant.dto.js';
 import { UpdateProductImageDto } from './product-image.dto.js';
+import { PublicProductQueryDto } from './public-product.dto.js';
 
 describe('Product DTO Validation', () => {
   it('should validate a complete valid CreateProductDto', async () => {
@@ -72,4 +73,34 @@ describe('Product DTO Validation', () => {
     const errors = await validate(imageDto);
     expect(errors.length).toBe(0);
   });
+
+  it('should validate valid PublicProductQueryDto', async () => {
+    const queryDto = new PublicProductQueryDto();
+    queryDto.page = 2;
+    queryDto.limit = 24;
+    queryDto.q = 'macbook';
+    queryDto.categorySlug = 'laptops';
+    queryDto.minPrice = 50000;
+    queryDto.maxPrice = 300000;
+    queryDto.inStock = true;
+    queryDto.hasDiscount = true;
+    queryDto.sortBy = 'price_asc';
+
+    const errors = await validate(queryDto);
+    expect(errors.length).toBe(0);
+  });
+
+  it('should reject invalid sortBy or negative minPrice in PublicProductQueryDto', async () => {
+    const queryDto = new PublicProductQueryDto();
+    // @ts-expect-error testing invalid enum
+    queryDto.sortBy = 'invalid_sort';
+    queryDto.minPrice = -100;
+
+    const errors = await validate(queryDto);
+    expect(errors.length).toBe(2);
+    const properties = errors.map((e) => e.property);
+    expect(properties).toContain('sortBy');
+    expect(properties).toContain('minPrice');
+  });
 });
+

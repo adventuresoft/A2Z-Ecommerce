@@ -4,17 +4,20 @@ import React, { useState, useEffect } from "react";
 import { Zap, ArrowRight } from "lucide-react";
 import { ProductCard } from "../UI/ProductCard";
 import { FLASH_SALE_PRODUCTS, Product } from "../../data/mock-catalog";
+import { mapSummaryToProduct } from "../../lib/curated";
 
 interface FlashSaleSectionProps {
   onAddToCart: (product: Product) => void;
   onToggleWishlist?: (productId: string) => void;
   wishlistIds?: Set<string>;
+  products?: any[];
 }
 
 export function FlashSaleSection({
   onAddToCart,
   onToggleWishlist,
   wishlistIds = new Set(),
+  products,
 }: FlashSaleSectionProps) {
   // Live ticking countdown timer
   const [timeLeft, setTimeLeft] = useState({
@@ -41,6 +44,20 @@ export function FlashSaleSection({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // If products is explicitly an empty array, hide section cleanly
+  if (products !== undefined && products.length === 0) {
+    return null;
+  }
+
+  const items: Product[] =
+    products !== undefined
+      ? products.map((p) =>
+          typeof p.category === "string" && !p.primaryImage
+            ? (p as Product)
+            : mapSummaryToProduct(p)
+        )
+      : FLASH_SALE_PRODUCTS;
 
   const format2Digits = (num: number) => num.toString().padStart(2, "0");
 
@@ -89,7 +106,7 @@ export function FlashSaleSection({
           </div>
 
           <a
-            href="#"
+            href="/products?hasDiscount=true"
             className="text-xs sm:text-sm font-bold text-blue-700 hover:text-blue-800 flex items-center space-x-1 group self-start md:self-auto"
           >
             <span>View All Deals</span>
@@ -97,9 +114,9 @@ export function FlashSaleSection({
           </a>
         </div>
 
-        {/* 6 Product Cards Grid with Unified ProductCard */}
+        {/* Product Cards Grid with Unified ProductCard */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
-          {FLASH_SALE_PRODUCTS.map((product, idx) => (
+          {items.map((product, idx) => (
             <ProductCard
               key={product.id}
               product={product}

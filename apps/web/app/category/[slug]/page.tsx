@@ -2,6 +2,7 @@ import React from "react";
 import { Metadata } from "next";
 import { StorefrontShell } from "../../../components/Shell/StorefrontShell";
 import { ProductCatalogView } from "../../../components/Catalog/ProductCatalogView";
+import { apiClient } from "../../../lib/api-client";
 
 function formatCategorySlug(slug: string): string {
   const map: Record<string, string> = {
@@ -35,7 +36,18 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const categoryName = formatCategorySlug(slug);
+  let categoryName = formatCategorySlug(slug);
+
+  try {
+    const res = await apiClient.get<any>(`/categories/${encodeURIComponent(slug)}`, {
+      skipAuth: true,
+    });
+    if (res?.name) {
+      categoryName = res.name;
+    }
+  } catch {
+    // Fallback to formatted slug
+  }
 
   return {
     title: `${categoryName} Best Deals & Prices in Bangladesh | A to Z Ecommerce`,
@@ -56,7 +68,7 @@ export default async function CategoryPage({
       <ProductCatalogView
         title={`${categoryName} Collection`}
         subtitle={`Browse official ${categoryName} with verified warranty, competitive pricing, and fast nationwide delivery.`}
-        categoryScope={categoryName}
+        categoryScope={slug}
       />
     </StorefrontShell>
   );

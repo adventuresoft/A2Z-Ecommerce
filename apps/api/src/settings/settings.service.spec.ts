@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { SettingsService } from './settings.service.js';
 
 describe('SettingsService', () => {
@@ -150,6 +150,29 @@ describe('SettingsService', () => {
         where: { isPublic: true },
       });
     });
+
+    it('should sort and filter active heroBanners when storefront.hero_banners is present', async () => {
+      const banners = [
+        { id: 'b-2', title: 'Banner 2', imageUrl: '/b2.jpg', sortOrder: 2, isActive: true },
+        { id: 'b-1', title: 'Banner 1', imageUrl: '/b1.jpg', sortOrder: 1, isActive: true },
+        { id: 'b-3', title: 'Inactive Banner', imageUrl: '/b3.jpg', sortOrder: 0, isActive: false },
+      ];
+
+      prismaMock.storeSetting.findMany.mockResolvedValue([
+        {
+          key: 'storefront.hero_banners',
+          value: JSON.stringify(banners),
+          dataType: 'JSON',
+          isPublic: true,
+        },
+      ]);
+
+      const result = await service.getPublicSettings();
+      expect(result.heroBanners).toBeDefined();
+      expect(result.heroBanners.length).toBe(2);
+      expect(result.heroBanners[0].id).toBe('b-1');
+      expect(result.heroBanners[1].id).toBe('b-2');
+    });
   });
 
   describe('create', () => {
@@ -181,6 +204,12 @@ describe('SettingsService', () => {
       await expect(
         service.create({ key: 'existing_key', value: 'val' }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw BadRequestException when storefront.hero_banners payload is invalid', async () => {
+      await expect(
+        service.create({ key: 'storefront.hero_banners', value: 'not-json' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

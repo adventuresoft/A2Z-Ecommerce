@@ -4,3 +4,4 @@ export * from './product-query.dto.js';
 export * from './product-response.dto.js';
 export * from './variant.dto.js';
 export * from './product-image.dto.js';
+export * from './public-product.dto.js';

@@ -8,22 +8,54 @@ import {
   TOP_VIEWED_PRODUCTS,
   Product,
 } from "../../data/mock-catalog";
+import { mapSummaryToProduct } from "../../lib/curated";
 
 interface BestSellersTopViewSectionProps {
   onAddToCart: (product: Product) => void;
   onToggleWishlist?: (productId: string) => void;
   wishlistIds?: Set<string>;
+  bestSellers?: any[];
+  topViewed?: any[];
 }
 
 export function BestSellersTopViewSection({
   onAddToCart,
   onToggleWishlist,
   wishlistIds = new Set(),
+  bestSellers,
+  topViewed,
 }: BestSellersTopViewSectionProps) {
   const [activeTab, setActiveTab] = useState<"best-sellers" | "top-viewed">("best-sellers");
 
+  // If live data was provided and both collections are empty, hide cleanly
+  if (
+    bestSellers !== undefined &&
+    bestSellers.length === 0 &&
+    (topViewed === undefined || topViewed.length === 0)
+  ) {
+    return null;
+  }
+
+  const liveBestSellers: Product[] =
+    bestSellers !== undefined
+      ? bestSellers.map((p) =>
+          typeof p.category === "string" && !p.primaryImage
+            ? (p as Product)
+            : mapSummaryToProduct(p)
+        )
+      : BEST_SELLERS_PRODUCTS;
+
+  const liveTopViewed: Product[] =
+    topViewed !== undefined
+      ? topViewed.map((p) =>
+          typeof p.category === "string" && !p.primaryImage
+            ? (p as Product)
+            : mapSummaryToProduct(p)
+        )
+      : TOP_VIEWED_PRODUCTS;
+
   const products =
-    activeTab === "best-sellers" ? BEST_SELLERS_PRODUCTS : TOP_VIEWED_PRODUCTS;
+    activeTab === "best-sellers" ? liveBestSellers : liveTopViewed;
 
   return (
     <section id="trending-showcase" className="py-12 bg-white border-b border-slate-200">

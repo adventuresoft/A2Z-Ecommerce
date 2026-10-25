@@ -3,24 +3,50 @@
 import React, { useState } from "react";
 import { ProductCard } from "../UI/ProductCard";
 import { FEATURED_PRODUCTS, Product } from "../../data/mock-catalog";
+import { mapSummaryToProduct } from "../../lib/curated";
 
 interface FeaturedSectionProps {
   onAddToCart: (product: Product) => void;
   onToggleWishlist?: (productId: string) => void;
   wishlistIds?: Set<string>;
+  products?: any[];
 }
 
 export function FeaturedSection({
   onAddToCart,
   onToggleWishlist,
   wishlistIds = new Set(),
+  products,
 }: FeaturedSectionProps) {
   const [activeTab, setActiveTab] = useState<"all" | "laptops" | "gadgets" | "lifestyle">("all");
 
-  const filteredProducts =
+  // If products is explicitly an empty array, hide section cleanly
+  if (products !== undefined && products.length === 0) {
+    return null;
+  }
+
+  const allProducts: Product[] =
+    products !== undefined
+      ? products.map((p) =>
+          typeof p.category === "string" && !p.primaryImage
+            ? (p as Product)
+            : mapSummaryToProduct(p)
+        )
+      : FEATURED_PRODUCTS;
+
+  const filtered =
     activeTab === "all"
-      ? FEATURED_PRODUCTS
-      : FEATURED_PRODUCTS.filter((p) => p.tab === activeTab);
+      ? allProducts
+      : allProducts.filter((p: any) => {
+          if (p.tab === activeTab) return true;
+          const cat = (p.category || "").toLowerCase();
+          if (activeTab === "laptops") return cat.includes("laptop") || cat.includes("computer");
+          if (activeTab === "gadgets") return cat.includes("gadget") || cat.includes("audio") || cat.includes("phone");
+          if (activeTab === "lifestyle") return cat.includes("life") || cat.includes("wearable") || cat.includes("watch");
+          return false;
+        });
+
+  const filteredProducts = filtered.length > 0 ? filtered : allProducts;
 
   return (
     <section id="featured" className="py-12 bg-slate-50 border-b border-slate-200">

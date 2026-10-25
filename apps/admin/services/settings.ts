@@ -1,7 +1,7 @@
 export interface StoreSetting {
   key: string;
   value: string;
-  parsedValue?: any;
+  parsedValue?: unknown;
   dataType: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON' | string;
   group: string;
   isPublic: boolean;
@@ -174,8 +174,8 @@ export const SettingsService = {
   /**
    * Fetch public settings (unauthenticated)
    */
-  async getPublicSettings(): Promise<Record<string, any>> {
-    const res = await fetch(`${API_BASE}/settings`);
+  async getPublicSettings(): Promise<Record<string, unknown>> {
+    const res = await fetch(`${API_BASE}/settings/public`);
     if (!res.ok) {
       throw new Error(`Failed to fetch public settings: ${res.statusText}`);
     }

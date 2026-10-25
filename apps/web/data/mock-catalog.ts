@@ -20,6 +20,7 @@ export interface ProductReviewItem {
 
 export interface Product {
   id: string;
+  slug?: string;
   title: string;
   category: string;
   brand?: string;

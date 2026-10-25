@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Truck,
   RotateCcw,
-  Award,
   Check,
   ChevronRight,
   Plus,
@@ -22,74 +21,226 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  ThumbsUp,
+  XCircle,
   MessageSquare,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import {
   Product,
   formatBDT,
   getProductById,
   getRelatedProducts,
-  ProductVariantItem,
+  ALL_PRODUCTS,
 } from "../../data/mock-catalog";
 import { useStore } from "../../context/StoreContext";
 import { ProductCard } from "../UI/ProductCard";
+import { apiClient } from "../../lib/api-client";
 
 interface ProductDetailViewProps {
-  productId: string;
+  slug?: string;
+  productId?: string;
 }
 
-export function ProductDetailView({ productId }: ProductDetailViewProps) {
+export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
   const router = useRouter();
   const { addToCart, toggleWishlist, isWishlisted, wishlistIds } = useStore();
 
-  const product = getProductById(productId);
-  const relatedProducts = getRelatedProducts(productId, 4);
+  const [productData, setProductData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Gallery state
-  const galleryImages =
-    product?.images && product.images.length > 0
-      ? product.images
-      : product?.image
-      ? [product.image]
-      : [];
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Variant selections
+  // Variant selections: attributeName -> value
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<"specs" | "overview" | "reviews">("specs");
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Initialize default variants
+  // Load product from API or mock
   useEffect(() => {
-    if (product?.variants && product.variants.length > 0) {
+    async function loadProduct() {
+      const targetSlug = slug || productId;
+      if (!targetSlug) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const live = await apiClient.get<any>(`/products/${encodeURIComponent(targetSlug)}`, {
+          skipAuth: true,
+        });
+        if (live) {
+          setProductData(live);
+        }
+      } catch {
+        // Fallback to local mock catalog
+        const mock =
+          ALL_PRODUCTS.find((p) => p.slug === targetSlug || p.id === targetSlug) ||
+          (productId ? getProductById(productId) : null);
+        setProductData(mock || null);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadProduct();
+  }, [slug, productId]);
+
+  // Extract gallery images
+  const galleryImages: string[] = useMemo(() => {
+    if (!productData) return [];
+    if (productData.images && productData.images.length > 0) {
+      return productData.images.map((img: any) =>
+        typeof img === "string" ? img : img.imageUrl
+      );
+    }
+    if (productData.image) return [productData.image];
+    return ["/placeholder.png"];
+  }, [productData]);
+
+  // Extract distinct attributes across variants
+  const distinctAttributes = useMemo(() => {
+    if (!productData?.variants || !Array.isArray(productData.variants)) return [];
+
+    const attrMap = new Map<
+      string,
+      {
+        name: string;
+        type: string;
+        values: Array<{ value: string; label?: string | null; colorCode?: string | null }>;
+      }
+    >();
+
+    productData.variants.forEach((v: any) => {
+      if (Array.isArray(v.attributes)) {
+        v.attributes.forEach((attr: any) => {
+          const name = attr.attributeName || "Option";
+          const type = attr.attributeType || "TEXT";
+          if (!attrMap.has(name)) {
+            attrMap.set(name, { name, type, values: [] });
+          }
+          const group = attrMap.get(name)!;
+          if (!group.values.some((val) => val.value === attr.value)) {
+            group.values.push({
+              value: attr.value,
+              label: attr.label,
+              colorCode: attr.colorCode,
+            });
+          }
+        });
+      } else if (v.type && v.value) {
+        // Support legacy mock format
+        const name = v.type.charAt(0).toUpperCase() + v.type.slice(1);
+        const type = v.type === "color" ? "COLOR" : "TEXT";
+        if (!attrMap.has(name)) {
+          attrMap.set(name, { name, type, values: [] });
+        }
+        const group = attrMap.get(name)!;
+        if (!group.values.some((val) => val.value === v.value)) {
+          group.values.push({
+            value: v.value,
+            label: v.label,
+            colorCode: v.colorCode,
+          });
+        }
+      }
+    });
+
+    return Array.from(attrMap.values());
+  }, [productData]);
+
+  // Initialize selected variants
+  useEffect(() => {
+    if (distinctAttributes.length > 0) {
       const initial: Record<string, string> = {};
-      product.variants.forEach((v) => {
-        if (!initial[v.type] && v.inStock) {
-          initial[v.type] = v.value;
+      distinctAttributes.forEach((attr) => {
+        const firstVal = attr.values[0];
+        if (firstVal) {
+          initial[attr.name] = firstVal.value;
         }
       });
       setSelectedVariants(initial);
     }
-  }, [product]);
+  }, [distinctAttributes]);
+
+  // Find active variant matching selected attributes
+  const activeVariant = useMemo(() => {
+    if (!productData?.variants || productData.variants.length === 0) return null;
+
+    const matched = productData.variants.find((v: any) => {
+      if (Array.isArray(v.attributes) && v.attributes.length > 0) {
+        return v.attributes.every(
+          (attr: any) => selectedVariants[attr.attributeName] === attr.value
+        );
+      }
+      if (v.type && v.value) {
+        const typeName = v.type.charAt(0).toUpperCase() + v.type.slice(1);
+        return selectedVariants[typeName] === v.value;
+      }
+      return true;
+    });
+
+    return matched || productData.variants[0];
+  }, [productData, selectedVariants]);
+
+  // Calculate pricing & stock from active variant or product root
+  const currentPrice = useMemo(() => {
+    if (activeVariant) {
+      return activeVariant.salePrice !== null && activeVariant.salePrice !== undefined
+        ? Number(activeVariant.salePrice)
+        : Number(activeVariant.regularPrice);
+    }
+    return productData ? Number(productData.price || 0) : 0;
+  }, [activeVariant, productData]);
+
+  const regularPrice = useMemo(() => {
+    if (activeVariant?.regularPrice) {
+      return Number(activeVariant.regularPrice);
+    }
+    return productData?.regularPrice ? Number(productData.regularPrice) : null;
+  }, [activeVariant, productData]);
+
+  const discountSavings = regularPrice && regularPrice > currentPrice ? regularPrice - currentPrice : 0;
+  const discountPercent =
+    regularPrice && regularPrice > currentPrice
+      ? Math.round(((regularPrice - currentPrice) / regularPrice) * 100)
+      : null;
+
+  const inStock = activeVariant ? Boolean(activeVariant.inStock) : Boolean(productData?.inStock ?? true);
+  const stockQuantity = activeVariant?.stockQuantity ?? (productData?.stockTotal || 10);
+  const sku = activeVariant?.sku || productData?.sku;
 
   // Track scroll position for mobile bottom sticky buy bar
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 480) {
-        setShowStickyBar(true);
-      } else {
-        setShowStickyBar(false);
-      }
+      setShowStickyBar(window.scrollY > 480);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  if (!product) {
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-pulse space-y-8">
+        <div className="h-4 bg-slate-100 rounded w-1/4" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-6 bg-slate-100 rounded-3xl aspect-square" />
+          <div className="lg:col-span-6 space-y-4">
+            <div className="h-6 bg-slate-100 rounded w-1/3" />
+            <div className="h-8 bg-slate-100 rounded w-3/4" />
+            <div className="h-10 bg-slate-100 rounded w-1/2" />
+            <div className="h-28 bg-slate-100 rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!productData) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
         <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-200">
@@ -110,28 +261,34 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
     );
   }
 
-  // Calculate dynamic price based on variant selections
-  let currentPrice = product.price;
-  if (product.variants) {
-    Object.entries(selectedVariants).forEach(([type, value]) => {
-      const matched = product.variants?.find((v) => v.type === type && v.value === value);
-      if (matched?.priceDelta) {
-        currentPrice += matched.priceDelta;
-      }
-    });
-  }
+  const categoryName = productData.category?.name || productData.category || "General";
+  const categorySlug =
+    productData.category?.slug || categoryName.toLowerCase().replace(/\s+/g, "-");
+  const brandName = productData.brand?.name || productData.brand;
 
-  const discountSavings = product.regularPrice ? product.regularPrice - currentPrice : 0;
-  const isItemWishlisted = isWishlisted(product.id);
-
+  const isItemWishlisted = isWishlisted(productData.id);
   const selectedVariantSummary = Object.values(selectedVariants).join(" / ");
 
   const handleAddToCartClick = () => {
-    addToCart(product, quantity, selectedVariantSummary || undefined, currentPrice);
+    const productItem: Product = {
+      id: productData.id,
+      slug: productData.slug,
+      title: productData.title,
+      category: categoryName,
+      brand: brandName,
+      price: currentPrice,
+      regularPrice: regularPrice || undefined,
+      discountPercent: discountPercent || undefined,
+      image: galleryImages[0] || "/placeholder.png",
+      rating: productData.rating || 0,
+      reviewsCount: productData.reviewsCount || 0,
+      inStock,
+    };
+    addToCart(productItem, quantity, selectedVariantSummary || undefined, currentPrice);
   };
 
   const handleBuyNowClick = () => {
-    addToCart(product, quantity, selectedVariantSummary || undefined, currentPrice);
+    handleAddToCartClick();
     router.push("/checkout");
   };
 
@@ -142,6 +299,24 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
       setTimeout(() => setCopiedLink(false), 2500);
     }
   };
+
+  const relatedList =
+    productData.relatedProducts && productData.relatedProducts.length > 0
+      ? productData.relatedProducts.map((p: any) => ({
+          id: p.id,
+          slug: p.slug,
+          title: p.title,
+          category: p.category?.name || "General",
+          brand: p.brand?.name,
+          price: p.salePrice ? Number(p.salePrice) : Number(p.regularPrice),
+          regularPrice: Number(p.regularPrice),
+          discountPercent: p.discountPercent,
+          rating: p.rating || 0,
+          reviewsCount: p.reviewsCount || 0,
+          image: p.primaryImage?.imageUrl || "/placeholder.png",
+          inStock: p.inStock,
+        }))
+      : getRelatedProducts(productData.id, 4);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
@@ -155,15 +330,12 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
           Shop
         </Link>
         <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        <Link
-          href={`/category/${product.category.toLowerCase().replace(/\s+/g, "-")}`}
-          className="hover:text-blue-700 transition-colors"
-        >
-          {product.category}
+        <Link href={`/category/${categorySlug}`} className="hover:text-blue-700 transition-colors">
+          {categoryName}
         </Link>
         <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
         <span className="text-slate-800 font-bold truncate max-w-[240px] sm:max-w-xs">
-          {product.title}
+          {productData.title}
         </span>
       </nav>
 
@@ -174,67 +346,51 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
           <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs relative">
             {/* Top Overlay Badges */}
             <div className="absolute top-4 left-4 z-10 flex flex-col gap-1.5 items-start">
-              {product.discountPercent && (
+              {discountPercent && (
                 <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-sm">
-                  -{product.discountPercent}% OFF
+                  -{discountPercent}% OFF
                 </span>
               )}
-              {product.badge && (
-                <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">
-                  {product.badge}
+              {productData.isFeatured && (
+                <span className="bg-blue-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md shadow-2xs">
+                  Featured
                 </span>
               )}
             </div>
 
-            {/* Top Right Action Overlay (Share & Wishlist) */}
-            <div className="absolute top-4 right-4 z-10 flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={handleShareClick}
-                className="w-9 h-9 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80 flex items-center justify-center transition-all shadow-2xs cursor-pointer relative"
-                aria-label="Share product"
-                title="Share product link"
-              >
-                <Share2 className="w-4 h-4" />
-                {copiedLink && (
-                  <span className="absolute -bottom-8 right-0 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap shadow-md">
-                    Link Copied!
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleWishlist(product.id)}
-                className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all shadow-2xs cursor-pointer ${
-                  isItemWishlisted
-                    ? "bg-rose-50 text-rose-600 border-rose-200"
-                    : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/80"
-                }`}
-                aria-label={isItemWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-              >
-                <Heart
-                  className={`w-4 h-4 ${isItemWishlisted ? "fill-current text-rose-500" : ""}`}
-                />
-              </button>
-            </div>
+            {/* Quick Share Action */}
+            <button
+              type="button"
+              onClick={handleShareClick}
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-slate-50 hover:bg-white text-slate-500 hover:text-blue-600 border border-slate-200 flex items-center justify-center transition-all cursor-pointer shadow-xs"
+              aria-label="Share product"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
 
-            {/* Primary Main Image Viewer */}
-            <div className="relative w-full aspect-square bg-slate-50/60 rounded-2xl overflow-hidden flex items-center justify-center p-6 border border-slate-100/80">
+            {copiedLink && (
+              <div className="absolute top-14 right-4 z-20 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shadow-lg">
+                Link copied!
+              </div>
+            )}
+
+            {/* Main Primary Image Display */}
+            <div className="relative w-full aspect-square bg-slate-50/70 rounded-2xl overflow-hidden flex items-center justify-center p-4">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeImageIndex}
-                  initial={{ opacity: 0, scale: 0.95 }}
+                  initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  exit={{ opacity: 0 }}
                   transition={{ duration: 0.25 }}
-                  className="relative w-full h-full flex items-center justify-center"
+                  className="relative w-full h-full"
                 >
                   <Image
-                    src={galleryImages[activeImageIndex] || product.image}
-                    alt={product.title}
+                    src={galleryImages[activeImageIndex] || "/placeholder.png"}
+                    alt={productData.title}
                     fill
                     priority
-                    className="object-contain p-2 hover:scale-108 transition-transform duration-300 ease-out cursor-zoom-in"
+                    className="object-contain p-2"
                     sizes="(max-width: 1024px) 100vw, 550px"
                   />
                 </motion.div>
@@ -257,7 +413,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                   >
                     <Image
                       src={img}
-                      alt={`${product.title} - view ${idx + 1}`}
+                      alt={`${productData.title} - view ${idx + 1}`}
                       fill
                       className="object-contain p-1"
                     />
@@ -274,25 +430,40 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
           <div className="flex items-center justify-between gap-3 mb-2">
             <div className="flex items-center space-x-2">
               <span className="text-xs font-black uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-md">
-                {product.brand || product.category}
+                {brandName || categoryName}
               </span>
-              {product.sku && (
+              {sku && (
                 <span className="text-[11px] font-mono text-slate-400">
-                  SKU: {product.sku}
+                  SKU: {sku}
                 </span>
               )}
             </div>
 
             {/* In-stock status badge */}
-            <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>In Stock</span>
+            <div
+              className={`flex items-center space-x-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                inStock
+                  ? "text-emerald-700 bg-emerald-50 border-emerald-200/80"
+                  : "text-rose-700 bg-rose-50 border-rose-200/80"
+              }`}
+            >
+              {inStock ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>In Stock ({stockQuantity} available)</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Out of Stock</span>
+                </>
+              )}
             </div>
           </div>
 
           {/* Product Title */}
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight leading-snug mb-3">
-            {product.title}
+            {productData.title}
           </h1>
 
           {/* Ratings & Reviews summary */}
@@ -303,7 +474,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                   <Star
                     key={i}
                     className={`w-4 h-4 ${
-                      i < Math.floor(product.rating)
+                      i < Math.floor(productData.rating || 0)
                         ? "fill-current text-amber-400"
                         : "text-slate-200"
                     }`}
@@ -311,7 +482,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                 ))}
               </div>
               <span className="text-sm font-black text-slate-800 ml-1">
-                {product.rating.toFixed(1)}
+                {(productData.rating || 0).toFixed(1)}
               </span>
             </div>
             <span className="text-slate-300">|</span>
@@ -325,7 +496,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
               className="text-xs font-bold text-blue-700 hover:text-blue-800 hover:underline cursor-pointer flex items-center space-x-1"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span>{product.reviewsCount} Customer Reviews</span>
+              <span>{productData.reviewsCount || 0} Customer Reviews</span>
             </button>
             <span className="text-slate-300">|</span>
             <span className="text-xs text-slate-500 font-medium flex items-center">
@@ -340,9 +511,9 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
               <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">
                 {formatBDT(currentPrice)}
               </span>
-              {product.regularPrice && (
+              {regularPrice && regularPrice > currentPrice && (
                 <span className="text-sm sm:text-base font-semibold text-slate-400 line-through">
-                  {formatBDT(product.regularPrice)}
+                  {formatBDT(regularPrice)}
                 </span>
               )}
               {discountSavings > 0 && (
@@ -357,119 +528,96 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
           </div>
 
           {/* Key Bulleted Highlights */}
-          {product.keyFeatures && product.keyFeatures.length > 0 && (
+          {productData.shortDescription && (
             <div className="mb-6 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2.5 flex items-center space-x-1.5">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2 flex items-center space-x-1.5">
                 <Check className="w-3.5 h-3.5 text-blue-600 stroke-[3]" />
-                <span>Key Highlights</span>
+                <span>Overview</span>
               </h3>
-              <ul className="space-y-1.5">
-                {product.keyFeatures.slice(0, 4).map((feat, idx) => (
-                  <li
-                    key={idx}
-                    className="text-xs text-slate-600 font-medium flex items-start space-x-2"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                    <span>{feat}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                {productData.shortDescription}
+              </p>
             </div>
           )}
 
-          {/* Interactive Variant Selectors */}
-          {product.variants && product.variants.length > 0 && (
+          {/* Dynamic Variant Selectors (Color swatches, attribute buttons) */}
+          {distinctAttributes.length > 0 && (
             <div className="space-y-4 mb-6 pt-2 border-t border-slate-200">
-              {/* Color Swatches */}
-              {product.variants.some((v) => v.type === "color") && (
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-800 mb-2">
-                    <span>Select Color:</span>
-                    <span className="text-blue-700 font-extrabold">
-                      {selectedVariants.color || "Default"}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    {product.variants
-                      .filter((v) => v.type === "color")
-                      .map((colorVar) => {
-                        const isSelected = selectedVariants.color === colorVar.value;
-                        return (
-                          <button
-                            key={colorVar.id}
-                            type="button"
-                            onClick={() =>
-                              setSelectedVariants((prev) => ({
-                                ...prev,
-                                color: colorVar.value,
-                              }))
-                            }
-                            className={`group relative p-1 rounded-full border-2 transition-all cursor-pointer flex items-center justify-center ${
-                              isSelected
-                                ? "border-blue-600 ring-2 ring-blue-600/30 shadow-xs"
-                                : "border-slate-200 hover:border-slate-400"
-                            }`}
-                            title={colorVar.value}
-                          >
-                            <span
-                              className="w-7 h-7 rounded-full flex items-center justify-center border border-black/10"
-                              style={{ backgroundColor: colorVar.colorCode || "#111" }}
-                            >
-                              {isSelected && (
-                                <Check className="w-3.5 h-3.5 text-white drop-shadow-md stroke-[3]" />
-                              )}
-                            </span>
-                          </button>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
+              {distinctAttributes.map((attr) => {
+                const selectedVal = selectedVariants[attr.name];
+                const isColor = attr.type === "COLOR";
 
-              {/* Storage / Size / Package Pills */}
-              {product.variants.some((v) => v.type === "storage" || v.type === "size") && (
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-800 mb-2">
-                    <span>Option / Configuration:</span>
-                    <span className="text-blue-700 font-extrabold">
-                      {selectedVariants.storage || selectedVariants.size || "Standard"}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {product.variants
-                      .filter((v) => v.type === "storage" || v.type === "size")
-                      .map((pillVar) => {
-                        const isSelected =
-                          selectedVariants[pillVar.type] === pillVar.value;
-                        return (
-                          <button
-                            key={pillVar.id}
-                            type="button"
-                            onClick={() =>
-                              setSelectedVariants((prev) => ({
-                                ...prev,
-                                [pillVar.type]: pillVar.value,
-                              }))
-                            }
-                            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                              isSelected
-                                ? "bg-blue-700 text-white border-blue-700 shadow-sm"
-                                : "bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:bg-blue-50/50"
-                            }`}
-                          >
-                            <span>{pillVar.value}</span>
-                            {pillVar.priceDelta ? (
-                              <span className="ml-1 text-[10px] opacity-80">
-                                ({pillVar.priceDelta > 0 ? "+" : ""}
-                                {formatBDT(pillVar.priceDelta)})
+                return (
+                  <div key={attr.name}>
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800 mb-2">
+                      <span>Select {attr.name}:</span>
+                      <span className="text-blue-700 font-extrabold">
+                        {selectedVal || "Default"}
+                      </span>
+                    </div>
+
+                    {isColor ? (
+                      <div className="flex items-center space-x-3">
+                        {attr.values.map((valObj) => {
+                          const isSelected = selectedVal === valObj.value;
+                          return (
+                            <button
+                              key={valObj.value}
+                              type="button"
+                              onClick={() =>
+                                setSelectedVariants((prev) => ({
+                                  ...prev,
+                                  [attr.name]: valObj.value,
+                                }))
+                              }
+                              className={`group relative p-1 rounded-full border-2 transition-all cursor-pointer flex items-center justify-center ${
+                                isSelected
+                                  ? "border-blue-600 ring-2 ring-blue-600/30 shadow-xs"
+                                  : "border-slate-200 hover:border-slate-400"
+                              }`}
+                              title={valObj.value}
+                            >
+                              <span
+                                className="w-7 h-7 rounded-full flex items-center justify-center border border-black/10"
+                                style={{ backgroundColor: valObj.colorCode || "#111" }}
+                              >
+                                {isSelected && (
+                                  <Check className="w-3.5 h-3.5 text-white drop-shadow-md stroke-[3]" />
+                                )}
                               </span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {attr.values.map((valObj) => {
+                          const isSelected = selectedVal === valObj.value;
+                          return (
+                            <button
+                              key={valObj.value}
+                              type="button"
+                              onClick={() =>
+                                setSelectedVariants((prev) => ({
+                                  ...prev,
+                                  [attr.name]: valObj.value,
+                                }))
+                              }
+                              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                                isSelected
+                                  ? "bg-blue-700 text-white border-blue-700 shadow-sm"
+                                  : "bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:bg-blue-50/50"
+                              }`}
+                            >
+                              <span>{valObj.value}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           )}
 
@@ -491,7 +639,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setQuantity((q) => q + 1)}
+                  onClick={() => setQuantity((q) => (inStock ? Math.min(stockQuantity, q + 1) : q + 1))}
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                   aria-label="Increase quantity"
                 >
@@ -502,17 +650,18 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
               {/* Add to Cart Button */}
               <button
                 type="button"
+                disabled={!inStock}
                 onClick={handleAddToCartClick}
-                className="flex-1 py-3 px-4 bg-blue-700 hover:bg-blue-800 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all cursor-pointer group"
+                className="flex-1 py-3 px-4 bg-blue-700 hover:bg-blue-800 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-white font-extrabold text-sm rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all cursor-pointer group"
               >
                 <ShoppingCart className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                <span>Add to Cart</span>
+                <span>{inStock ? "Add to Cart" : "Out of Stock"}</span>
               </button>
 
               {/* Wishlist toggle */}
               <button
                 type="button"
-                onClick={() => toggleWishlist(product.id)}
+                onClick={() => toggleWishlist(productData.id)}
                 className={`p-3 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
                   isItemWishlisted
                     ? "bg-rose-50 text-rose-600 border-rose-200"
@@ -529,8 +678,9 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
             {/* Buy Now Immediate Checkout Button */}
             <button
               type="button"
+              disabled={!inStock}
               onClick={handleBuyNowClick}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 active:scale-[0.99] text-white font-black text-sm rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-white font-black text-sm rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
             >
               <Zap className="w-4 h-4 fill-current" />
               <span>Buy Now — Instant Checkout</span>
@@ -608,7 +758,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
-              <span>Customer Reviews ({product.reviewsCount})</span>
+              <span>Customer Reviews ({productData.reviewsCount || (productData.reviews?.length || 0)})</span>
             </button>
           </div>
 
@@ -620,50 +770,34 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                 <h3 className="text-lg font-black text-slate-900 mb-4">
                   Technical Specifications
                 </h3>
-                {product.specifications ? (
-                  <div className="space-y-6">
-                    {Object.entries(product.specifications).map(([groupName, groupFields]) => (
-                      <div key={groupName} className="rounded-xl overflow-hidden border border-slate-200">
-                        <div className="bg-slate-100 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700">
-                          {groupName}
-                        </div>
-                        <div className="divide-y divide-slate-100">
-                          {Object.entries(groupFields).map(([key, val]) => (
-                            <div
-                              key={key}
-                              className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs hover:bg-slate-50/70 transition-colors"
-                            >
-                              <span className="font-bold text-slate-500 sm:col-span-1">{key}</span>
-                              <span className="font-medium text-slate-800 sm:col-span-2 mt-1 sm:mt-0">
-                                {val}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                <div className="rounded-xl overflow-hidden border border-slate-200 divide-y divide-slate-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs bg-slate-50/50">
+                    <span className="font-bold text-slate-500">Category</span>
+                    <span className="font-medium text-slate-800 sm:col-span-2">{categoryName}</span>
                   </div>
-                ) : (
-                  <div className="rounded-xl overflow-hidden border border-slate-200">
-                    <div className="bg-slate-100 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700">
-                      General Information
-                    </div>
-                    <div className="divide-y divide-slate-100">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
-                        <span className="font-bold text-slate-500">Category</span>
-                        <span className="font-medium text-slate-800 sm:col-span-2">{product.category}</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
-                        <span className="font-bold text-slate-500">Brand</span>
-                        <span className="font-medium text-slate-800 sm:col-span-2">{product.brand || "Authentic"}</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
-                        <span className="font-bold text-slate-500">Key Features</span>
-                        <span className="font-medium text-slate-800 sm:col-span-2">{product.specs || "Standard configuration"}</span>
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
+                    <span className="font-bold text-slate-500">Brand</span>
+                    <span className="font-medium text-slate-800 sm:col-span-2">{brandName || "Authentic"}</span>
                   </div>
-                )}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs bg-slate-50/50">
+                    <span className="font-bold text-slate-500">Active SKU</span>
+                    <span className="font-mono text-slate-800 sm:col-span-2">{sku || "Standard SKU"}</span>
+                  </div>
+                  {activeVariant?.weightGrams && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
+                      <span className="font-bold text-slate-500">Weight</span>
+                      <span className="font-medium text-slate-800 sm:col-span-2">{activeVariant.weightGrams}g</span>
+                    </div>
+                  )}
+                  {distinctAttributes.map((attr) => (
+                    <div key={attr.name} className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
+                      <span className="font-bold text-slate-500">{attr.name}</span>
+                      <span className="font-medium text-slate-800 sm:col-span-2">
+                        {attr.values.map((v) => v.value).join(", ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -671,31 +805,12 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
             {activeTab === "overview" && (
               <div className="prose max-w-none text-slate-700 leading-relaxed space-y-4">
                 <h3 className="text-lg font-black text-slate-900">
-                  About {product.title}
+                  About {productData.title}
                 </h3>
                 <p className="text-sm">
-                  {product.description ||
-                    `Experience unprecedented performance and reliability with the ${product.title}. Sourced through official authorized channels with verified quality guarantees for customers across Bangladesh.`}
+                  {productData.description ||
+                    `Experience unprecedented performance and reliability with the ${productData.title}. Sourced through official authorized channels with verified quality guarantees for customers across Bangladesh.`}
                 </p>
-
-                {product.keyFeatures && (
-                  <div className="mt-6">
-                    <h4 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider mb-3">
-                      Features & Capabilities
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {product.keyFeatures.map((feat, i) => (
-                        <div
-                          key={i}
-                          className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-start space-x-2.5 text-xs font-semibold text-slate-700"
-                        >
-                          <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                          <span>{feat}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -706,20 +821,20 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
                   <div className="sm:col-span-4 flex flex-col items-center justify-center text-center border-b sm:border-b-0 sm:border-r border-slate-200 pb-4 sm:pb-0 sm:pr-4">
                     <span className="text-5xl font-black text-slate-900 leading-none mb-1">
-                      {product.rating.toFixed(1)}
+                      {(productData.rating || 0).toFixed(1)}
                     </span>
                     <div className="flex items-center text-amber-400 my-2">
                       {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
                           className={`w-4 h-4 ${
-                            i < Math.floor(product.rating) ? "fill-current" : "text-slate-200"
+                            i < Math.floor(productData.rating || 0) ? "fill-current" : "text-slate-200"
                           }`}
                         />
                       ))}
                     </div>
                     <span className="text-xs font-semibold text-slate-500">
-                      Based on {product.reviewsCount} verified ratings
+                      Based on {productData.reviewsCount || (productData.reviews?.length || 0)} verified ratings
                     </span>
                   </div>
 
@@ -749,8 +864,8 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
 
                 {/* Individual Review Comments */}
                 <div className="space-y-4">
-                  {product.reviews && product.reviews.length > 0 ? (
-                    product.reviews.map((rev) => (
+                  {productData.reviews && productData.reviews.length > 0 ? (
+                    productData.reviews.map((rev: any) => (
                       <div
                         key={rev.id}
                         className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2 shadow-2xs"
@@ -758,11 +873,13 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center">
-                              {rev.userName[0]}
+                              {(rev.reviewerName || rev.userName || "C")[0]}
                             </div>
                             <div>
-                              <h5 className="text-xs font-black text-slate-800">{rev.userName}</h5>
-                              {rev.isVerified && (
+                              <h5 className="text-xs font-black text-slate-800">
+                                {rev.reviewerName || rev.userName || "Verified Customer"}
+                              </h5>
+                              {(rev.isVerifiedPurchase || rev.isVerified) && (
                                 <span className="text-[10px] text-emerald-600 font-bold flex items-center">
                                   <CheckCircle2 className="w-3 h-3 mr-0.5" />
                                   Verified Purchase
@@ -770,7 +887,9 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                               )}
                             </div>
                           </div>
-                          <span className="text-[11px] text-slate-400 font-medium">{rev.date}</span>
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : rev.date || "Recent"}
+                          </span>
                         </div>
                         <div className="flex items-center text-amber-400">
                           {[...Array(5)].map((_, i) => (
@@ -780,6 +899,9 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                             />
                           ))}
                         </div>
+                        {rev.title && (
+                          <h6 className="text-xs font-bold text-slate-800">{rev.title}</h6>
+                        )}
                         <p className="text-xs text-slate-600 leading-relaxed">{rev.comment}</p>
                       </div>
                     ))
@@ -796,7 +918,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
       </div>
 
       {/* 4. Related Products Grid */}
-      {relatedProducts.length > 0 && (
+      {relatedList.length > 0 && (
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -804,11 +926,11 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
                 Related & Recommended Products
               </h2>
               <p className="text-xs text-slate-500 font-medium">
-                Customers also viewed these genuine items from {product.category}
+                Customers also viewed these items from {categoryName}
               </p>
             </div>
             <Link
-              href={`/category/${product.category.toLowerCase().replace(/\s+/g, "-")}`}
+              href={`/category/${categorySlug}`}
               className="text-xs font-bold text-blue-700 hover:text-blue-800 flex items-center space-x-1"
             >
               <span>View More</span>
@@ -817,7 +939,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {relatedProducts.map((p, idx) => (
+            {relatedList.map((p: any, idx: number) => (
               <ProductCard
                 key={p.id}
                 product={p}
@@ -831,7 +953,7 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
         </div>
       )}
 
-      {/* 5. Mobile Sticky Buy Bar (Appears on scroll past hero) */}
+      {/* 5. Mobile Sticky Buy Bar */}
       <AnimatePresence>
         {showStickyBar && (
           <motion.div
@@ -853,16 +975,18 @@ export function ProductDetailView({ productId }: ProductDetailViewProps) {
             <div className="flex items-center space-x-2 flex-1 max-w-[240px]">
               <button
                 type="button"
+                disabled={!inStock}
                 onClick={handleAddToCartClick}
-                className="flex-1 py-2.5 px-3 bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center space-x-1.5 active:scale-98 transition-all"
+                className="flex-1 py-2.5 px-3 bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center space-x-1.5 active:scale-98 transition-all disabled:opacity-50"
               >
                 <ShoppingCart className="w-3.5 h-3.5" />
-                <span>Add to Cart</span>
+                <span>{inStock ? "Add" : "Out of Stock"}</span>
               </button>
               <button
                 type="button"
+                disabled={!inStock}
                 onClick={handleBuyNowClick}
-                className="py-2.5 px-3 bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center space-x-1 active:scale-98 transition-all"
+                className="py-2.5 px-3 bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center justify-center space-x-1 active:scale-98 transition-all disabled:opacity-50"
               >
                 <Zap className="w-3.5 h-3.5 fill-current" />
                 <span>Buy</span>

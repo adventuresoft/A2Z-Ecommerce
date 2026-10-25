@@ -17,9 +17,11 @@ import {
   MapPin,
   LogOut,
   Package,
+  Loader2,
 } from "lucide-react";
 import { formatBDT } from "../../data/mock-catalog";
 import { useAuth } from "../../context/AuthContext";
+import { apiClient } from "../../lib/api-client";
 
 interface HeaderProps {
   cartCount: number;
@@ -30,15 +32,25 @@ interface HeaderProps {
   onOpenWishlist?: () => void;
 }
 
-const SEARCH_SUGGESTIONS = [
-  { title: "Apple MacBook Pro 16 M3 Max", category: "Laptops", price: 315000 },
-  { title: "Samsung Galaxy S24 Ultra 5G", category: "Smartphones", price: 135000 },
-  { title: "AMD Ryzen 5 5600G Processor", category: "Components", price: 13500 },
-  { title: "MSI GeForce RTX 3060 Ventus 2X", category: "Components", price: 32900 },
-  { title: "Logitech MX Master 3S Mouse", category: "Accessories", price: 11200 },
-  { title: "Sony WH-1000XM5 Wireless Headphones", category: "Audio", price: 38500 },
-  { title: "Samsung 980 1TB NVMe SSD", category: "Components", price: 8200 },
-];
+interface SearchSuggestionProduct {
+  id: string;
+  title: string;
+  slug: string;
+  price: number;
+  image?: string | null;
+  category: string;
+}
+
+interface SearchSuggestionCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface SearchSuggestionsResponse {
+  products: SearchSuggestionProduct[];
+  categories: SearchSuggestionCategory[];
+}
 
 export function Header({
   cartCount,
@@ -50,6 +62,11 @@ export function Header({
 }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<SearchSuggestionsResponse>({
+    products: [],
+    categories: [],
+  });
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -57,6 +74,37 @@ export function Header({
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+
+  // Debounced search suggestions fetch
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 2) {
+      setSuggestions({ products: [], categories: [] });
+      setIsLoadingSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const data = await apiClient.get<SearchSuggestionsResponse>(
+          `/products/search-suggestions?q=${encodeURIComponent(trimmed)}&limit=6`
+        );
+        if (data) {
+          setSuggestions({
+            products: data.products || [],
+            categories: data.categories || [],
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch search suggestions:", err);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -92,14 +140,6 @@ export function Header({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const filteredSuggestions = searchQuery.trim()
-    ? SEARCH_SUGGESTIONS.filter(
-        (s) =>
-          s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.category.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
@@ -186,6 +226,11 @@ export function Header({
                 setShowSuggestions(true);
               }}
               onFocus={() => setShowSuggestions(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSearchSubmit();
+                }
+              }}
               placeholder="Search products, brands, models, or categories..."
               className="flex-1 px-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden bg-transparent"
             />
@@ -212,38 +257,82 @@ export function Header({
           </div>
 
           {/* Autocomplete Dropdown Preview */}
-          {showSuggestions && searchQuery.trim().length > 0 && (
+          {showSuggestions && searchQuery.trim().length >= 2 && (
             <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-150">
               <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
                 <span>Matching suggestions for &quot;{searchQuery}&quot;</span>
-                <span className="text-[11px] text-blue-700 font-bold">Live Catalog Preview</span>
+                {isLoadingSuggestions ? (
+                  <span className="text-[11px] text-blue-700 font-bold flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Searching...
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-blue-700 font-bold">Live Catalog Preview</span>
+                )}
               </div>
+
+              {/* Matching Categories section */}
+              {suggestions.categories.length > 0 && (
+                <div className="px-4 py-2.5 bg-slate-50/70 border-b border-slate-100">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1.5">
+                    Matching Categories
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.categories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => {
+                          setShowSuggestions(false);
+                          router.push(`/category/${cat.slug}`);
+                        }}
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer text-slate-700"
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Matching Products section */}
               <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                {filteredSuggestions.length > 0 ? (
-                  filteredSuggestions.map((item, idx) => (
+                {suggestions.products.length > 0 ? (
+                  suggestions.products.map((item) => (
                     <div
-                      key={idx}
+                      key={item.id}
                       onClick={() => {
-                        setSearchQuery(item.title);
                         setShowSuggestions(false);
-                        router.push(`/shop?q=${encodeURIComponent(item.title)}`);
+                        router.push(`/products/${item.slug}`);
                       }}
                       className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors group"
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-black">
-                          {item.category[0]}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">
+                      <div className="flex items-center space-x-3 min-w-0 pr-2">
+                        {item.image ? (
+                          <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                            <Image
+                              src={item.image}
+                              alt={item.title}
+                              fill
+                              sizes="32px"
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-black shrink-0">
+                            {item.category?.[0] || "P"}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors truncate">
                             {item.title}
                           </p>
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-[11px] text-slate-400 truncate block">
                             in {item.category}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 shrink-0">
                         <span className="text-xs font-black text-orange-600">
                           {formatBDT(item.price)}
                         </span>
@@ -251,12 +340,27 @@ export function Header({
                       </div>
                     </div>
                   ))
+                ) : isLoadingSuggestions ? (
+                  <div className="px-4 py-6 text-center text-xs text-slate-500 flex items-center justify-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                    <span>Searching catalog...</span>
+                  </div>
                 ) : (
-                  <div className="px-4 py-5 text-center text-xs text-slate-500">
-                    No matching products found. Try searching &quot;MacBook&quot;, &quot;Galaxy&quot;, or &quot;Ryzen&quot;.
+                  <div className="px-4 py-6 text-center text-xs text-slate-500">
+                    No matching products found. Press Enter to view all results in shop.
                   </div>
                 )}
               </div>
+
+              {/* View All Footer */}
+              <button
+                type="button"
+                onClick={() => handleSearchSubmit()}
+                className="w-full px-4 py-2.5 text-center text-xs font-bold text-blue-700 hover:bg-blue-50 bg-slate-50/80 border-t border-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>View all results for &quot;{searchQuery}&quot;</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
         </div>

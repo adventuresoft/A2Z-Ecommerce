@@ -16,6 +16,7 @@ export default function ArchivePage() {
         title="Hardware Archive & Clearance"
         subtitle="Exclusive inventory archive, end-of-season technology clearances, and promotional tech drops at unbeatable prices."
         archiveBadge="Special Archive Collection"
+        hasDiscount={true}
       />
     </StorefrontShell>
   );

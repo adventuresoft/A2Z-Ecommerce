@@ -107,7 +107,7 @@ export default function CartPage() {
                       {/* Product Image & Info */}
                       <div className="flex items-center space-x-4">
                         <Link
-                          href={`/products/${item.product.id}`}
+                          href={`/products/${item.product.slug || item.product.id}`}
                           className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-2 group"
                         >
                           <Image
@@ -124,7 +124,7 @@ export default function CartPage() {
                             {item.product.category}
                           </span>
                           <Link
-                            href={`/products/${item.product.id}`}
+                            href={`/products/${item.product.slug || item.product.id}`}
                             className="text-sm sm:text-base font-bold text-slate-900 hover:text-blue-700 transition-colors line-clamp-1 block"
                           >
                             {item.product.title}

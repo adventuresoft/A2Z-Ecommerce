@@ -34,6 +34,18 @@ export class SettingsController {
     return this.settingsService.getPublicSettings();
   }
 
+  @Get('public')
+  @ApiOperation({
+    summary: 'Get all public store settings (hero banners, contact, policies)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Key-value map of public store settings with active hero banners',
+  })
+  async getPublicSettingsExplicit(): Promise<Record<string, any>> {
+    return this.settingsService.getPublicSettings();
+  }
+
   @Get(':key')
   @ApiOperation({ summary: 'Get a single public store setting by key' })
   @ApiParam({ name: 'key', example: 'store_name' })

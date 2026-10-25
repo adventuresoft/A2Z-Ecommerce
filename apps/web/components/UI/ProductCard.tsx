@@ -90,7 +90,7 @@ export function ProductCard({
 
       {/* Standardized 1:1 Aspect Ratio Image Frame */}
       <Link
-        href={`/products/${product.id}`}
+        href={`/products/${product.slug || product.id}`}
         className="relative w-full aspect-square bg-slate-50/80 rounded-xl overflow-hidden mb-3 border border-slate-100 flex items-center justify-center p-2 block group-hover:border-blue-200 transition-colors"
       >
         <Image
@@ -111,7 +111,7 @@ export function ProductCard({
           </div>
 
           {/* Product Title */}
-          <Link href={`/products/${product.id}`} className="block">
+          <Link href={`/products/${product.slug || product.id}`} className="block">
             <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-blue-700 transition-colors mb-1.5 min-h-[2.5rem]">
               {product.title}
             </h3>
