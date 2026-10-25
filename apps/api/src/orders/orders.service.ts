@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
 import { TaxesService } from '../taxes/taxes.service.js';
+import { CouponsService } from '../coupons/coupons.service.js';
 import type {
   CancelOrderDto,
   CreateAdminOrderDto,
@@ -29,11 +31,17 @@ import type {
 
 @Injectable()
 export class OrdersService {
+  private readonly idempotencyStore = new Map<
+    string,
+    { timestamp: number; promise?: Promise<OrderResponseDto>; result?: OrderResponseDto }
+  >();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventoryService: InventoryService,
     private readonly auditLogsService: AuditLogsService,
     private readonly taxesService: TaxesService,
+    private readonly couponsService: CouponsService,
   ) {}
 
   private readonly orderIncludes = {
@@ -60,6 +68,11 @@ export class OrdersService {
       orderBy: { createdAt: 'desc' as const },
     },
     user: { select: { name: true, email: true } },
+    couponUsage: {
+      include: {
+        coupon: { select: { code: true } },
+      },
+    },
   };
 
   /**
@@ -177,6 +190,8 @@ export class OrdersService {
       shippingState: order.shippingState,
       shippingPostalCode: order.shippingPostalCode,
       customerNotes: order.customerNotes,
+      shippingMethodId: order.shippingMethodId || null,
+      couponCode: order.couponUsage?.coupon?.code || null,
       items,
       statusHistory,
       shipments,
@@ -226,11 +241,62 @@ export class OrdersService {
   async createOrder(
     userId: string,
     dto: CreateOrderDto,
+    idempotencyKey?: string,
   ): Promise<OrderResponseDto> {
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
     }
 
+    if (idempotencyKey && idempotencyKey.trim()) {
+      const key = idempotencyKey.trim();
+      const existing = this.idempotencyStore.get(key);
+      const now = Date.now();
+      if (existing && now - existing.timestamp < 30000) {
+        if (existing.promise) {
+          throw new ConflictException(
+            'Checkout request already in progress with this idempotency key. Please wait.',
+          );
+        }
+        if (existing.result) {
+          return existing.result;
+        }
+      }
+    }
+
+    const orderPromise = this.executeCreateOrder(userId, dto, idempotencyKey);
+
+    if (idempotencyKey && idempotencyKey.trim()) {
+      const key = idempotencyKey.trim();
+      this.idempotencyStore.set(key, { timestamp: Date.now(), promise: orderPromise });
+      // Clean up older keys
+      if (this.idempotencyStore.size > 1000) {
+        const threshold = Date.now() - 60000;
+        for (const [k, v] of this.idempotencyStore.entries()) {
+          if (v.timestamp < threshold) this.idempotencyStore.delete(k);
+        }
+      }
+    }
+
+    try {
+      const result = await orderPromise;
+      if (idempotencyKey && idempotencyKey.trim()) {
+        const key = idempotencyKey.trim();
+        this.idempotencyStore.set(key, { timestamp: Date.now(), result });
+      }
+      return result;
+    } catch (err) {
+      if (idempotencyKey && idempotencyKey.trim()) {
+        this.idempotencyStore.delete(idempotencyKey.trim());
+      }
+      throw err;
+    }
+  }
+
+  private async executeCreateOrder(
+    userId: string,
+    dto: CreateOrderDto,
+    idempotencyKey?: string,
+  ): Promise<OrderResponseDto> {
     // Consolidate duplicate variant IDs if any
     const itemMap = new Map<string, number>();
     for (const item of dto.items) {
@@ -291,7 +357,7 @@ export class OrdersService {
           variant.salePrice !== null
             ? Number(variant.salePrice)
             : Number(variant.regularPrice);
-        const totalPrice = price * quantity;
+        const totalPrice = Number((price * quantity).toFixed(2));
         subtotal += totalPrice;
 
         const variantAttributes =
@@ -323,14 +389,46 @@ export class OrdersService {
         });
       }
 
+      subtotal = Number(subtotal.toFixed(2));
       const totalTaxAmount = Number(
         orderItemsData.reduce((acc, item) => acc + item.taxAmount, 0).toFixed(2),
       );
 
-      // Standard delivery fee (flat 60 BDT for default standard shipping)
-      const shippingFee = 60.0;
-      const discountAmount = 0.0;
-      const grandTotal = subtotal + shippingFee - discountAmount;
+      // Resolve shipping fee
+      let shippingFee = 60.0;
+      if (subtotal >= 100000) {
+        shippingFee = 0.0;
+      } else if (dto.shippingMethodId) {
+        const method = await tx.shippingMethod.findUnique({
+          where: { id: dto.shippingMethodId, isActive: true },
+        });
+        if (method) {
+          shippingFee = Number(method.cost);
+        }
+      } else {
+        const isDhaka =
+          !dto.shippingCity || dto.shippingCity.trim().toLowerCase().includes('dhaka');
+        shippingFee = isDhaka ? 60.0 : 120.0;
+      }
+
+      // Resolve promotional coupon
+      let discountAmount = 0.0;
+      let couponToRecord: { id: string } | null = null;
+      if (dto.couponCode && dto.couponCode.trim()) {
+        const couponResult = await this.couponsService.validateAndCalculateDiscount(
+          dto.couponCode,
+          subtotal,
+          userId,
+          tx,
+        );
+        discountAmount = couponResult.discountAmount;
+        couponToRecord = { id: couponResult.coupon.id };
+      }
+
+      const grandTotal = Math.max(
+        0,
+        Number((subtotal + shippingFee - discountAmount).toFixed(2)),
+      );
 
       // 2. Generate unique order number
       let orderNumber = this.generateOrderNumber();
@@ -339,6 +437,13 @@ export class OrdersService {
         orderNumber = this.generateOrderNumber();
         exists = await tx.order.findUnique({ where: { orderNumber } });
       }
+
+      const paymentMethod = dto.paymentMethod || PaymentMethod.CASH_ON_DELIVERY;
+      const paymentRef = dto.paymentReference?.trim() || null;
+      const paymentNotes =
+        paymentMethod === PaymentMethod.MOBILE_BANKING
+          ? `Mobile Banking (bKash/Nagad) Pending Verification: ${paymentRef || 'No ref provided'}`
+          : 'Initial Cash on Delivery pending payment record';
 
       // 3. Create the Order header and OrderItems
       const createdOrder = await tx.order.create({
@@ -360,6 +465,7 @@ export class OrdersService {
           shippingState: dto.shippingState?.trim() || null,
           shippingPostalCode: dto.shippingPostalCode.trim(),
           customerNotes: dto.customerNotes?.trim() || null,
+          shippingMethodId: dto.shippingMethodId || null,
           items: {
             create: orderItemsData,
           },
@@ -373,17 +479,30 @@ export class OrdersService {
           },
           payments: {
             create: {
-              method: PaymentMethod.CASH_ON_DELIVERY,
+              method: paymentMethod,
               status: PaymentStatus.PENDING,
               amount: grandTotal,
               currency: 'BDT',
-              notes: 'Initial Cash on Delivery pending payment record',
+              transactionRef: paymentRef,
+              idempotencyKey: idempotencyKey || null,
+              notes: paymentNotes,
             },
           },
         },
       });
 
-      // 4. Reserve inventory for all items in the order
+      // 4. Record coupon usage if discount was applied
+      if (couponToRecord && discountAmount > 0) {
+        await this.couponsService.recordUsage(
+          couponToRecord.id,
+          createdOrder.id,
+          userId,
+          discountAmount,
+          tx,
+        );
+      }
+
+      // 5. Reserve inventory for all items in the order
       for (const item of orderItemsData) {
         await this.inventoryService.reserveStock(
           item.variantId,
@@ -393,7 +512,7 @@ export class OrdersService {
         );
       }
 
-      // 5. Query complete order with relations to return
+      // 6. Query complete order with relations to return
       const fullOrder = await tx.order.findUniqueOrThrow({
         where: { id: createdOrder.id },
         include: this.orderIncludes,

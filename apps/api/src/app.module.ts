@@ -23,6 +23,9 @@ import { CustomersModule } from './customers/customers.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { TaxesModule } from './taxes/taxes.module.js';
 import { AccountModule } from './account/account.module.js';
+import { CouponsModule } from './coupons/coupons.module.js';
+import { CheckoutModule } from './checkout/checkout.module.js';
+import { WishlistModule } from './wishlist/wishlist.module.js';
 
 @Module({
   imports: [
@@ -50,6 +53,9 @@ import { AccountModule } from './account/account.module.js';
     CustomersModule,
     AuditLogsModule,
     TaxesModule,
+    CouponsModule,
+    CheckoutModule,
+    WishlistModule,
   ],
   controllers: [AppController],
   providers: [AppService],

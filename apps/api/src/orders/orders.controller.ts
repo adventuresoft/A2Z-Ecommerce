@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -11,6 +12,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiHeader,
   ApiOperation,
   ApiParam,
   ApiResponse,
@@ -40,12 +42,18 @@ export class OrdersController {
   @ApiOperation({
     summary: 'Place a new customer order with frozen item prices and stock reservation',
   })
+  @ApiHeader({
+    name: 'idempotency-key',
+    required: false,
+    description: 'Optional unique UUID to prevent duplicate submissions',
+  })
   @ApiResponse({ status: 201, type: OrderResponseDto })
   async create(
     @CurrentUser() user: AccessPayload,
     @Body() dto: CreateOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<OrderResponseDto> {
-    return this.ordersService.createOrder(user.sub, dto);
+    return this.ordersService.createOrder(user.sub, dto, idempotencyKey);
   }
 
   @Get()

@@ -300,6 +300,18 @@ Cross-device persistent shopping carts for authenticated customers and guest ses
 
 *(Rule: Prices are computed dynamically from `ProductVariant` regular/sale price at time of cart query).*
 
+#### `WishlistItem`
+Multi-device persistent saved products for authenticated customers, supporting login-time merge from guest `localStorage` sessions.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `UUID` | PK, default `uuid()` | Wishlist entry identifier. |
+| `userId` | `UUID` | FK → `User.id` (Cascade), Not Null | Owning customer account. |
+| `productId` | `UUID` | FK → `Product.id` (Cascade), Not Null | Saved product master. |
+| `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Saved timestamp. |
+
+*(Constraint: `@@unique([userId, productId])`)*
+
 ---
 
 ### 4.5 Orders & Fulfillment

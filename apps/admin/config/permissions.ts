@@ -64,6 +64,7 @@ export const CLIENT_ROLE_PERMISSIONS: Record<
     categories: ['create', 'read', 'update'],
     brands: ['create', 'read', 'update'],
     attributes: ['create', 'read', 'update'],
+    marketing: ['create', 'read', 'update'],
     orders: ['read', 'update'],
     inventory: ['read', 'update'],
     reports: ['read'],

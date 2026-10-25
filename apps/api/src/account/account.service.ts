@@ -3,9 +3,14 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PasswordService } from '../auth/password.service.js';
-import { UpdateProfileDto, ChangePasswordDto } from './dto/index.js';
+import {
+  UpdateProfileDto,
+  ChangePasswordDto,
+  AccountOverviewResponseDto,
+} from './dto/index.js';
 
 @Injectable()
 export class AccountService {
@@ -32,6 +37,108 @@ export class AccountService {
     }
 
     return user;
+  }
+
+  async getAccountOverview(userId: string): Promise<AccountOverviewResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User profile not found');
+    }
+
+    const [totalOrders, statusGroups, recentOrdersRaw, defaultAddress] =
+      await Promise.all([
+        this.prisma.order.count({ where: { userId } }),
+        this.prisma.order.groupBy({
+          by: ['orderStatus'],
+          where: { userId },
+          _count: { _all: true },
+        }),
+        this.prisma.order.findMany({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: {
+            items: {
+              include: {
+                variant: {
+                  include: { image: true, product: true },
+                },
+              },
+            },
+          },
+        }),
+        this.prisma.userAddress.findFirst({
+          where: { userId, isDefaultShipping: true },
+        }),
+      ]);
+
+    const countMap: Record<string, number> = {};
+    for (const group of statusGroups) {
+      countMap[group.orderStatus] = group._count._all;
+    }
+
+    const pendingOrders = countMap[OrderStatus.PENDING] || 0;
+    const processingOrders =
+      (countMap[OrderStatus.PROCESSING] || 0) +
+      (countMap[OrderStatus.CONFIRMED] || 0);
+    const deliveredOrders = countMap[OrderStatus.DELIVERED] || 0;
+    const cancelledOrders = countMap[OrderStatus.CANCELLED] || 0;
+
+    const recentOrders = recentOrdersRaw.map((order) => {
+      const itemCount = order.items.reduce(
+        (acc, item) => acc + item.quantity,
+        0,
+      );
+      const itemsPreview = order.items.map((item) => ({
+        productTitle: item.productTitle,
+        thumbnailUrl:
+          item.variant?.imageUrl ||
+          item.variant?.image?.imageUrl ||
+          item.variant?.product?.thumbnailUrl ||
+          null,
+        quantity: item.quantity,
+      }));
+
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        orderStatus: order.orderStatus,
+        paymentStatus: order.paymentStatus,
+        shipmentStatus: order.shipmentStatus,
+        grandTotal: Number(order.grandTotal),
+        itemCount,
+        createdAt: order.createdAt,
+        itemsPreview,
+      };
+    });
+
+    const defaultShippingAddress = defaultAddress
+      ? {
+          id: defaultAddress.id,
+          recipientName: defaultAddress.recipientName,
+          phone: defaultAddress.phone,
+          streetAddress: defaultAddress.streetAddress,
+          city: defaultAddress.city,
+          state: defaultAddress.state,
+          postalCode: defaultAddress.postalCode,
+          country: defaultAddress.country,
+        }
+      : null;
+
+    return {
+      counts: {
+        totalOrders,
+        pendingOrders,
+        processingOrders,
+        deliveredOrders,
+        cancelledOrders,
+      },
+      recentOrders,
+      defaultShippingAddress,
+    };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -93,3 +200,4 @@ export class AccountService {
     };
   }
 }
+

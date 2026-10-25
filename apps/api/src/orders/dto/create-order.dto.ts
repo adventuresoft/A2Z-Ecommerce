@@ -1,8 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaymentMethod } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -102,6 +104,41 @@ export class CreateOrderDto {
   @IsOptional()
   customerNotes?: string;
 
+  @ApiPropertyOptional({
+    description: 'Selected shipping method UUID',
+    example: 's-method-uuid',
+  })
+  @IsUUID()
+  @IsOptional()
+  shippingMethodId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional promotional coupon code to redeem',
+    example: 'AZDEAL',
+  })
+  @IsString()
+  @IsOptional()
+  couponCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Payment method chosen for the order',
+    enum: PaymentMethod,
+    default: PaymentMethod.CASH_ON_DELIVERY,
+  })
+  @IsEnum(PaymentMethod)
+  @IsOptional()
+  paymentMethod?: PaymentMethod = PaymentMethod.CASH_ON_DELIVERY;
+
+  @ApiPropertyOptional({
+    description: 'Payment transaction reference or notes (e.g. bKash TrxID)',
+    example: 'bKash TrxID: 9X7B2144A9 (Sender: 01811223344)',
+    maxLength: 255,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  paymentReference?: string;
+
   @ApiProperty({
     description: 'List of product variants and quantities to purchase',
     type: [OrderItemInputDto],
@@ -112,3 +149,4 @@ export class CreateOrderDto {
   @Type(() => OrderItemInputDto)
   items: OrderItemInputDto[];
 }
+

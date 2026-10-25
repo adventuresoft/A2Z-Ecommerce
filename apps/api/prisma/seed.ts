@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Role, AttributeType, StockMovementType } from '@prisma/client';
+import { PrismaClient, Role, AttributeType, StockMovementType, DiscountType } from '@prisma/client';
 import * as argon2 from 'argon2';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -2532,9 +2532,140 @@ async function seedTaxClasses() {
   console.log('Tax classes seeded successfully.');
 }
 
+const COUPONS_DATA = [
+  {
+    code: 'AZDEAL',
+    description: 'Flat ৳500 discount on orders over ৳1,000',
+    discountType: DiscountType.FIXED_AMOUNT,
+    discountValue: 500.0,
+    minOrderAmount: 1000.0,
+    maxDiscountAmount: null,
+    totalUsageLimit: 1000,
+    perCustomerLimit: 1,
+    startDate: new Date('2026-01-01T00:00:00Z'),
+    endDate: new Date('2027-12-31T23:59:59Z'),
+    isActive: true,
+  },
+  {
+    code: 'TECH10',
+    description: '10% discount on tech & lifestyle orders up to ৳2,000 off',
+    discountType: DiscountType.PERCENTAGE,
+    discountValue: 10.0,
+    minOrderAmount: 500.0,
+    maxDiscountAmount: 2000.0,
+    totalUsageLimit: 500,
+    perCustomerLimit: 2,
+    startDate: new Date('2026-01-01T00:00:00Z'),
+    endDate: new Date('2027-12-31T23:59:59Z'),
+    isActive: true,
+  },
+];
+
+async function seedCoupons() {
+  console.log('Seeding baseline Promotional Coupons...');
+  for (const c of COUPONS_DATA) {
+    await prisma.coupon.upsert({
+      where: { code: c.code },
+      update: {
+        description: c.description,
+        discountType: c.discountType,
+        discountValue: c.discountValue,
+        minOrderAmount: c.minOrderAmount,
+        maxDiscountAmount: c.maxDiscountAmount,
+        totalUsageLimit: c.totalUsageLimit,
+        perCustomerLimit: c.perCustomerLimit,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        isActive: c.isActive,
+      },
+      create: c,
+    });
+  }
+  console.log('Coupons seeded successfully.');
+}
+
+async function seedShippingZonesAndMethods() {
+  console.log('Seeding baseline Shipping Zones and Methods...');
+  const dhakaZone = await prisma.shippingZone.findFirst({
+    where: { name: 'Dhaka Metro' },
+  });
+  const outsideZone = await prisma.shippingZone.findFirst({
+    where: { name: 'Outside Dhaka' },
+  });
+
+  const dhaka =
+    dhakaZone ||
+    (await prisma.shippingZone.create({
+      data: {
+        name: 'Dhaka Metro',
+        description: 'Deliveries within Dhaka City Corporation',
+        isActive: true,
+        sortOrder: 1,
+      },
+    }));
+
+  const outside =
+    outsideZone ||
+    (await prisma.shippingZone.create({
+      data: {
+        name: 'Outside Dhaka',
+        description: 'Nationwide delivery across all divisions outside Dhaka',
+        isActive: true,
+        sortOrder: 2,
+      },
+    }));
+
+  const methods = [
+    {
+      zoneId: dhaka.id,
+      name: 'Standard Delivery (Inside Dhaka)',
+      cost: 60.0,
+      estimatedDays: 2,
+      isActive: true,
+      sortOrder: 1,
+    },
+    {
+      zoneId: dhaka.id,
+      name: 'Express Priority Courier',
+      cost: 150.0,
+      estimatedDays: 1,
+      isActive: true,
+      sortOrder: 2,
+    },
+    {
+      zoneId: outside.id,
+      name: 'Standard Courier (Outside Dhaka)',
+      cost: 120.0,
+      estimatedDays: 4,
+      isActive: true,
+      sortOrder: 1,
+    },
+    {
+      zoneId: outside.id,
+      name: 'Express Air / Priority Courier',
+      cost: 210.0,
+      estimatedDays: 2,
+      isActive: true,
+      sortOrder: 2,
+    },
+  ];
+
+  for (const m of methods) {
+    const existing = await prisma.shippingMethod.findFirst({
+      where: { zoneId: m.zoneId, name: m.name },
+    });
+    if (!existing) {
+      await prisma.shippingMethod.create({ data: m });
+    }
+  }
+  console.log('Shipping Zones and Methods seeded successfully.');
+}
+
 async function seed() {
   await seedDemoUsers();
   await seedTaxClasses();
+  await seedCoupons();
+  await seedShippingZonesAndMethods();
   await seedCategories();
   await seedBrands();
   await seedAttributes();

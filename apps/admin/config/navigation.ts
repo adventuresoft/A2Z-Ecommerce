@@ -173,6 +173,7 @@ export const navigationConfig: NavItem[] = [
     title: "Marketing",
     icon: "bi bi-megaphone",
     phase: 4,
+    badge: { text: "Live", variant: "success" },
     children: [
       {
         id: "marketing-coupons",
@@ -180,6 +181,7 @@ export const navigationConfig: NavItem[] = [
         href: "/marketing/coupons",
         icon: "bi bi-ticket-perforated",
         phase: 4,
+        badge: { text: "Live", variant: "success" },
       },
     ],
   },

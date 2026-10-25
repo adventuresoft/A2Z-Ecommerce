@@ -21,6 +21,7 @@ export interface ProductReviewItem {
 export interface Product {
   id: string;
   slug?: string;
+  defaultVariantId?: string;
   title: string;
   category: string;
   brand?: string;

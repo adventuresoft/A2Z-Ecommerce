@@ -61,3 +61,14 @@ The system SHALL support atomic assignment of default shipping and default billi
 #### Scenario: Setting new default billing address
 - **WHEN** customer designates an address as default billing
 - **THEN** system executes a transaction setting `isDefaultBilling = true` on the target address while resetting `isDefaultBilling = false` on all other addresses owned by the customer
+
+### Requirement: Customer Account Overview and Metric Aggregation
+The system SHALL expose `GET /api/v1/account/overview` protected by JWT authentication, returning aggregated order statistics, recent order history, and default delivery address details for the authenticated customer.
+
+#### Scenario: Authenticated customer retrieves overview statistics
+- **WHEN** an authenticated customer sends `GET /api/v1/account/overview`
+- **THEN** the system returns HTTP 200 with `counts` (`totalOrders`, `pendingOrders`, `processingOrders`, `deliveredOrders`), `recentOrders` (up to 5 latest orders with orderNumber, grandTotal, orderStatus, paymentStatus, itemCount, and createdAt), and `defaultShippingAddress`.
+
+#### Scenario: Unauthenticated request to account overview
+- **WHEN** an unauthenticated guest sends `GET /api/v1/account/overview` without a valid Bearer token
+- **THEN** the system rejects the request with HTTP 401 Unauthorized.

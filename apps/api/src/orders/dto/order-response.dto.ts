@@ -189,6 +189,12 @@ export class OrderResponseDto {
   @ApiPropertyOptional({ example: 'Please ring the doorbell' })
   customerNotes?: string | null;
 
+  @ApiPropertyOptional({ example: 's-method-uuid', description: 'Selected shipping method ID' })
+  shippingMethodId?: string | null;
+
+  @ApiPropertyOptional({ example: 'AZDEAL', description: 'Redeemed coupon promotion code' })
+  couponCode?: string | null;
+
   @ApiProperty({ type: [OrderItemResponseDto] })
   items: OrderItemResponseDto[];
 

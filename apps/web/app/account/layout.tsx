@@ -67,13 +67,13 @@ export default function AccountLayout({
     },
     {
       label: 'My Orders',
-      href: '/account#orders',
+      href: '/account/orders',
       icon: Package,
       exact: false,
     },
     {
       label: 'Saved Wishlist',
-      href: '/wishlist',
+      href: '/account/wishlist',
       icon: Heart,
       exact: false,
     },

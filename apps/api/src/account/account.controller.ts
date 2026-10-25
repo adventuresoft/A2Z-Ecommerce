@@ -21,7 +21,11 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { AccessPayload } from '../auth/interfaces/token-payload.interface.js';
 import { REFRESH_COOKIE_NAME } from '../auth/auth.controller.js';
 import { AccountService } from './account.service.js';
-import { UpdateProfileDto, ChangePasswordDto } from './dto/index.js';
+import {
+  UpdateProfileDto,
+  ChangePasswordDto,
+  AccountOverviewResponseDto,
+} from './dto/index.js';
 
 @ApiTags('Account')
 @ApiBearerAuth('access-token')
@@ -29,6 +33,20 @@ import { UpdateProfileDto, ChangePasswordDto } from './dto/index.js';
 @Controller('account')
 export class AccountController {
   constructor(private readonly accountService: AccountService) {}
+
+  @Get('overview')
+  @ApiOperation({ summary: 'Retrieve account overview stats and recent orders' })
+  @ApiResponse({
+    status: 200,
+    description: 'Account overview retrieved successfully',
+    type: AccountOverviewResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getOverview(
+    @CurrentUser() user: AccessPayload,
+  ): Promise<AccountOverviewResponseDto> {
+    return this.accountService.getAccountOverview(user.sub);
+  }
 
   @Get('profile')
   @ApiOperation({ summary: 'Retrieve profile of authenticated customer' })

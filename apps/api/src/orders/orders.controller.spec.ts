@@ -74,9 +74,9 @@ describe('Orders Controllers', () => {
         items: [{ variantId: 'var-1', quantity: 2 }],
       };
 
-      const result = await customerController.create(mockUserPayload, dto);
+      const result = await customerController.create(mockUserPayload, dto, 'key-123');
       expect(result).toEqual(mockOrderResponse);
-      expect(ordersServiceMock.createOrder).toHaveBeenCalledWith('user-1', dto);
+      expect(ordersServiceMock.createOrder).toHaveBeenCalledWith('user-1', dto, 'key-123');
     });
 
     it('should retrieve customer order history', async () => {

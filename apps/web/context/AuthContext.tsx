@@ -42,6 +42,23 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function triggerGuestWishlistSync(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    const rawGuest = localStorage.getItem('az_guest_wishlist_ids') || localStorage.getItem('az_wishlist_ids');
+    const productIds: string[] = rawGuest ? JSON.parse(rawGuest) : [];
+    const synced = await apiClient.post<any[]>('/wishlist/sync', {
+      productIds: Array.isArray(productIds) ? productIds : [],
+    });
+    localStorage.removeItem('az_guest_wishlist_ids');
+    window.dispatchEvent(
+      new CustomEvent('az:wishlist-synced', { detail: synced }),
+    );
+  } catch {
+    // Non-blocking if wishlist sync fails
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -113,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setAccessToken(res.accessToken);
       setUser(res.user);
+      await triggerGuestWishlistSync();
       return res.user;
     },
     [],
@@ -143,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         };
 
       setUser(userData);
+      await triggerGuestWishlistSync();
       return userData;
     },
     [],
@@ -156,6 +175,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setAccessToken(null);
       setUser(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('az:auth-logged-out'));
+      }
     }
   }, []);
 

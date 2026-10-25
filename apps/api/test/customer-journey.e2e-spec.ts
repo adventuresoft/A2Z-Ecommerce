@@ -63,7 +63,12 @@ describe('Full Customer Journey E2E', () => {
 
     const cookies = res.headers['set-cookie'];
     expect(cookies).toBeDefined();
-    const hasRefreshCookie = cookies?.some((c: string) =>
+    const cookieList = Array.isArray(cookies)
+      ? cookies
+      : cookies
+        ? [cookies]
+        : [];
+    const hasRefreshCookie = cookieList.some((c: string) =>
       c.includes('refreshToken='),
     );
     expect(hasRefreshCookie).toBe(true);

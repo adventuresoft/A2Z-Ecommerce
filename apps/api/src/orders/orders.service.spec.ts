@@ -68,12 +68,19 @@ describe('OrdersService', () => {
       }),
     };
 
+    const couponsServiceMock: any = {
+      validateAndCalculateDiscount: vi.fn(),
+      recordUsage: vi.fn().mockResolvedValue(undefined),
+    };
+
     service = new OrdersService(
       prismaMock,
       inventoryServiceMock,
       auditLogsServiceMock,
       taxesServiceMock,
+      couponsServiceMock,
     );
+    (service as any).couponsService = couponsServiceMock;
   });
 
   describe('createOrder', () => {
@@ -307,6 +314,146 @@ describe('OrdersService', () => {
         }),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('should return cached order on duplicate idempotency key submission', async () => {
+      const mockVariant = {
+        id: 'var-1',
+        sku: 'TSHIRT-BLK-XL',
+        regularPrice: 500,
+        salePrice: null,
+        isActive: true,
+        product: { title: 'Premium T-Shirt' },
+        attributes: [],
+      };
+
+      prismaMock.$transaction.mockImplementation(async (cb: any) => {
+        const tx = {
+          productVariant: { findMany: vi.fn().mockResolvedValue([mockVariant]) },
+          order: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: 'order-idemp-1' }),
+            findUniqueOrThrow: vi.fn().mockResolvedValue({
+              id: 'order-idemp-1',
+              orderNumber: 'AZ-2026-IDEMP1',
+              userId: 'user-1',
+              orderStatus: OrderStatus.PENDING,
+              paymentStatus: PaymentStatus.PENDING,
+              shipmentStatus: ShipmentStatus.UNFULFILLED,
+              subtotal: 500,
+              discountAmount: 0,
+              shippingFee: 60,
+              totalTaxAmount: 23.81,
+              grandTotal: 560,
+              recipientName: 'Karim Ahmed',
+              recipientPhone: '+8801712345678',
+              shippingStreet: 'Road 5',
+              shippingCity: 'Dhaka',
+              shippingPostalCode: '1213',
+              items: [],
+              statusHistory: [],
+              shipments: [],
+              payments: [],
+              refunds: [],
+            }),
+          },
+        };
+        return cb(tx);
+      });
+
+      const dto = {
+        recipientName: 'Karim Ahmed',
+        recipientPhone: '+8801712345678',
+        shippingStreet: 'Road 5',
+        shippingCity: 'Dhaka',
+        shippingPostalCode: '1213',
+        items: [{ variantId: 'var-1', quantity: 1 }],
+      };
+
+      const res1 = await service.createOrder('user-1', dto, 'idemp-key-123');
+      const res2 = await service.createOrder('user-1', dto, 'idemp-key-123');
+
+      expect(res1.id).toBe('order-idemp-1');
+      expect(res2.id).toBe('order-idemp-1');
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1); // Cached!
+    });
+
+    it('should validate coupon and record usage during order creation', async () => {
+      const mockVariant = {
+        id: 'var-1',
+        sku: 'TSHIRT-BLK-XL',
+        regularPrice: 2000,
+        salePrice: null,
+        isActive: true,
+        product: { title: 'Premium T-Shirt' },
+        attributes: [],
+      };
+
+      (service as any).couponsService.validateAndCalculateDiscount.mockResolvedValue({
+        coupon: { id: 'coupon-azdeal', code: 'AZDEAL' },
+        discountAmount: 500,
+      });
+
+      let capturedOrderData: any = null;
+
+      prismaMock.$transaction.mockImplementation(async (cb: any) => {
+        const tx = {
+          productVariant: { findMany: vi.fn().mockResolvedValue([mockVariant]) },
+          order: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockImplementation(({ data }: any) => {
+              capturedOrderData = data;
+              return { id: 'order-coupon-1' };
+            }),
+            findUniqueOrThrow: vi.fn().mockResolvedValue({
+              id: 'order-coupon-1',
+              orderNumber: 'AZ-2026-CPN1',
+              userId: 'user-1',
+              orderStatus: OrderStatus.PENDING,
+              paymentStatus: PaymentStatus.PENDING,
+              shipmentStatus: ShipmentStatus.UNFULFILLED,
+              subtotal: 2000,
+              discountAmount: 500,
+              shippingFee: 60,
+              totalTaxAmount: 95.24,
+              grandTotal: 1560,
+              recipientName: 'Karim Ahmed',
+              recipientPhone: '+8801712345678',
+              shippingStreet: 'Road 5',
+              shippingCity: 'Dhaka',
+              shippingPostalCode: '1213',
+              items: [],
+              statusHistory: [],
+              shipments: [],
+              payments: [],
+              refunds: [],
+            }),
+          },
+        };
+        return cb(tx);
+      });
+
+      const res = await service.createOrder('user-1', {
+        recipientName: 'Karim Ahmed',
+        recipientPhone: '+8801712345678',
+        shippingStreet: 'Road 5',
+        shippingCity: 'Dhaka',
+        shippingPostalCode: '1213',
+        couponCode: 'AZDEAL',
+        items: [{ variantId: 'var-1', quantity: 1 }],
+      });
+
+      expect(res.discountAmount).toBe(500);
+      expect(res.grandTotal).toBe(1560);
+      expect(capturedOrderData.discountAmount).toBe(500);
+      expect((service as any).couponsService.recordUsage).toHaveBeenCalledWith(
+        'coupon-azdeal',
+        'order-coupon-1',
+        'user-1',
+        500,
+        expect.anything(),
+      );
+    });
+
 
     it('should throw BadRequestException if variant is inactive', async () => {
       prismaMock.$transaction.mockImplementation(async (cb: any) => {

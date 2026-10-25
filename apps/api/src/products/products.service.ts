@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { ReviewStatus, type Prisma } from '@prisma/client';
 import fs from 'node:fs';
 import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -1861,7 +1861,7 @@ export class ProductsService {
         },
       },
       reviews: {
-        where: { isApproved: true },
+        where: { status: ReviewStatus.APPROVED },
         select: {
           rating: true,
         },
@@ -1966,7 +1966,13 @@ export class ProductsService {
 
     const flashDeals = rawFlash
       .map((p) => this.mapProductToSummary(p))
-      .filter((p) => p.salePrice !== null && p.discountPercent !== null && p.discountPercent > 0)
+      .filter(
+        (p) =>
+          p.salePrice !== null &&
+          p.discountPercent !== null &&
+          p.discountPercent !== undefined &&
+          p.discountPercent > 0,
+      )
       .sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
 
     const featured = rawFeatured.map((p) => this.mapProductToSummary(p));

@@ -45,6 +45,8 @@ model User {
   notifications   Notification[]
   addresses       UserAddress[]
   auditLogs       AuditLog[]
+  couponUsages    CouponUsage[]
+  wishlistItems   WishlistItem[]
 
   @@map("User")
 }
@@ -208,6 +210,7 @@ model Product {
   images           ProductImage[]
   variants         ProductVariant[]
   reviews          Review[]
+  wishlistItems    WishlistItem[]
 
   @@index([categoryId])
   @@index([brandId])
@@ -367,18 +370,22 @@ model Order {
   shippingState      String?              @db.VarChar(100)
   shippingPostalCode String               @db.VarChar(20)
   customerNotes      String?              @db.Text
+  shippingMethodId   String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
   user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  shippingMethod     ShippingMethod?      @relation(fields: [shippingMethodId], references: [id], onDelete: SetNull)
   items              OrderItem[]
   statusHistory      OrderStatusHistory[]
   shipments          Shipment[]
   payments           Payment[]
   refunds            Refund[]
   reviews            Review[]
+  couponUsage        CouponUsage?
 
   @@index([userId])
+  @@index([shippingMethodId])
   @@index([orderStatus])
   @@index([paymentStatus])
   @@index([shipmentStatus])
@@ -454,6 +461,7 @@ model ShippingMethod {
 
   zone          ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   shipments     Shipment[]
+  orders        Order[]
 
   @@index([zoneId, isActive])
   @@map("ShippingMethod")
@@ -678,4 +686,72 @@ model TaxClass {
   @@index([isActive, isDefault])
   @@index([code])
   @@map("TaxClass")
+}
+
+// ============================================================================
+// COUPON & PROMOTIONS MODELS
+// ============================================================================
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model Coupon {
+  id                String        @id @default(uuid())
+  code              String        @unique @db.VarChar(50)
+  description       String?       @db.VarChar(255)
+  discountType      DiscountType  @default(FIXED_AMOUNT)
+  discountValue     Decimal       @db.Decimal(10, 2)
+  minOrderAmount    Decimal?      @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?      @db.Decimal(10, 2)
+  totalUsageLimit   Int?
+  perCustomerLimit  Int           @default(1)
+  startDate         DateTime
+  endDate           DateTime
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  usages            CouponUsage[]
+
+  @@index([code, isActive])
+  @@index([startDate, endDate])
+  @@map("Coupon")
+}
+
+model CouponUsage {
+  id              String   @id @default(uuid())
+  couponId        String
+  orderId         String   @unique
+  userId          String
+  discountApplied Decimal  @db.Decimal(10, 2)
+  usedAt          DateTime @default(now())
+
+  coupon          Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([couponId, userId])
+  @@index([userId])
+  @@map("CouponUsage")
+}
+
+// ============================================================================
+// WISHLIST MODEL
+// ============================================================================
+
+model WishlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("WishlistItem")
 }

@@ -284,7 +284,13 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
       reviewsCount: productData.reviewsCount || 0,
       inStock,
     };
-    addToCart(productItem, quantity, selectedVariantSummary || undefined, currentPrice);
+    addToCart(
+      productItem,
+      quantity,
+      selectedVariantSummary || undefined,
+      currentPrice,
+      activeVariant?.id
+    );
   };
 
   const handleBuyNowClick = () => {

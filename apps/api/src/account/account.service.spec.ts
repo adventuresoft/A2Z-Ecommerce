@@ -119,9 +119,84 @@ describe('AccountService and Controller', () => {
         }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should return aggregated account overview with counts and recent orders', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ id: 'u-1' });
+      prismaMock.order = {
+        count: vi.fn().mockResolvedValue(4),
+        groupBy: vi.fn().mockResolvedValue([
+          { orderStatus: 'PENDING', _count: { _all: 2 } },
+          { orderStatus: 'CONFIRMED', _count: { _all: 1 } },
+          { orderStatus: 'DELIVERED', _count: { _all: 1 } },
+        ]),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'ord-1',
+            orderNumber: 'AZ-2026-X8K2M9',
+            orderStatus: 'PENDING',
+            paymentStatus: 'PENDING',
+            shipmentStatus: 'UNFULFILLED',
+            grandTotal: 1500,
+            createdAt: new Date('2026-10-25T10:00:00Z'),
+            items: [
+              {
+                productTitle: 'Smart Watch',
+                quantity: 2,
+                variant: {
+                  imageUrl: 'https://img.test/watch.jpg',
+                },
+              },
+            ],
+          },
+        ]),
+      };
+      prismaMock.userAddress = {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'addr-1',
+          recipientName: 'John Doe',
+          phone: '+8801700000000',
+          streetAddress: 'Road 5',
+          city: 'Dhaka',
+          state: 'Dhaka',
+          postalCode: '1209',
+          country: 'Bangladesh',
+        }),
+      };
+
+      const overview = await service.getAccountOverview('u-1');
+      expect(overview.counts.totalOrders).toBe(4);
+      expect(overview.counts.pendingOrders).toBe(2);
+      expect(overview.counts.processingOrders).toBe(1);
+      expect(overview.counts.deliveredOrders).toBe(1);
+      expect(overview.recentOrders).toHaveLength(1);
+      expect(overview.recentOrders[0].orderNumber).toBe('AZ-2026-X8K2M9');
+      expect(overview.recentOrders[0].itemCount).toBe(2);
+      expect(overview.recentOrders[0].itemsPreview[0].productTitle).toBe('Smart Watch');
+      expect(overview.defaultShippingAddress?.city).toBe('Dhaka');
+    });
   });
 
   describe('AccountController', () => {
+    it('should get overview from current user', async () => {
+      const mockUser = { sub: 'u-1', email: 'c@az.local', role: Role.CUSTOMER };
+      const mockOverview = {
+        counts: {
+          totalOrders: 1,
+          pendingOrders: 1,
+          processingOrders: 0,
+          deliveredOrders: 0,
+          cancelledOrders: 0,
+        },
+        recentOrders: [],
+        defaultShippingAddress: null,
+      };
+      vi.spyOn(service, 'getAccountOverview').mockResolvedValue(mockOverview as any);
+
+      const res = await controller.getOverview(mockUser);
+      expect(res).toEqual(mockOverview);
+      expect(service.getAccountOverview).toHaveBeenCalledWith('u-1');
+    });
+
     it('should get profile from current user', async () => {
       const mockUser = { sub: 'u-1', email: 'c@az.local', role: Role.CUSTOMER };
       const mockProfile = { id: 'u-1', name: 'John' };
@@ -162,3 +237,4 @@ describe('AccountService and Controller', () => {
     });
   });
 });
+

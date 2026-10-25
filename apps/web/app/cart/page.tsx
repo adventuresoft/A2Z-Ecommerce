@@ -17,10 +17,33 @@ import {
   Check,
   AlertCircle,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import { StorefrontShell } from "../../components/Shell/StorefrontShell";
 import { useStore } from "../../context/StoreContext";
 import { formatBDT } from "../../data/mock-catalog";
+import { apiClient, ApiError } from "../../lib/api-client";
+
+interface CalculationState {
+  subtotal: number;
+  discountAmount: number;
+  shippingFee: number;
+  totalTaxAmount: number;
+  grandTotal: number;
+  coupon?: {
+    code: string;
+    discountType: string;
+    discountValue: number;
+    description?: string | null;
+  } | null;
+  itemsValidation: Array<{
+    variantId: string;
+    isValid: boolean;
+    availableQuantity: number;
+    errorMessage?: string;
+  }>;
+  isEligibleForCheckout: boolean;
+}
 
 export default function CartPage() {
   const router = useRouter();
@@ -32,30 +55,118 @@ export default function CartPage() {
   );
   const [couponError, setCouponError] = useState("");
   const [shippingZone, setShippingZone] = useState<"inside" | "outside">("inside");
+  const [calculation, setCalculation] = useState<CalculationState | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
-  // Calculate Shipping fee
-  const shippingFee = totalCartPrice >= 100000 ? 0 : shippingZone === "inside" ? 60 : 120;
+  // Live calculation from server
+  React.useEffect(() => {
+    if (cart.length === 0) {
+      setCalculation(null);
+      return;
+    }
 
-  // Coupon handling
-  const handleApplyCoupon = (e: React.FormEvent) => {
+    let isMounted = true;
+    setIsCalculating(true);
+
+    const calculateCart = async () => {
+      try {
+        const payload = {
+          items: cart.map((item) => ({
+            variantId: item.variantId || item.id,
+            quantity: item.quantity,
+          })),
+          shippingCity: shippingZone === "inside" ? "Dhaka" : "Outside Dhaka",
+          couponCode: appliedCoupon?.code || undefined,
+        };
+
+        const res = await apiClient.post<CalculationState>("/checkout/calculate", payload);
+        if (isMounted) {
+          setCalculation(res);
+          if (res.coupon && appliedCoupon) {
+            setAppliedCoupon({ code: res.coupon.code, discount: res.discountAmount });
+          }
+        }
+      } catch (err: any) {
+        // If coupon error occurred on recalculation, clear applied coupon
+        if (appliedCoupon && err?.status === 400) {
+          if (isMounted) {
+            setAppliedCoupon(null);
+            setCouponError(err.message || "Applied coupon is no longer eligible.");
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setIsCalculating(false);
+        }
+      }
+    };
+
+    const timer = setTimeout(calculateCart, 250);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [cart, shippingZone, appliedCoupon?.code]);
+
+  // Fallback financial totals while server responds
+  const subtotal = calculation ? calculation.subtotal : totalCartPrice;
+  const shippingFee = calculation
+    ? calculation.shippingFee
+    : totalCartPrice >= 100000
+    ? 0
+    : shippingZone === "inside"
+    ? 60
+    : 120;
+  const couponDiscount = calculation ? calculation.discountAmount : (appliedCoupon?.discount || 0);
+  const grandTotal = calculation
+    ? calculation.grandTotal
+    : Math.max(0, subtotal - couponDiscount + shippingFee);
+
+  // Authoritative Coupon handling
+  const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     setCouponError("");
     const code = couponCode.trim().toUpperCase();
 
-    if (code === "AZDEAL") {
-      setAppliedCoupon({ code: "AZDEAL", discount: 500 });
+    if (!code) {
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+
+    setIsApplyingCoupon(true);
+    try {
+      const payload = {
+        items: cart.map((item) => ({
+          variantId: item.variantId || item.id,
+          quantity: item.quantity,
+        })),
+        shippingCity: shippingZone === "inside" ? "Dhaka" : "Outside Dhaka",
+        couponCode: code,
+      };
+
+      const res = await apiClient.post<CalculationState>("/checkout/calculate", payload);
+      setCalculation(res);
+      setAppliedCoupon({ code, discount: res.discountAmount });
       setCouponCode("");
-    } else if (code === "TECH10") {
-      const discount = Math.round(totalCartPrice * 0.1);
-      setAppliedCoupon({ code: "TECH10 (10% OFF)", discount });
-      setCouponCode("");
-    } else {
-      setCouponError("Invalid coupon code. Try AZDEAL or TECH10.");
+      setCouponError("");
+    } catch (err: any) {
+      const msg = err instanceof ApiError ? err.message : err?.message || "Invalid coupon code.";
+      setCouponError(msg);
+    } finally {
+      setIsApplyingCoupon(false);
     }
   };
 
-  const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
-  const grandTotal = Math.max(0, totalCartPrice - couponDiscount + shippingFee);
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError("");
+  };
+
+  const validationMap = new Map(
+    (calculation?.itemsValidation || []).map((v) => [v.variantId, v])
+  );
+  const canProceedToCheckout = calculation ? calculation.isEligibleForCheckout : true;
 
   return (
     <StorefrontShell>
@@ -134,6 +245,18 @@ export default function CartPage() {
                               Variant: <strong className="text-slate-700">{item.selectedVariant}</strong>
                             </div>
                           )}
+                          {(() => {
+                            const itemValidation = validationMap.get(item.variantId || item.id);
+                            if (itemValidation && !itemValidation.isValid) {
+                              return (
+                                <div className="flex items-center space-x-1.5 text-xs text-rose-600 font-bold bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg mt-2">
+                                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                  <span>{itemValidation.errorMessage || `Only ${itemValidation.availableQuantity} available in stock.`}</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="text-xs font-semibold text-slate-500 sm:hidden">
                             Unit: {formatBDT(item.price)}
                           </div>
@@ -274,7 +397,7 @@ export default function CartPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setAppliedCoupon(null)}
+                        onClick={handleRemoveCoupon}
                         className="text-[10px] font-black text-rose-600 hover:underline"
                       >
                         Remove
@@ -292,9 +415,10 @@ export default function CartPage() {
                         />
                         <button
                           type="submit"
-                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                          disabled={isApplyingCoupon}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
                         >
-                          Apply
+                          {isApplyingCoupon ? "Applying..." : "Apply"}
                         </button>
                       </div>
                       {couponError && (
@@ -329,15 +453,35 @@ export default function CartPage() {
                 {/* Proceed to Checkout CTA */}
                 <button
                   type="button"
+                  disabled={!canProceedToCheckout || isCalculating}
                   onClick={() => router.push("/checkout")}
-                  className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white font-black text-sm rounded-xl flex items-center justify-between shadow-md hover:shadow-lg transition-all cursor-pointer group"
+                  className={`w-full py-3.5 px-4 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white font-black text-sm rounded-xl flex items-center justify-between shadow-md transition-all ${
+                    !canProceedToCheckout || isCalculating
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:from-blue-800 hover:to-indigo-800 hover:shadow-lg cursor-pointer group"
+                  }`}
                 >
-                  <span>Proceed to Checkout</span>
-                  <div className="flex items-center space-x-1">
-                    <span>{formatBDT(grandTotal)}</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
+                  {isCalculating ? (
+                    <span className="flex items-center justify-center space-x-2 w-full">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Updating calculation...</span>
+                    </span>
+                  ) : (
+                    <>
+                      <span>Proceed to Checkout</span>
+                      <div className="flex items-center space-x-1">
+                        <span>{formatBDT(grandTotal)}</span>
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </>
+                  )}
                 </button>
+                {!canProceedToCheckout && (
+                  <p className="text-[11px] text-rose-600 font-semibold text-center mt-2 flex items-center justify-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                    Please adjust items exceeding available stock before proceeding.
+                  </p>
+                )}
               </div>
 
               {/* Trust Box */}
