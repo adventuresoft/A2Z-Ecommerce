@@ -90,9 +90,9 @@ export function FeaturedSection({
           </div>
         </div>
 
-        {/* 8 Product Cards Grid with unified ProductCard */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredProducts.map((product, idx) => (
+        {/* Product Cards Grid with unified ProductCard (5 columns on desktop) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
+          {filteredProducts.slice(0, 10).map((product, idx) => (
             <ProductCard
               key={product.id}
               product={product}

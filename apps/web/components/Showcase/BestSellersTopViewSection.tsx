@@ -107,9 +107,9 @@ export function BestSellersTopViewSection({
           </div>
         </div>
 
-        {/* 6 Products Grid with Unified ProductCard */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
-          {products.map((product, idx) => (
+        {/* Products Grid with Unified ProductCard (5 columns on desktop) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
+          {products.slice(0, products.length >= 10 ? 10 : 5).map((product, idx) => (
             <ProductCard
               key={product.id}
               product={product}

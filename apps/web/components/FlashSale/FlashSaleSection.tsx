@@ -115,9 +115,9 @@ export function FlashSaleSection({
           </Link>
         </div>
 
-        {/* Product Cards Grid with Unified ProductCard */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
-          {items.map((product, idx) => (
+        {/* Product Cards Grid with Unified ProductCard (5 columns on desktop) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
+          {items.slice(0, items.length >= 10 ? 10 : 5).map((product, idx) => (
             <ProductCard
               key={product.id}
               product={product}
