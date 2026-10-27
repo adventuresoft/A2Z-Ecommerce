@@ -1,27 +1,97 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   X,
   ChevronRight,
+  ChevronDown,
   PhoneCall,
   ShieldCheck,
   Tag,
-  User,
   LogOut,
   MapPin,
   LayoutDashboard,
+  Cpu,
+  Shirt,
+  Home,
+  HeartPulse,
+  Dumbbell,
+  Layers,
 } from "lucide-react";
-import { CATEGORIES } from "../../data/mock-catalog";
 import { useAuth } from "../../context/AuthContext";
+import {
+  CategoryTreeNode,
+  fetchCategoryTree,
+  getCategoryStyleTheme,
+  FALLBACK_CATEGORY_TREE,
+} from "../../lib/categories";
 
 interface MobileDrawerProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+// Helper to render dynamic icon based on theme
+function MobileCategoryIcon({ name, className }: { name: string; className?: string }) {
+  switch (name) {
+    case "Cpu":
+      return <Cpu className={className} />;
+    case "Shirt":
+      return <Shirt className={className} />;
+    case "Home":
+      return <Home className={className} />;
+    case "HeartPulse":
+      return <HeartPulse className={className} />;
+    case "Dumbbell":
+      return <Dumbbell className={className} />;
+    default:
+      return <Layers className={className} />;
+  }
+}
+
 export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { user, isAuthenticated, logout } = useAuth();
+  const [categories, setCategories] = useState<CategoryTreeNode[]>(FALLBACK_CATEGORY_TREE);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [expandedSubcategories, setExpandedSubcategories] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadTree() {
+      try {
+        const tree = await fetchCategoryTree();
+        if (isMounted && tree.length > 0) {
+          setCategories(tree);
+        }
+      } catch (err) {
+        console.warn("Could not load categories for mobile drawer:", err);
+      }
+    }
+    if (isOpen) {
+      loadTree();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  const toggleCategory = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const toggleSubcategory = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExpandedSubcategories((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   if (!isOpen) return null;
 
@@ -53,6 +123,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           <button
             onClick={onClose}
             className="p-1 text-slate-500 hover:text-slate-900 rounded-lg cursor-pointer"
+            aria-label="Close menu"
           >
             <X className="w-5 h-5" />
           </button>
@@ -132,22 +203,107 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
           )}
         </div>
 
-        {/* Categories List */}
+        {/* Dynamic Hierarchical Categories List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-1">
           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
             Browse Categories
           </div>
-          {CATEGORIES.map((cat) => (
-            <Link
-              key={cat.id}
-              href={cat.id === "all" ? "/shop" : `/category/${cat.id}`}
-              onClick={onClose}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
-            >
-              <span>{cat.name}</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
-            </Link>
-          ))}
+
+          {categories.map((cat) => {
+            const theme = getCategoryStyleTheme(cat.slug, cat.name);
+            const hasChildren = Boolean(cat.children && cat.children.length > 0);
+            const isExpanded = Boolean(expandedCategories[cat.id]);
+
+            return (
+              <div key={cat.id} className="rounded-xl overflow-hidden border border-transparent transition-colors">
+                {/* Parent Row */}
+                <div className="flex items-center justify-between hover:bg-slate-50 rounded-xl p-1">
+                  <Link
+                    href={`/category/${cat.slug}`}
+                    onClick={onClose}
+                    className="flex items-center space-x-2.5 px-2 py-1.5 text-slate-700 text-xs font-semibold flex-1 min-w-0"
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${theme.badgeBg}`}
+                    >
+                      <MobileCategoryIcon name={theme.iconName} className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="truncate">{cat.name}</span>
+                  </Link>
+
+                  {hasChildren && (
+                    <button
+                      type="button"
+                      onClick={(e) => toggleCategory(cat.id, e)}
+                      aria-label={`Toggle ${cat.name} subcategories`}
+                      className="p-2 text-slate-400 hover:text-blue-700 rounded-lg hover:bg-slate-100 transition-colors"
+                    >
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isExpanded ? "rotate-180 text-blue-600" : ""
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
+
+                {/* Subcategories (Level 2) Accordion */}
+                {hasChildren && isExpanded && (
+                  <div className="pl-6 pr-2 py-1 space-y-1 bg-slate-50/70 rounded-b-xl border-l-2 border-blue-500 ml-4 mb-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {cat.children.map((sub) => {
+                      const hasLeafs = Boolean(sub.children && sub.children.length > 0);
+                      const isSubExpanded = Boolean(expandedSubcategories[sub.id]);
+
+                      return (
+                        <div key={sub.id} className="space-y-0.5">
+                          <div className="flex items-center justify-between py-1">
+                            <Link
+                              href={`/category/${sub.slug}`}
+                              onClick={onClose}
+                              className="text-xs font-semibold text-slate-800 hover:text-blue-700 transition-colors flex-1"
+                            >
+                              {sub.name}
+                            </Link>
+
+                            {hasLeafs && (
+                              <button
+                                type="button"
+                                onClick={(e) => toggleSubcategory(sub.id, e)}
+                                aria-label={`Toggle ${sub.name} items`}
+                                className="p-1 text-slate-400 hover:text-blue-700"
+                              >
+                                <ChevronDown
+                                  className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                                    isSubExpanded ? "rotate-180 text-blue-600" : ""
+                                  }`}
+                                />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Leaf Subcategories (Level 3) */}
+                          {hasLeafs && isSubExpanded && (
+                            <div className="pl-3 py-1 space-y-1 border-l border-slate-200">
+                              {sub.children.map((leaf) => (
+                                <Link
+                                  key={leaf.id}
+                                  href={`/category/${leaf.slug}`}
+                                  onClick={onClose}
+                                  className="block text-[11px] text-slate-500 hover:text-blue-600 py-0.5"
+                                >
+                                  • {leaf.name}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           <div className="pt-4 border-t border-slate-100 space-y-1">
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">

@@ -22,6 +22,7 @@ import {
 import { formatBDT } from "../../data/mock-catalog";
 import { useAuth } from "../../context/AuthContext";
 import { apiClient } from "../../lib/api-client";
+import { fetchCategoryTree } from "../../lib/categories";
 
 interface HeaderProps {
   cartCount: number;
@@ -116,15 +117,22 @@ export function Header({
     }
   };
 
-  const categoriesList = [
+  const [categoriesList, setCategoriesList] = useState<string[]>([
     "All Categories",
-    "Smartphones",
-    "Laptops",
-    "PC Components",
-    "Audio Gear",
-    "Gaming",
-    "Accessories",
-  ];
+    "Electronics",
+    "Fashion & Apparel",
+    "Home & Living",
+    "Health & Beauty",
+    "Sports & Outdoors",
+  ]);
+
+  useEffect(() => {
+    fetchCategoryTree().then((tree) => {
+      if (tree && tree.length > 0) {
+        setCategoriesList(["All Categories", ...tree.map((c) => c.name)]);
+      }
+    });
+  }, []);
 
   // Close search suggestions & account dropdown on click outside
   useEffect(() => {
