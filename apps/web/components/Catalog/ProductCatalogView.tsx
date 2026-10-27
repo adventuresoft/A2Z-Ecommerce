@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useCallback } from "react";
+import React, { useState, useEffect, useTransition, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -53,7 +53,7 @@ interface BrandOption {
   count?: number;
 }
 
-export function ProductCatalogView({
+function ProductCatalogViewInner({
   title,
   subtitle,
   categoryScope,
@@ -932,3 +932,35 @@ export function ProductCatalogView({
     </div>
   );
 }
+
+export function ProductCatalogView(props: ProductCatalogViewProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8FAFC] py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-8">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                {props.title}
+              </h1>
+              {props.subtitle && (
+                <p className="mt-2 text-sm text-slate-500 max-w-2xl">{props.subtitle}</p>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div className="h-96 bg-white rounded-2xl border border-slate-200/80 animate-pulse hidden md:block" />
+              <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-80 bg-white rounded-2xl border border-slate-200/80 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ProductCatalogViewInner {...props} />
+    </Suspense>
+  );
+}
+
