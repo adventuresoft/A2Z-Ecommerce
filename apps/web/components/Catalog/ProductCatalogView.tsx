@@ -37,6 +37,9 @@ interface ProductCatalogViewProps {
   categoryScope?: string;
   archiveBadge?: string;
   hasDiscount?: boolean;
+  defaultSort?: string;
+  bannerGradient?: string;
+  headerExtra?: React.ReactNode;
 }
 
 interface CategoryOption {
@@ -59,6 +62,9 @@ function ProductCatalogViewInner({
   categoryScope,
   archiveBadge,
   hasDiscount = false,
+  defaultSort,
+  bannerGradient,
+  headerExtra,
 }: ProductCatalogViewProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -73,7 +79,7 @@ function ProductCatalogViewInner({
   const urlMinPrice = parseInt(searchParams.get("minPrice") || "0", 10);
   const urlMaxPrice = parseInt(searchParams.get("maxPrice") || "500000", 10);
   const urlInStock = searchParams.get("inStock") === "true";
-  const urlSort = searchParams.get("sort") || "featured";
+  const urlSort = searchParams.get("sort") || defaultSort || "featured";
   const urlQ = searchParams.get("q") || "";
 
   // Filter States
@@ -351,10 +357,14 @@ function ProductCatalogViewInner({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* 1. Header Banner */}
-      <div className="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-950 rounded-3xl p-6 sm:p-10 text-white mb-8 shadow-md relative overflow-hidden">
+      <div
+        className={`bg-gradient-to-r ${
+          bannerGradient || "from-blue-900 via-slate-900 to-indigo-950"
+        } rounded-3xl p-6 sm:p-10 text-white mb-8 shadow-md relative overflow-hidden flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6`}
+      >
         <div className="relative z-10 max-w-2xl">
           {archiveBadge && (
-            <span className="inline-flex items-center space-x-1 bg-orange-500/20 text-orange-300 text-xs font-black uppercase px-3 py-1 rounded-full border border-orange-500/30 mb-3">
+            <span className="inline-flex items-center space-x-1.5 bg-white/10 text-white text-xs font-black uppercase px-3 py-1 rounded-full border border-white/20 mb-3 backdrop-blur-xs shadow-2xs">
               <Sparkles className="w-3.5 h-3.5" />
               <span>{archiveBadge}</span>
             </span>
@@ -367,6 +377,12 @@ function ProductCatalogViewInner({
               "Explore genuine tech gadgets, computer components, laptops, and electronics with official warranty and instant doorstep delivery across Bangladesh."}
           </p>
         </div>
+
+        {headerExtra && (
+          <div className="relative z-10 shrink-0 w-full lg:w-auto">
+            {headerExtra}
+          </div>
+        )}
 
         {/* Decorative background glow */}
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />

@@ -388,7 +388,7 @@ export function MainNav() {
               Shop
             </Link>
             <Link
-              href="/#flash-sale"
+              href="/flash-sale"
               className="hover:text-orange-600 py-3.5 transition-colors flex items-center space-x-1.5"
             >
               <span>Flash Sale</span>
@@ -397,7 +397,7 @@ export function MainNav() {
                 HOT
               </span>
             </Link>
-            <Link href="/shop" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+            <Link href="/new-arrivals" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
               <span>New Arrivals</span>
               <Sparkles className="w-3 h-3 text-amber-500" />
             </Link>

@@ -17,6 +17,8 @@ import {
   HeartPulse,
   Dumbbell,
   Layers,
+  Flame,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -310,19 +312,40 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               Quick Shortcuts
             </div>
             <Link
+              href="/flash-sale"
+              onClick={onClose}
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-orange-50 text-orange-600 text-xs font-bold transition-colors"
+            >
+              <div className="flex items-center space-x-2">
+                <Flame className="w-4 h-4 text-orange-500 fill-current" />
+                <span>Flash Sale Deals</span>
+              </div>
+              <span className="bg-orange-100 text-orange-700 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">
+                HOT
+              </span>
+            </Link>
+            <Link
+              href="/new-arrivals"
+              onClick={onClose}
+              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-700 text-xs font-bold transition-colors"
+            >
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>New Arrivals</span>
+            </Link>
+            <Link
               href="/archive"
               onClick={onClose}
-              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-orange-50 text-orange-600 text-xs font-bold"
+              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-purple-50 text-purple-700 text-xs font-bold transition-colors"
             >
-              <Tag className="w-4 h-4" />
+              <Tag className="w-4 h-4 text-purple-600" />
               <span>Archive & Clearance Deals</span>
             </Link>
             <Link
               href="/shop"
               onClick={onClose}
-              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-700 text-xs font-semibold"
+              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
             >
-              <ShieldCheck className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4 text-slate-500" />
               <span>All Products Catalog</span>
             </Link>
           </div>

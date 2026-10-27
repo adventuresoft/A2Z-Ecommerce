@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { Zap, ArrowRight } from "lucide-react";
 import { ProductCard } from "../UI/ProductCard";
 import { FLASH_SALE_PRODUCTS, Product } from "../../data/mock-catalog";
@@ -105,13 +106,13 @@ export function FlashSaleSection({
             </div>
           </div>
 
-          <a
-            href="/products?hasDiscount=true"
+          <Link
+            href="/flash-sale"
             className="text-xs sm:text-sm font-bold text-blue-700 hover:text-blue-800 flex items-center space-x-1 group self-start md:self-auto"
           >
             <span>View All Deals</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </a>
+          </Link>
         </div>
 
         {/* Product Cards Grid with Unified ProductCard */}

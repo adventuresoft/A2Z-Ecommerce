@@ -153,10 +153,7 @@ export function CartModal({
               <button
                 onClick={() => {
                   onClose();
-                  const el = document.getElementById("flash-sale");
-                  if (el) {
-                    el.scrollIntoView({ behavior: "smooth" });
-                  }
+                  router.push("/flash-sale");
                 }}
                 className="mt-5 inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
