@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service.js';
-import { CategoryResponseDto, CategoryTreeNodeDto } from './dto/index.js';
+import { BrowseCatalogCategoryDto, CategoryResponseDto, CategoryTreeNodeDto } from './dto/index.js';
 
 @ApiTags('Public Categories')
 @Controller('categories')
@@ -17,6 +17,17 @@ export class CategoriesPublicController {
   })
   async getTree() {
     return this.categoriesService.findPublicTree();
+  }
+
+  @Get('browse-catalog')
+  @ApiOperation({ summary: 'Get categories and subcategories enabled for homepage Browse Catalog' })
+  @ApiResponse({
+    status: 200,
+    description: 'Categories / subcategories for homepage Browse Catalog section',
+    type: [BrowseCatalogCategoryDto],
+  })
+  async getBrowseCatalog() {
+    return this.categoriesService.findBrowseCatalog();
   }
 
   @Get(':slug')

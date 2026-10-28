@@ -6,7 +6,20 @@ export interface CategoryTreeNode {
   slug: string;
   imageUrl?: string | null;
   sortOrder: number;
+  showInBrowseCatalog?: boolean;
+  productsCount?: number;
   children: CategoryTreeNode[];
+}
+
+export interface BrowseCatalogCategory {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl?: string | null;
+  sortOrder: number;
+  parentId?: string | null;
+  showInBrowseCatalog?: boolean;
+  productsCount?: number;
 }
 
 /**
@@ -213,6 +226,43 @@ export async function fetchCategoryTree(forceRefresh = false): Promise<CategoryT
     cachedTree = FALLBACK_CATEGORY_TREE;
   }
   return cachedTree;
+}
+
+let cachedBrowseCatalog: BrowseCatalogCategory[] | null = null;
+let lastBrowseCatalogFetchTime = 0;
+
+export async function fetchBrowseCatalogCategories(forceRefresh = false): Promise<BrowseCatalogCategory[]> {
+  const now = Date.now();
+  if (!forceRefresh && cachedBrowseCatalog && now - lastBrowseCatalogFetchTime < CACHE_TTL_MS) {
+    return cachedBrowseCatalog;
+  }
+
+  try {
+    const data = await apiClient.get<BrowseCatalogCategory[]>("/categories/browse-catalog", {
+      skipAuth: true,
+    });
+
+    if (Array.isArray(data) && data.length > 0) {
+      cachedBrowseCatalog = data;
+      lastBrowseCatalogFetchTime = now;
+      return data;
+    }
+  } catch (error) {
+    console.warn("Could not fetch browse catalog categories from backend API, using fallback tree:", error);
+  }
+
+  // Fallback if API fails or is offline: map from cached or fallback root categories
+  const fallback = (cachedTree || FALLBACK_CATEGORY_TREE).map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    imageUrl: c.imageUrl,
+    sortOrder: c.sortOrder,
+    showInBrowseCatalog: true,
+    productsCount: c.productsCount,
+  }));
+
+  return fallback;
 }
 
 /**

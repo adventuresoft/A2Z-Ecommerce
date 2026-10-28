@@ -155,15 +155,16 @@ export function Header({
         {/* Mobile menu button & Brand Logo Lockup */}
         <div className="flex items-center space-x-2.5 shrink-0">
           <button
+            type="button"
             onClick={onOpenMobileMenu}
-            className="p-2 -ml-2 text-slate-700 hover:text-blue-700 rounded-xl hover:bg-slate-100 transition-colors lg:hidden cursor-pointer"
+            className="p-2 -ml-2 text-slate-700 hover:text-blue-700 rounded-xl hover:bg-slate-100 transition-colors lg:hidden cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             aria-label="Open navigation menu"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-6 h-6" aria-hidden="true" />
           </button>
 
           {/* Official Logo */}
-          <Link href="/" className="flex items-center space-x-2.5 group">
+          <Link href="/" className="flex items-center space-x-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-xl">
             <div className="relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-xl overflow-hidden bg-white border border-slate-200/90 shadow-2xs flex items-center justify-center p-1 group-hover:border-blue-500 group-hover:shadow-md transition-all">
               <Image
                 src="/brand/Logo.png"
@@ -198,10 +199,12 @@ export function Header({
               <button
                 type="button"
                 onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                className="border-r border-slate-200 px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 cursor-pointer flex items-center space-x-1.5 text-xs font-bold text-slate-700 select-none whitespace-nowrap transition-colors"
+                aria-expanded={isCategoryDropdownOpen}
+                aria-label="Select search category filter"
+                className="border-r border-slate-200 px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 cursor-pointer flex items-center space-x-1.5 text-xs font-bold text-slate-700 select-none whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
                 <span>{selectedCategory}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
               </button>
 
               {isCategoryDropdownOpen && (
@@ -227,7 +230,11 @@ export function Header({
 
             {/* Input Field */}
             <input
-              type="text"
+              type="search"
+              name="search"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Search products, brands, models, or categories"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -239,28 +246,30 @@ export function Header({
                   handleSearchSubmit();
                 }
               }}
-              placeholder="Search products, brands, models, or categories..."
+              placeholder="Search products, brands, models, or categories…"
               className="flex-1 px-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden bg-transparent"
             />
 
             {/* Clear Button */}
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery("")}
-                className="p-1 text-slate-400 hover:text-slate-600 mr-1.5 cursor-pointer"
-                aria-label="Clear search"
+                className="p-1.5 text-slate-400 hover:text-slate-600 mr-1.5 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                aria-label="Clear search query"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             )}
 
             {/* Search Submit Button */}
             <button
+              type="button"
               onClick={() => handleSearchSubmit()}
-              className="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 transition-colors flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
+              className="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 transition-colors flex items-center justify-center font-bold text-xs cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               aria-label="Submit search"
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
 
@@ -270,9 +279,9 @@ export function Header({
               <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
                 <span>Matching suggestions for &quot;{searchQuery}&quot;</span>
                 {isLoadingSuggestions ? (
-                  <span className="text-[11px] text-blue-700 font-bold flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Searching...
+                  <span className="text-[11px] text-blue-700 font-bold flex items-center gap-1" role="status" aria-live="polite">
+                    <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                    Searching…
                   </span>
                 ) : (
                   <span className="text-[11px] text-blue-700 font-bold">Live Catalog Preview</span>
@@ -294,7 +303,7 @@ export function Header({
                           setShowSuggestions(false);
                           router.push(`/category/${cat.slug}`);
                         }}
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer text-slate-700"
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         {cat.name}
                       </button>
@@ -307,13 +316,11 @@ export function Header({
               <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
                 {suggestions.products.length > 0 ? (
                   suggestions.products.map((item) => (
-                    <div
+                    <Link
                       key={item.id}
-                      onClick={() => {
-                        setShowSuggestions(false);
-                        router.push(`/products/${item.slug}`);
-                      }}
-                      className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors group"
+                      href={`/products/${item.slug}`}
+                      onClick={() => setShowSuggestions(false)}
+                      className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors group focus-visible:outline-none focus-visible:bg-blue-50"
                     >
                       <div className="flex items-center space-x-3 min-w-0 pr-2">
                         {item.image ? (
@@ -341,17 +348,17 @@ export function Header({
                         </div>
                       </div>
                       <div className="flex items-center space-x-2 shrink-0">
-                        <span className="text-xs font-black text-orange-600">
+                        <span className="text-xs font-black text-orange-600 tabular-nums">
                           {formatBDT(item.price)}
                         </span>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
                       </div>
-                    </div>
+                    </Link>
                   ))
                 ) : isLoadingSuggestions ? (
-                  <div className="px-4 py-6 text-center text-xs text-slate-500 flex items-center justify-center space-x-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                    <span>Searching catalog...</span>
+                  <div className="px-4 py-6 text-center text-xs text-slate-500 flex items-center justify-center space-x-2" role="status" aria-live="polite">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" aria-hidden="true" />
+                    <span>Searching catalog…</span>
                   </div>
                 ) : (
                   <div className="px-4 py-6 text-center text-xs text-slate-500">
@@ -364,10 +371,10 @@ export function Header({
               <button
                 type="button"
                 onClick={() => handleSearchSubmit()}
-                className="w-full px-4 py-2.5 text-center text-xs font-bold text-blue-700 hover:bg-blue-50 bg-slate-50/80 border-t border-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full px-4 py-2.5 text-center text-xs font-bold text-blue-700 hover:bg-blue-50 bg-slate-50/80 border-t border-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
                 <span>View all results for &quot;{searchQuery}&quot;</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             </div>
           )}
@@ -379,13 +386,13 @@ export function Header({
           <button
             type="button"
             onClick={onOpenWishlist}
-            className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 hover:text-rose-600 transition-colors cursor-pointer"
-            aria-label="Wishlist"
+            className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 hover:text-rose-600 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+            aria-label={`Wishlist, ${wishlistCount} saved items`}
           >
             <div className="relative">
-              <Heart className="w-5 h-5" />
+              <Heart className="w-5 h-5" aria-hidden="true" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-2xs">
+                <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-2xs tabular-nums">
                   {wishlistCount}
                 </span>
               )}
@@ -398,7 +405,8 @@ export function Header({
             <button
               type="button"
               onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
-              className="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer group"
+              aria-expanded={isAccountDropdownOpen}
+              className="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               aria-label="Account Menu"
             >
               {isAuthenticated && user ? (
@@ -407,7 +415,7 @@ export function Header({
                 </div>
               ) : (
                 <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 group-hover:text-blue-700 group-hover:border-blue-300 transition-colors">
-                  <User className="w-4 h-4" />
+                  <User className="w-4 h-4" aria-hidden="true" />
                 </div>
               )}
               <div className="flex flex-col text-left">
@@ -418,7 +426,7 @@ export function Header({
                 </span>
                 <span className="text-xs font-bold text-slate-800 flex items-center leading-tight">
                   My Account
-                  <ChevronDown className="w-3 h-3 ml-0.5 text-slate-400" />
+                  <ChevronDown className="w-3 h-3 ml-0.5 text-slate-400" aria-hidden="true" />
                 </span>
               </div>
             </button>
@@ -441,42 +449,42 @@ export function Header({
                       <Link
                         href="/account"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
-                        <LayoutDashboard className="w-4 h-4 text-slate-400" />
+                        <LayoutDashboard className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         Dashboard Overview
                       </Link>
                       <Link
                         href="/account/profile"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
-                        <User className="w-4 h-4 text-slate-400" />
+                        <User className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         Profile & Security
                       </Link>
                       <Link
                         href="/account/addresses"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
-                        <MapPin className="w-4 h-4 text-slate-400" />
+                        <MapPin className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         Saved Addresses
                       </Link>
                       <Link
                         href="/account#orders"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
-                        <Package className="w-4 h-4 text-slate-400" />
+                        <Package className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         My Orders
                       </Link>
                       <Link
                         href="/wishlist"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-rose-600 hover:bg-rose-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                       >
-                        <Heart className="w-4 h-4 text-slate-400" />
-                        Wishlist ({wishlistCount})
+                        <Heart className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                        <span>Wishlist ({wishlistCount})</span>
                       </Link>
 
                       <div className="pt-1 mt-1 border-t border-slate-100">
@@ -487,9 +495,9 @@ export function Header({
                             await logout();
                             router.push("/login");
                           }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                         >
-                          <LogOut className="w-4 h-4 text-red-500" />
+                          <LogOut className="w-4 h-4 text-red-500" aria-hidden="true" />
                           Sign Out
                         </button>
                       </div>
@@ -503,7 +511,7 @@ export function Header({
                     <Link
                       href="/login"
                       onClick={() => setIsAccountDropdownOpen(false)}
-                      className="block w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors text-center"
+                      className="block w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     >
                       Sign In
                     </Link>
@@ -512,7 +520,7 @@ export function Header({
                       <Link
                         href="/register"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="text-blue-600 font-semibold hover:underline"
+                        className="text-blue-600 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded"
                       >
                         Create Account
                       </Link>
@@ -525,21 +533,22 @@ export function Header({
 
           {/* Cart Icon & Total Preview */}
           <button
+            type="button"
             onClick={onOpenCartModal}
-            className="flex items-center space-x-2.5 sm:space-x-3 px-3 py-2 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 transition-all cursor-pointer group shadow-2xs"
-            aria-label="Shopping Cart"
+            className="flex items-center space-x-2.5 sm:space-x-3 px-3 py-2 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 transition-all cursor-pointer group shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            aria-label={`Shopping Cart, ${cartCount} items, total ${formatBDT(cartTotal)}`}
           >
             <div className="relative">
-              <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700 group-hover:text-blue-700 transition-colors" />
+              <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700 group-hover:text-blue-700 transition-colors" aria-hidden="true" />
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-orange-600 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-2xs">
+                <span className="absolute -top-1.5 -right-2 bg-orange-600 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-2xs tabular-nums">
                   {cartCount}
                 </span>
               )}
             </div>
             <div className="hidden sm:flex flex-col text-left">
               <span className="text-[10px] text-slate-400 font-semibold leading-none">Cart</span>
-              <span className="text-xs font-black text-slate-900 group-hover:text-blue-700 transition-colors leading-tight mt-1">
+              <span className="text-xs font-black text-slate-900 group-hover:text-blue-700 transition-colors leading-tight mt-1 tabular-nums">
                 {formatBDT(cartTotal)}
               </span>
             </div>

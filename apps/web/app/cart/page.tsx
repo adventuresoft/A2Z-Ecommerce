@@ -172,12 +172,12 @@ export default function CartPage() {
     <StorefrontShell>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         {/* Breadcrumbs */}
-        <nav className="flex items-center space-x-2 text-xs font-semibold text-slate-500 mb-6">
-          <Link href="/" className="hover:text-blue-700 transition-colors">
+        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-semibold text-slate-500 mb-6">
+          <Link href="/" className="hover:text-blue-700 transition-colors focus-visible:outline-hidden focus-visible:underline">
             Home
           </Link>
-          <span>/</span>
-          <span className="text-slate-900 font-bold">Shopping Cart</span>
+          <span aria-hidden="true">/</span>
+          <span className="text-slate-900 font-bold" aria-current="page">Shopping Cart</span>
         </nav>
 
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200">
@@ -187,7 +187,7 @@ export default function CartPage() {
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
               {cart.length > 0
-                ? `You have ${cart.reduce((a, b) => a + b.quantity, 0)} item(s) in your basket.`
+                ? <>You have <span className="tabular-nums font-bold">{cart.reduce((a, b) => a + b.quantity, 0)}</span> item(s) in your basket.</>
                 : "Your shopping basket is currently empty."}
             </p>
           </div>
@@ -195,9 +195,9 @@ export default function CartPage() {
             <button
               type="button"
               onClick={clearCart}
-              className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline flex items-center space-x-1 cursor-pointer"
+              className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline flex items-center space-x-1 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-500 rounded p-1"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Clear Cart</span>
             </button>
           )}
@@ -219,7 +219,7 @@ export default function CartPage() {
                       <div className="flex items-center space-x-4">
                         <Link
                           href={`/products/${item.product.slug || item.product.id}`}
-                          className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-2 group"
+                          className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-2 group focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600"
                         >
                           <Image
                             src={item.product.image}
@@ -236,7 +236,7 @@ export default function CartPage() {
                           </span>
                           <Link
                             href={`/products/${item.product.slug || item.product.id}`}
-                            className="text-sm sm:text-base font-bold text-slate-900 hover:text-blue-700 transition-colors line-clamp-1 block"
+                            className="text-sm sm:text-base font-bold text-slate-900 hover:text-blue-700 transition-colors line-clamp-1 block focus-visible:outline-hidden focus-visible:underline"
                           >
                             {item.product.title}
                           </Link>
@@ -249,15 +249,15 @@ export default function CartPage() {
                             const itemValidation = validationMap.get(item.variantId || item.id);
                             if (itemValidation && !itemValidation.isValid) {
                               return (
-                                <div className="flex items-center space-x-1.5 text-xs text-rose-600 font-bold bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg mt-2">
-                                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                <div role="alert" className="flex items-center space-x-1.5 text-xs text-rose-600 font-bold bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg mt-2">
+                                  <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                                   <span>{itemValidation.errorMessage || `Only ${itemValidation.availableQuantity} available in stock.`}</span>
                                 </div>
                               );
                             }
                             return null;
                           })()}
-                          <div className="text-xs font-semibold text-slate-500 sm:hidden">
+                          <div className="text-xs font-semibold text-slate-500 sm:hidden tabular-nums">
                             Unit: {formatBDT(item.price)}
                           </div>
                         </div>
@@ -270,30 +270,30 @@ export default function CartPage() {
                           <button
                             type="button"
                             onClick={() => updateQuantity(item.id, -1)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white transition-colors cursor-pointer"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600"
                             aria-label="Decrease quantity"
                           >
-                            <Minus className="w-3.5 h-3.5" />
+                            <Minus className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
-                          <span className="w-8 text-center font-black text-xs text-slate-800">
+                          <span className="w-8 text-center font-black text-xs text-slate-800 tabular-nums">
                             {item.quantity}
                           </span>
                           <button
                             type="button"
                             onClick={() => updateQuantity(item.id, 1)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white transition-colors cursor-pointer"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600"
                             aria-label="Increase quantity"
                           >
-                            <Plus className="w-3.5 h-3.5" />
+                            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
                         </div>
 
                         {/* Line Total */}
                         <div className="text-right sm:min-w-[100px]">
-                          <span className="text-sm sm:text-base font-black text-slate-900 block">
+                          <span className="text-sm sm:text-base font-black text-slate-900 block tabular-nums">
                             {formatBDT(lineTotal)}
                           </span>
-                          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline tabular-nums">
                             {formatBDT(item.price)} each
                           </span>
                         </div>
@@ -302,10 +302,10 @@ export default function CartPage() {
                         <button
                           type="button"
                           onClick={() => removeFromCart(item.id)}
-                          className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-500"
                           aria-label="Remove item"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -317,9 +317,9 @@ export default function CartPage() {
               <div className="pt-2">
                 <Link
                   href="/shop"
-                  className="inline-flex items-center space-x-2 text-xs font-bold text-blue-700 hover:text-blue-800"
+                  className="inline-flex items-center space-x-2 text-xs font-bold text-blue-700 hover:text-blue-800 focus-visible:outline-hidden focus-visible:underline"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                   <span>Continue Shopping</span>
                 </Link>
               </div>
@@ -336,14 +336,14 @@ export default function CartPage() {
                 {/* Subtotal */}
                 <div className="flex justify-between text-xs font-medium text-slate-600">
                   <span>Subtotal</span>
-                  <span className="font-bold text-slate-900">{formatBDT(totalCartPrice)}</span>
+                  <span className="font-bold text-slate-900 tabular-nums">{formatBDT(totalCartPrice)}</span>
                 </div>
 
                 {/* Shipping Estimator */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">
                   <div className="flex justify-between items-center text-xs font-bold text-slate-800">
                     <span>Delivery Location:</span>
-                    <span className="font-mono text-blue-700">
+                    <span className="font-mono text-blue-700 tabular-nums">
                       {shippingFee === 0 ? "FREE" : formatBDT(shippingFee)}
                     </span>
                   </div>
@@ -351,31 +351,31 @@ export default function CartPage() {
                     <button
                       type="button"
                       onClick={() => setShippingZone("inside")}
-                      className={`p-2.5 rounded-xl border text-left font-semibold transition-all cursor-pointer ${
+                      className={`p-2.5 rounded-xl border text-left font-semibold transition-all cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                         shippingZone === "inside"
                           ? "border-blue-600 bg-blue-50 text-blue-700 shadow-2xs"
                           : "border-slate-200 text-slate-600 hover:bg-slate-50"
                       }`}
                     >
                       <div className="font-bold">Inside Dhaka</div>
-                      <div className="text-[10px] text-slate-400">৳60 (24–48h)</div>
+                      <div className="text-[10px] text-slate-400 tabular-nums">৳60 (24–48h)</div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setShippingZone("outside")}
-                      className={`p-2.5 rounded-xl border text-left font-semibold transition-all cursor-pointer ${
+                      className={`p-2.5 rounded-xl border text-left font-semibold transition-all cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                         shippingZone === "outside"
                           ? "border-blue-600 bg-blue-50 text-blue-700 shadow-2xs"
                           : "border-slate-200 text-slate-600 hover:bg-slate-50"
                       }`}
                     >
                       <div className="font-bold">Outside Dhaka</div>
-                      <div className="text-[10px] text-slate-400">৳120 (3–5d)</div>
+                      <div className="text-[10px] text-slate-400 tabular-nums">৳120 (3–5d)</div>
                     </button>
                   </div>
                   {totalCartPrice >= 100000 && (
                     <p className="text-[11px] font-bold text-emerald-600 flex items-center pt-1">
-                      <Check className="w-3.5 h-3.5 mr-1" />
+                      <Check className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
                       Free shipping unlocked for orders over ৳1,00,000!
                     </p>
                   )}
@@ -383,22 +383,22 @@ export default function CartPage() {
 
                 {/* Coupon Code Input */}
                 <div className="pt-2 border-t border-slate-100">
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center space-x-1">
-                    <Tag className="w-3.5 h-3.5 text-blue-600" />
+                  <label htmlFor="cart-coupon-code" className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center space-x-1">
+                    <Tag className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
                     <span>Apply Coupon Code</span>
                   </label>
                   {appliedCoupon ? (
                     <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
                       <div>
                         <span className="font-black text-emerald-700">{appliedCoupon.code}</span>
-                        <span className="text-[10px] text-emerald-600 block">
+                        <span className="text-[10px] text-emerald-600 block tabular-nums">
                           Savings: {formatBDT(appliedCoupon.discount)}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={handleRemoveCoupon}
-                        className="text-[10px] font-black text-rose-600 hover:underline"
+                        className="text-[10px] font-black text-rose-600 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
                       >
                         Remove
                       </button>
@@ -407,23 +407,27 @@ export default function CartPage() {
                     <form onSubmit={handleApplyCoupon} className="space-y-1.5">
                       <div className="flex space-x-2">
                         <input
+                          id="cart-coupon-code"
+                          name="coupon"
                           type="text"
+                          autoComplete="off"
+                          spellCheck={false}
                           value={couponCode}
                           onChange={(e) => setCouponCode(e.target.value)}
-                          placeholder="e.g. AZDEAL"
-                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 uppercase"
+                          placeholder="e.g. AZDEAL…"
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 uppercase focus-visible:ring-2 focus-visible:ring-blue-600"
                         />
                         <button
                           type="submit"
                           disabled={isApplyingCoupon}
-                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
                         >
-                          {isApplyingCoupon ? "Applying..." : "Apply"}
+                          {isApplyingCoupon ? "Applying…" : "Apply"}
                         </button>
                       </div>
                       {couponError && (
-                        <p className="text-[11px] text-rose-600 font-semibold flex items-center">
-                          <AlertCircle className="w-3 h-3 mr-1" />
+                        <p role="alert" className="text-[11px] text-rose-600 font-semibold flex items-center">
+                          <AlertCircle className="w-3 h-3 mr-1" aria-hidden="true" />
                           {couponError}
                         </p>
                       )}
@@ -435,7 +439,7 @@ export default function CartPage() {
                 {appliedCoupon && (
                   <div className="flex justify-between text-xs font-bold text-emerald-600">
                     <span>Coupon Discount</span>
-                    <span>-{formatBDT(appliedCoupon.discount)}</span>
+                    <span className="tabular-nums">-{formatBDT(appliedCoupon.discount)}</span>
                   </div>
                 )}
 
@@ -445,7 +449,7 @@ export default function CartPage() {
                     <span className="text-sm font-black text-slate-900 block">Total Payable</span>
                     <span className="text-[10px] text-slate-400">Inclusive of VAT & delivery</span>
                   </div>
-                  <span className="text-xl sm:text-2xl font-black text-blue-700">
+                  <span className="text-xl sm:text-2xl font-black text-blue-700 tabular-nums">
                     {formatBDT(grandTotal)}
                   </span>
                 </div>
@@ -455,7 +459,7 @@ export default function CartPage() {
                   type="button"
                   disabled={!canProceedToCheckout || isCalculating}
                   onClick={() => router.push("/checkout")}
-                  className={`w-full py-3.5 px-4 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white font-black text-sm rounded-xl flex items-center justify-between shadow-md transition-all ${
+                  className={`w-full py-3.5 px-4 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white font-black text-sm rounded-xl flex items-center justify-between shadow-md transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
                     !canProceedToCheckout || isCalculating
                       ? "opacity-50 cursor-not-allowed"
                       : "hover:from-blue-800 hover:to-indigo-800 hover:shadow-lg cursor-pointer group"
@@ -463,22 +467,22 @@ export default function CartPage() {
                 >
                   {isCalculating ? (
                     <span className="flex items-center justify-center space-x-2 w-full">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Updating calculation...</span>
+                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                      <span>Updating calculation…</span>
                     </span>
                   ) : (
                     <>
                       <span>Proceed to Checkout</span>
                       <div className="flex items-center space-x-1">
-                        <span>{formatBDT(grandTotal)}</span>
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        <span className="tabular-nums">{formatBDT(grandTotal)}</span>
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
                       </div>
                     </>
                   )}
                 </button>
                 {!canProceedToCheckout && (
-                  <p className="text-[11px] text-rose-600 font-semibold text-center mt-2 flex items-center justify-center">
-                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                  <p role="alert" className="text-[11px] text-rose-600 font-semibold text-center mt-2 flex items-center justify-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" aria-hidden="true" />
                     Please adjust items exceeding available stock before proceeding.
                   </p>
                 )}
@@ -487,15 +491,15 @@ export default function CartPage() {
               {/* Trust Box */}
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2 text-xs text-slate-600">
                 <div className="flex items-center space-x-2">
-                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <ShieldCheck className="w-4 h-4 text-blue-600" aria-hidden="true" />
                   <span className="font-semibold">Official Warranty Guarantee</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Truck className="w-4 h-4 text-emerald-600" />
+                  <Truck className="w-4 h-4 text-emerald-600" aria-hidden="true" />
                   <span className="font-semibold">Cash on Delivery (COD) Available</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RotateCcw className="w-4 h-4 text-amber-600" />
+                  <RotateCcw className="w-4 h-4 text-amber-600" aria-hidden="true" />
                   <span className="font-semibold">7 Days Easy Return Policy</span>
                 </div>
               </div>
@@ -504,7 +508,7 @@ export default function CartPage() {
         ) : (
           <div className="bg-white rounded-3xl p-12 sm:p-16 text-center border border-slate-200/90 shadow-2xs max-w-lg mx-auto">
             <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-100">
-              <ShoppingBag className="w-10 h-10" />
+              <ShoppingBag className="w-10 h-10" aria-hidden="true" />
             </div>
             <h2 className="text-xl font-black text-slate-900 mb-1">Your cart is empty</h2>
             <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto">
@@ -512,10 +516,10 @@ export default function CartPage() {
             </p>
             <Link
               href="/shop"
-              className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+              className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
             >
               <span>Explore Tech Catalog</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
           </div>
         )}

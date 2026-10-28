@@ -30,6 +30,27 @@ html, body {
   box-sizing: border-box;
 }
 
+/* Accessible heading text-wrap */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+/* Reduced motion preference honoring */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Accessible focus visible rings */
+:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
 /* Subtle scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
@@ -48,3 +69,4 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
+

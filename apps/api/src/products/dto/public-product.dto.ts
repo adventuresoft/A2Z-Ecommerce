@@ -78,6 +78,14 @@ export class PublicProductQueryDto {
   hasDiscount?: boolean;
 
   @ApiPropertyOptional({
+    description: 'Filter by attribute value slugs/names, comma-separated or repeatable',
+    example: 'red,green,xl',
+  })
+  @IsString()
+  @IsOptional()
+  attributeValues?: string;
+
+  @ApiPropertyOptional({
     description: 'Catalog sort ordering',
     enum: ['newest', 'price_asc', 'price_desc', 'rating', 'featured'],
     default: 'newest',
@@ -183,6 +191,45 @@ export class PublicProductSummaryDto {
   createdAt!: Date;
 }
 
+export class FacetAttributeValueDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  value!: string;
+
+  @ApiPropertyOptional()
+  label?: string | null;
+
+  @ApiPropertyOptional()
+  colorCode?: string | null;
+
+  @ApiPropertyOptional()
+  count?: number;
+}
+
+export class FacetAttributeDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty({ enum: ['TEXT', 'COLOR', 'BUTTON'] })
+  type!: string;
+
+  @ApiProperty({ type: [FacetAttributeValueDto] })
+  values!: FacetAttributeValueDto[];
+}
+
+export class PublicProductFacetsDto {
+  @ApiPropertyOptional({ type: [FacetAttributeDto] })
+  attributes?: FacetAttributeDto[];
+}
+
 export class PaginatedPublicProductResponseDto {
   @ApiProperty({ type: [PublicProductSummaryDto] })
   items!: PublicProductSummaryDto[];
@@ -198,6 +245,9 @@ export class PaginatedPublicProductResponseDto {
 
   @ApiProperty()
   totalPages!: number;
+
+  @ApiPropertyOptional({ type: PublicProductFacetsDto })
+  facets?: PublicProductFacetsDto;
 }
 
 export class PublicVariantAttributeDto {

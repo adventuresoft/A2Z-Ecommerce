@@ -48,6 +48,12 @@ export function StorefrontShell({ children, hideFooter = false }: StorefrontShel
   return (
     <SmoothScrollProvider>
       <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-[#0F172A] selection:bg-blue-600 selection:text-white pb-16 lg:pb-0">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2.5 focus:bg-blue-700 focus:text-white focus:text-xs focus:font-bold focus:rounded-xl focus:shadow-xl focus:ring-2 focus:ring-white"
+        >
+          Skip to main content
+        </a>
         <ScrollProgressBar />
         <TopUtilityBar />
         
@@ -62,7 +68,9 @@ export function StorefrontShell({ children, hideFooter = false }: StorefrontShel
 
         <MainNav />
 
-        <main className="flex-1 w-full">{children}</main>
+        <main id="main-content" className="flex-1 w-full" tabIndex={-1}>
+          {children}
+        </main>
 
         {!hideFooter && <Footer />}
 

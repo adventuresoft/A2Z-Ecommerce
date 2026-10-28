@@ -12,6 +12,8 @@ export interface ProductCardProps {
     saveBDT?: number;
     btrcApproved?: boolean;
     isWishlisted?: boolean;
+    emiStarting?: number;
+    specChips?: string[];
   };
   onAddToCart: (product: Product) => void;
   onToggleWishlist?: (productId: string) => void;
@@ -94,6 +96,13 @@ export function ProductCard({
           {computedSaveBDT && computedSaveBDT > 0 && (
             <span className="hidden sm:inline-flex bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[9px] font-black px-1.5 py-0.5 rounded-full tabular-nums">
               Save {formatBDT(computedSaveBDT)}
+            </span>
+          )}
+
+          {product.btrcApproved && (
+            <span className="inline-flex items-center gap-0.5 bg-blue-50 text-blue-700 border border-blue-200/80 text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0">
+              <ShieldCheck className="w-2.5 h-2.5 text-blue-600" aria-hidden="true" />
+              <span>BTRC Official</span>
             </span>
           )}
         </div>
@@ -183,7 +192,7 @@ export function ProductCard({
 
           {/* Star Rating Badge */}
           <div
-            className="flex items-center space-x-1.5 mb-2.5"
+            className="flex items-center space-x-1.5 mb-2"
             aria-label={`Rated ${product.rating.toFixed(1)} out of 5 stars from ${product.reviewsCount} reviews`}
           >
             <div className="inline-flex items-center gap-1 bg-amber-50/80 px-1.5 py-0.5 rounded-md border border-amber-200/60 text-amber-900">
@@ -196,6 +205,20 @@ export function ProductCard({
               ({product.reviewsCount})
             </span>
           </div>
+
+          {/* Key Spec Chips */}
+          {product.specChips && product.specChips.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {product.specChips.slice(0, 2).map((chip) => (
+                <span
+                  key={chip}
+                  className="text-[9px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200/50 truncate max-w-[120px]"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Flash Sale Stock Progress Bar (Optional) */}
           {showProgressBar && soldPercent !== null && (
@@ -231,6 +254,11 @@ export function ProductCard({
               <div className="text-[10px] font-bold text-emerald-600 mt-1 flex items-center gap-0.5 leading-none">
                 <ShieldCheck className="w-3 h-3 text-emerald-500" aria-hidden="true" />
                 <span>Warranty</span>
+              </div>
+            )}
+            {product.emiStarting && (
+              <div className="text-[9px] text-blue-700 font-bold mt-1 leading-none tabular-nums">
+                EMI {formatBDT(product.emiStarting)}/mo
               </div>
             )}
           </div>

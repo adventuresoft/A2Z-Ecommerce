@@ -7,6 +7,7 @@ import {
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
+  BrowseCatalogCategoryDto,
   CategoryQueryDto,
   CategoryResponseDto,
   CategoryTreeNodeDto,
@@ -184,6 +185,7 @@ export class CategoriesService {
         imageUrl: dto.imageUrl?.trim() || null,
         parentId: dto.parentId || null,
         isActive: dto.isActive !== undefined ? dto.isActive : true,
+        showInBrowseCatalog: dto.showInBrowseCatalog !== undefined ? dto.showInBrowseCatalog : false,
         sortOrder: dto.sortOrder !== undefined ? dto.sortOrder : 0,
       },
       include: {
@@ -204,6 +206,7 @@ export class CategoriesService {
       imageUrl: category.imageUrl,
       parentId: category.parentId,
       isActive: category.isActive,
+      showInBrowseCatalog: category.showInBrowseCatalog,
       sortOrder: category.sortOrder,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
@@ -278,6 +281,7 @@ export class CategoriesService {
         imageUrl: cat.imageUrl,
         parentId: cat.parentId,
         isActive: cat.isActive,
+        showInBrowseCatalog: cat.showInBrowseCatalog,
         sortOrder: cat.sortOrder,
         createdAt: cat.createdAt,
         updatedAt: cat.updatedAt,
@@ -376,6 +380,7 @@ export class CategoriesService {
       imageUrl: category.imageUrl,
       parentId: category.parentId,
       isActive: category.isActive,
+      showInBrowseCatalog: category.showInBrowseCatalog,
       sortOrder: category.sortOrder,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
@@ -452,6 +457,7 @@ export class CategoriesService {
         ...(dto.imageUrl !== undefined ? { imageUrl: dto.imageUrl?.trim() || null } : {}),
         parentId: targetParentId,
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.showInBrowseCatalog !== undefined ? { showInBrowseCatalog: dto.showInBrowseCatalog } : {}),
         ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
       },
       include: {
@@ -472,6 +478,7 @@ export class CategoriesService {
       imageUrl: updated.imageUrl,
       parentId: updated.parentId,
       isActive: updated.isActive,
+      showInBrowseCatalog: updated.showInBrowseCatalog,
       sortOrder: updated.sortOrder,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
@@ -529,23 +536,34 @@ export class CategoriesService {
         imageUrl: true,
         parentId: true,
         sortOrder: true,
+        showInBrowseCatalog: true,
+        _count: {
+          select: { products: true },
+        },
       },
       orderBy: { sortOrder: 'asc' },
     });
 
-    const categoryMap = new Map<string, CategoryTreeNodeDto>();
+    const categoryMap = new Map<
+      string,
+      CategoryTreeNodeDto & { directCount: number }
+    >();
     for (const cat of activeCategories) {
+      const directCount = (cat as any)._count?.products ?? 0;
       categoryMap.set(cat.id, {
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
         imageUrl: cat.imageUrl,
         sortOrder: cat.sortOrder,
+        showInBrowseCatalog: cat.showInBrowseCatalog,
+        productsCount: directCount,
+        directCount,
         children: [],
       });
     }
 
-    const tree: CategoryTreeNodeDto[] = [];
+    const tree: (CategoryTreeNodeDto & { directCount: number })[] = [];
     for (const cat of activeCategories) {
       const node = categoryMap.get(cat.id)!;
       if (cat.parentId && categoryMap.has(cat.parentId)) {
@@ -555,7 +573,92 @@ export class CategoriesService {
       }
     }
 
+    // Roll up product counts from children to parent/root categories
+    const calculateTotalProducts = (
+      node: CategoryTreeNodeDto & { directCount: number },
+    ): number => {
+      let total = node.directCount;
+      if (Array.isArray(node.children)) {
+        for (const child of node.children as (CategoryTreeNodeDto & {
+          directCount: number;
+        })[]) {
+          total += calculateTotalProducts(child);
+        }
+      }
+      node.productsCount = total;
+      return total;
+    };
+
+    for (const root of tree) {
+      calculateTotalProducts(root);
+    }
+
     return tree;
+  }
+
+  /**
+   * Public storefront: Categories & subcategories enabled for homepage "Browse Catalog"
+   * If none have showInBrowseCatalog enabled, falls back to active root categories.
+   */
+  async findBrowseCatalog(): Promise<BrowseCatalogCategoryDto[]> {
+    const allActive = await this.prisma.category.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        imageUrl: true,
+        parentId: true,
+        sortOrder: true,
+        showInBrowseCatalog: true,
+        _count: {
+          select: { products: true },
+        },
+      },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { name: 'asc' },
+      ],
+    });
+
+    const directCounts = new Map<string, number>();
+    const childrenMap = new Map<string, string[]>();
+
+    for (const cat of allActive) {
+      directCounts.set(cat.id, (cat as any)._count?.products ?? 0);
+      if (!childrenMap.has(cat.id)) childrenMap.set(cat.id, []);
+      if (cat.parentId) {
+        if (!childrenMap.has(cat.parentId)) childrenMap.set(cat.parentId, []);
+        childrenMap.get(cat.parentId)!.push(cat.id);
+      }
+    }
+
+    const getRollupCount = (catId: string): number => {
+      let count = directCounts.get(catId) || 0;
+      const children = childrenMap.get(catId) || [];
+      for (const childId of children) {
+        count += getRollupCount(childId);
+      }
+      return count;
+    };
+
+    let featured = allActive.filter((c) => c.showInBrowseCatalog);
+
+    // Fallback: If no categories are explicitly marked, fallback to active root categories
+    if (featured.length === 0) {
+      featured = allActive.filter((c) => !c.parentId);
+    }
+
+    return featured.map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      imageUrl: c.imageUrl,
+      sortOrder: c.sortOrder,
+      parentId: c.parentId,
+      showInBrowseCatalog: c.showInBrowseCatalog,
+      productsCount: getRollupCount(c.id),
+    }));
   }
 
   /**
@@ -606,6 +709,7 @@ export class CategoriesService {
       imageUrl: category.imageUrl,
       parentId: category.parentId,
       isActive: category.isActive,
+      showInBrowseCatalog: category.showInBrowseCatalog,
       sortOrder: category.sortOrder,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,

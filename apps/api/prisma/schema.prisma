@@ -112,10 +112,11 @@ model Category {
   imageUrl    String?    @db.VarChar(255)
   parentId    String?
   taxClassId  String?
-  isActive    Boolean    @default(true)
-  sortOrder   Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  isActive            Boolean    @default(true)
+  showInBrowseCatalog Boolean    @default(false)
+  sortOrder           Int        @default(0)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children    Category[] @relation("CategoryHierarchy")
@@ -126,6 +127,7 @@ model Category {
   @@index([taxClassId])
   @@index([slug])
   @@index([isActive])
+  @@index([showInBrowseCatalog])
   @@map("Category")
 }
 

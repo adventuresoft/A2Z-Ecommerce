@@ -16,22 +16,25 @@ import { TrustStrip } from "../components/Trust/TrustStrip";
 import { NewsletterBanner } from "../components/Newsletter/NewsletterBanner";
 import { apiClient } from "../lib/api-client";
 import { CuratedProductsResponse, PublicSettingsResponse } from "../lib/curated";
+import { BrowseCatalogCategory } from "../lib/categories";
 
 export default function HomePage() {
   const { addToCart, toggleWishlist, wishlistIds } = useStore();
   const [curatedData, setCuratedData] = useState<CuratedProductsResponse | null>(null);
   const [publicSettings, setPublicSettings] = useState<PublicSettingsResponse | null>(null);
   const [brands, setBrands] = useState<any[] | null>(null);
+  const [categories, setCategories] = useState<BrowseCatalogCategory[] | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadHomepageMerchandising() {
       try {
-        const [curatedRes, settingsRes, brandsRes] = await Promise.allSettled([
+        const [curatedRes, settingsRes, brandsRes, categoriesRes] = await Promise.allSettled([
           apiClient.get<CuratedProductsResponse>("/products/curated", { skipAuth: true }),
           apiClient.get<PublicSettingsResponse>("/settings/public", { skipAuth: true }),
           apiClient.get<any[]>("/brands/public", { skipAuth: true }),
+          apiClient.get<BrowseCatalogCategory[]>("/categories/browse-catalog", { skipAuth: true }),
         ]);
 
         if (!isMounted) return;
@@ -44,6 +47,9 @@ export default function HomePage() {
         }
         if (brandsRes.status === "fulfilled" && Array.isArray(brandsRes.value)) {
           setBrands(brandsRes.value);
+        }
+        if (categoriesRes.status === "fulfilled" && Array.isArray(categoriesRes.value)) {
+          setCategories(categoriesRes.value);
         }
       } catch (err) {
         console.warn("Could not load dynamic homepage merchandising, using fallbacks:", err);
@@ -62,7 +68,7 @@ export default function HomePage() {
       <HeroSlider banners={publicSettings?.heroBanners} />
 
       {/* 2. Circular Category Strip */}
-      <CategoryPills />
+      <CategoryPills categories={categories || undefined} />
 
       {/* 3. Flash Sale Section with Live Deals & Countdown (auto-hides when empty) */}
       <FlashSaleSection

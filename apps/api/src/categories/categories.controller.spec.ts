@@ -16,6 +16,7 @@ describe('Categories Controllers', () => {
       update: vi.fn(),
       remove: vi.fn(),
       findPublicTree: vi.fn(),
+      findBrowseCatalog: vi.fn(),
       findBySlug: vi.fn(),
     };
 
@@ -90,6 +91,15 @@ describe('Categories Controllers', () => {
       const result = await publicController.getTree();
       expect(result).toEqual(expected);
       expect(serviceMock.findPublicTree).toHaveBeenCalled();
+    });
+
+    it('should fetch browse catalog categories', async () => {
+      const expected = [{ id: 'sub-1', name: 'Gaming Laptops', showInBrowseCatalog: true }];
+      serviceMock.findBrowseCatalog.mockResolvedValueOnce(expected);
+
+      const result = await publicController.getBrowseCatalog();
+      expect(result).toEqual(expected);
+      expect(serviceMock.findBrowseCatalog).toHaveBeenCalled();
     });
 
     it('should get category by slug with breadcrumbs', async () => {

@@ -12,6 +12,7 @@ import type {
   CreateProductDto,
   CreateProductVariantDto,
   CuratedProductsDto,
+  FacetAttributeDto,
   PaginatedProductResponseDto,
   PaginatedPublicProductResponseDto,
   PaginatedVariantResponseDto,
@@ -1166,6 +1167,42 @@ export class ProductsService {
   }
 
   /**
+   * Helper to resolve a category and all its nested descendant IDs (all levels)
+   */
+  private async getCategoryAndDescendantIds(slugOrId: {
+    slug?: string;
+    id?: string;
+  }): Promise<string[]> {
+    if (!this.prisma.category?.findFirst) {
+      return [];
+    }
+
+    const root = await this.prisma.category.findFirst({
+      where: slugOrId.id
+        ? { id: slugOrId.id, isActive: true }
+        : { slug: slugOrId.slug, isActive: true },
+      select: { id: true },
+    });
+    if (!root) return [];
+
+    const allIds: string[] = [root.id];
+    let frontier: string[] = [root.id];
+
+    while (frontier.length > 0 && this.prisma.category?.findMany) {
+      const children: { id: string }[] = await this.prisma.category.findMany({
+        where: { parentId: { in: frontier }, isActive: true },
+        select: { id: true },
+      });
+      if (!children || children.length === 0) break;
+      const childIds = children.map((c) => c.id);
+      allIds.push(...childIds);
+      frontier = childIds;
+    }
+
+    return allIds;
+  }
+
+  /**
    * Find public products with faceted filtering, search, sorting and pagination
    */
   async findPublicProducts(
@@ -1179,15 +1216,22 @@ export class ProductsService {
       isActive: true,
     };
 
-    if (query.categoryId) {
-      where.categoryId = query.categoryId;
-    }
-
-    if (query.categorySlug) {
-      where.category = {
+    if (query.categoryId || query.categorySlug) {
+      const categoryIds = await this.getCategoryAndDescendantIds({
+        id: query.categoryId,
         slug: query.categorySlug,
-        isActive: true,
-      };
+      });
+
+      if (categoryIds.length > 0) {
+        where.categoryId = { in: categoryIds };
+      } else if (query.categorySlug) {
+        where.category = {
+          slug: query.categorySlug,
+          isActive: true,
+        };
+      } else if (query.categoryId) {
+        where.categoryId = query.categoryId;
+      }
     }
 
     if (query.brandId) {
@@ -1195,10 +1239,22 @@ export class ProductsService {
     }
 
     if (query.brandSlug) {
-      where.brand = {
-        slug: query.brandSlug,
-        isActive: true,
-      };
+      const slugs = query.brandSlug
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (slugs.length === 1) {
+        where.brand = {
+          slug: slugs[0],
+          isActive: true,
+        };
+      } else if (slugs.length > 1) {
+        where.brand = {
+          slug: { in: slugs },
+          isActive: true,
+        };
+      }
     }
 
     if (query.q && query.q.trim()) {
@@ -1213,6 +1269,58 @@ export class ProductsService {
     const variantConditions: Prisma.ProductVariantWhereInput[] = [
       { isActive: true },
     ];
+
+    if (query.attributeValues && query.attributeValues.trim() && this.prisma.attributeValue?.findMany) {
+      const rawValues = query.attributeValues
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+
+      if (rawValues.length > 0) {
+        const matchedAttrValues = await this.prisma.attributeValue.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { id: { in: rawValues } },
+              {
+                value: {
+                  in: rawValues,
+                  mode: 'insensitive',
+                },
+              },
+            ],
+          },
+          select: {
+            id: true,
+            attributeId: true,
+          },
+        });
+
+        const attrGroups: Record<string, string[]> = {};
+        for (const av of matchedAttrValues) {
+          if (!attrGroups[av.attributeId]) {
+            attrGroups[av.attributeId] = [];
+          }
+          attrGroups[av.attributeId].push(av.id);
+        }
+
+        if (Object.keys(attrGroups).length === 0) {
+          variantConditions.push({
+            id: '00000000-0000-0000-0000-000000000000',
+          });
+        } else {
+          for (const valIds of Object.values(attrGroups)) {
+            variantConditions.push({
+              attributes: {
+                some: {
+                  attributeValueId: { in: valIds },
+                },
+              },
+            });
+          }
+        }
+      }
+    }
 
     if (query.hasDiscount) {
       variantConditions.push({
@@ -1405,12 +1513,111 @@ export class ProductsService {
       items.sort((a, b) => b.rating - a.rating);
     }
 
+    // Compute dynamic attribute facets based on products in current scope
+    let facetAttributes: FacetAttributeDto[] = [];
+    if (this.prisma.productVariantAttributeValue?.findMany) {
+      try {
+        const facetProductWhere: Prisma.ProductWhereInput = {
+          isActive: true,
+        };
+        if (where.categoryId) {
+          facetProductWhere.categoryId = where.categoryId;
+        } else if (where.category) {
+          facetProductWhere.category = where.category;
+        }
+        if (where.brand) {
+          facetProductWhere.brand = where.brand;
+        }
+        if (where.brandId) {
+          facetProductWhere.brandId = where.brandId;
+        }
+
+        const variantAttrValues =
+          await this.prisma.productVariantAttributeValue.findMany({
+            where: {
+              variant: {
+                isActive: true,
+                product: facetProductWhere,
+              },
+              attributeValue: {
+                isActive: true,
+                attribute: {
+                  isActive: true,
+                },
+              },
+            },
+            select: {
+              attributeValue: {
+                select: {
+                  id: true,
+                  value: true,
+                  label: true,
+                  colorCode: true,
+                  sortOrder: true,
+                  attribute: {
+                    select: {
+                      id: true,
+                      name: true,
+                      slug: true,
+                      type: true,
+                      sortOrder: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+        const attrMap = new Map<string, FacetAttributeDto>();
+        const seenValues = new Set<string>();
+
+        for (const item of variantAttrValues) {
+          const av = item.attributeValue;
+          if (!av || !av.attribute) continue;
+          const attr = av.attribute;
+
+          if (!attrMap.has(attr.id)) {
+            attrMap.set(attr.id, {
+              id: attr.id,
+              name: attr.name,
+              slug: attr.slug,
+              type: attr.type,
+              values: [],
+            });
+          }
+
+          const valueKey = `${attr.id}:${av.id}`;
+          if (!seenValues.has(valueKey)) {
+            seenValues.add(valueKey);
+            attrMap.get(attr.id)!.values.push({
+              id: av.id,
+              value: av.value,
+              label: av.label || av.value,
+              colorCode: av.colorCode,
+            });
+          }
+        }
+
+        facetAttributes = Array.from(attrMap.values()).map((attr) => ({
+          ...attr,
+          values: attr.values.sort((a, b) =>
+            (a.label || a.value).localeCompare(b.label || b.value),
+          ),
+        }));
+      } catch {
+        facetAttributes = [];
+      }
+    }
+
     return {
       items,
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit) || 1,
+      facets: {
+        attributes: facetAttributes,
+      },
     };
   }
 

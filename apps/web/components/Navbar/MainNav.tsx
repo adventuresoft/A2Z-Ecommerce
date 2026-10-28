@@ -136,16 +136,17 @@ export function MainNav() {
               onClick={() => setIsOpen((prev) => !prev)}
               aria-expanded={isOpen}
               aria-haspopup="true"
-              className={`bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs uppercase tracking-wider px-5 py-3.5 flex items-center space-x-2.5 transition-all cursor-pointer select-none rounded-t-lg shadow-xs ${
+              className={`bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs uppercase tracking-wider px-5 py-3.5 flex items-center space-x-2.5 transition-all cursor-pointer select-none rounded-t-lg shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
                 isOpen ? "bg-blue-800 ring-2 ring-blue-400/30" : ""
               }`}
             >
-              <Menu className="w-4 h-4 shrink-0" />
+              <Menu className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>ALL CATEGORIES</span>
               <ChevronDown
                 className={`w-3.5 h-3.5 ml-2 transition-transform duration-200 ${
                   isOpen ? "rotate-180" : ""
                 }`}
+                aria-hidden="true"
               />
             </button>
 

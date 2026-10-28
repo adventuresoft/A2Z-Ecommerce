@@ -80,6 +80,9 @@ export function CartModal({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Shopping Cart"
       className={`fixed inset-0 z-50 transition-opacity duration-300 ${
         isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
       }`}
@@ -91,6 +94,7 @@ export function CartModal({
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Slide-over Drawer Panel */}
@@ -103,33 +107,34 @@ export function CartModal({
         <div className="p-3.5 sm:p-4 border-b border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-blue-50/30 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-600/10 border border-blue-200 flex items-center justify-center text-blue-700 shadow-2xs">
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingBag className="w-4 h-4" aria-hidden="true" />
             </div>
             <div>
               <div className="flex items-center space-x-1.5">
                 <h3 className="font-extrabold text-slate-900 text-sm leading-tight">
                   Shopping Cart
                 </h3>
-                <span className="px-2 py-0.5 text-[10px] font-black bg-blue-100 text-blue-700 rounded-full">
+                <span className="px-2 py-0.5 text-[10px] font-black bg-blue-100 text-blue-700 rounded-full tabular-nums">
                   {totalItemsCount}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
-                Review items & checkout
+                Review items &amp; checkout
               </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all cursor-pointer group flex items-center space-x-1"
+            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all cursor-pointer group flex items-center space-x-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             title="Close Drawer (Esc)"
-            aria-label="Close Cart"
+            aria-label="Close Shopping Cart drawer"
           >
             <span className="text-[10px] font-bold text-slate-400 tracking-wider group-hover:text-slate-600 hidden sm:inline">
               ESC
             </span>
-            <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
+            <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" aria-hidden="true" />
           </button>
         </div>
 
@@ -198,12 +203,13 @@ export function CartModal({
                       </span>
                       {/* Remove Button */}
                       <button
+                        type="button"
                         onClick={() => onRemoveItem(item.id)}
-                        className="p-1 text-slate-300 hover:text-red-600 transition-colors cursor-pointer"
+                        className="p-1 text-slate-300 hover:text-red-600 transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                         aria-label={`Remove ${item.title}`}
                         title="Remove item"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                       </button>
                     </div>
 
@@ -224,38 +230,38 @@ export function CartModal({
                               onRemoveItem(item.id);
                             }
                           }}
-                          className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:bg-white hover:text-slate-900 transition-all cursor-pointer"
+                          className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:bg-white hover:text-slate-900 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
                           aria-label={
-                            item.quantity > 1 ? "Decrease quantity" : "Remove item"
+                            item.quantity > 1 ? `Decrease quantity for ${item.title}` : `Remove ${item.title} from cart`
                           }
                         >
                           {item.quantity === 1 ? (
-                            <Trash2 className="w-3 h-3 text-red-500" />
+                            <Trash2 className="w-3 h-3 text-red-500" aria-hidden="true" />
                           ) : (
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-3 h-3" aria-hidden="true" />
                           )}
                         </button>
 
-                        <span className="w-5 text-center text-[11px] font-extrabold text-slate-900 select-none">
+                        <span className="w-5 text-center text-[11px] font-extrabold text-slate-900 select-none tabular-nums">
                           {item.quantity}
                         </span>
 
                         <button
                           type="button"
                           onClick={() => onUpdateQuantity?.(item.id, 1)}
-                          className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:bg-white hover:text-slate-900 transition-all cursor-pointer"
-                          aria-label="Increase quantity"
+                          className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:bg-white hover:text-slate-900 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+                          aria-label={`Increase quantity for ${item.title}`}
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3 h-3" aria-hidden="true" />
                         </button>
                       </div>
 
                       {/* Total for this line item */}
                       <div className="text-right">
-                        <span className="text-[11px] sm:text-xs font-black text-slate-900">
+                        <span className="text-[11px] sm:text-xs font-black text-slate-900 tabular-nums">
                           {formatBDT(item.price * item.quantity)}
                         </span>
-                        <span className="text-[9px] text-slate-400 block leading-none">
+                        <span className="text-[9px] text-slate-400 block leading-none tabular-nums">
                           ({formatBDT(item.price)} each)
                         </span>
                       </div>
@@ -274,7 +280,7 @@ export function CartModal({
             <div className="space-y-1.5 text-xs text-slate-600">
               <div className="flex items-center justify-between text-[11px]">
                 <span>Subtotal ({totalItemsCount} items)</span>
-                <span className="font-bold text-slate-800">{formatBDT(subtotal)}</span>
+                <span className="font-bold text-slate-800 tabular-nums">{formatBDT(subtotal)}</span>
               </div>
 
               <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between">
@@ -283,11 +289,11 @@ export function CartModal({
                     Total Amount
                   </span>
                   <span className="text-[9px] text-slate-400 font-medium">
-                    All taxes & VAT included
+                    All taxes &amp; VAT included
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-base sm:text-lg font-black text-blue-700 leading-tight block">
+                  <span className="text-base sm:text-lg font-black text-blue-700 leading-tight block tabular-nums">
                     {formatBDT(subtotal)}
                   </span>
                 </div>
@@ -296,17 +302,18 @@ export function CartModal({
 
             {/* Primary Action Button */}
             <button
+              type="button"
               onClick={handleProceedCheckout}
               disabled={checkoutFeedback}
-              className="w-full bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm py-3 px-4 rounded-xl flex items-center justify-between shadow-md hover:shadow-lg transition-all cursor-pointer group"
+              className="w-full bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm py-3 px-4 rounded-xl flex items-center justify-between shadow-md hover:shadow-lg transition-all cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
             >
               <div className="flex items-center space-x-2">
-                <Lock className="w-4 h-4 text-blue-200 group-hover:text-white transition-colors" />
+                <Lock className="w-4 h-4 text-blue-200 group-hover:text-white transition-colors" aria-hidden="true" />
                 <span>Proceed to Checkout</span>
               </div>
-              <div className="flex items-center space-x-1 font-black">
+              <div className="flex items-center space-x-1 font-black tabular-nums">
                 <span>{formatBDT(subtotal)}</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </div>
             </button>
 
@@ -315,14 +322,14 @@ export function CartModal({
               <button
                 type="button"
                 onClick={handleViewFullCart}
-                className="w-full text-center py-2 px-3 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all cursor-pointer border border-blue-200 shadow-2xs"
+                className="w-full text-center py-2 px-3 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all cursor-pointer border border-blue-200 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
                 View Full Cart
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full text-center py-2 px-3 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer border border-slate-200"
+                className="w-full text-center py-2 px-3 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
               >
                 Continue Shopping
               </button>
@@ -331,15 +338,15 @@ export function CartModal({
             {/* Trust Assurances */}
             <div className="pt-1 flex items-center justify-around text-[9px] text-slate-500 font-semibold border-t border-slate-200/60">
               <div className="flex items-center space-x-1">
-                <ShieldCheck className="w-3 h-3 text-blue-600" />
+                <ShieldCheck className="w-3 h-3 text-blue-600" aria-hidden="true" />
                 <span>100% Genuine</span>
               </div>
               <div className="flex items-center space-x-1">
-                <Truck className="w-3 h-3 text-emerald-600" />
+                <Truck className="w-3 h-3 text-emerald-600" aria-hidden="true" />
                 <span>Fast Delivery</span>
               </div>
               <div className="flex items-center space-x-1">
-                <Lock className="w-3 h-3 text-slate-600" />
+                <Lock className="w-3 h-3 text-slate-600" aria-hidden="true" />
                 <span>SSL Encrypted</span>
               </div>
             </div>

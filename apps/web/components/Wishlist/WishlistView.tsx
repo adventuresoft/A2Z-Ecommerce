@@ -90,13 +90,15 @@ export function WishlistView({ embedded = false }: WishlistViewProps) {
             type="button"
             onClick={() => refreshWishlist()}
             disabled={isLoadingWishlist}
-            className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+            className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             title="Refresh wishlist"
+            aria-label="Refresh wishlist items"
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${
                 isLoadingWishlist ? "animate-spin text-blue-600" : ""
               }`}
+              aria-hidden="true"
             />
           </button>
           {wishlistItems.length > 0 && (

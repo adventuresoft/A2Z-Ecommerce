@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { ShieldCheck, Award } from "lucide-react";
+import Link from "next/link";
+import { Award } from "lucide-react";
 
 interface BrandItem {
   name: string;
@@ -41,7 +42,7 @@ export function BrandStrip({ brands }: BrandStripProps = {}) {
         }))
       : BRANDS.map((b) => ({ ...b, slug: b.name.toLowerCase() }));
   return (
-    <section id="brands" className="py-10 bg-white border-b border-slate-200">
+    <section id="brands" className="py-10 bg-white border-b border-slate-200 scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-6">
           <div>
@@ -56,7 +57,7 @@ export function BrandStrip({ brands }: BrandStripProps = {}) {
             </p>
           </div>
           <div className="flex items-center space-x-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 self-start sm:self-auto">
-            <Award className="w-4 h-4 text-emerald-600" />
+            <Award className="w-4 h-4 text-emerald-600" aria-hidden="true" />
             <span>Authorized Partner Guarantee</span>
           </div>
         </div>
@@ -64,10 +65,10 @@ export function BrandStrip({ brands }: BrandStripProps = {}) {
         {/* Brand Card Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {items.map((brand) => (
-            <a
+            <Link
               key={brand.name}
-              href={brand.slug ? `/products?brand=${encodeURIComponent(brand.slug)}` : "/products"}
-              className="bg-slate-50/80 hover:bg-white rounded-2xl py-4 px-3 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 hover:-translate-y-1 transition-all flex flex-col items-center justify-center text-center cursor-pointer group"
+              href={brand.slug ? `/shop?brand=${encodeURIComponent(brand.slug)}` : "/shop"}
+              className="bg-slate-50/80 hover:bg-white rounded-2xl py-4 px-3 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 hover:-translate-y-1 transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600"
             >
               <div className="h-7 flex items-center justify-center">
                 <span className={`text-base sm:text-lg transition-transform duration-200 group-hover:scale-105 ${brand.badgeColor}`}>
@@ -77,7 +78,7 @@ export function BrandStrip({ brands }: BrandStripProps = {}) {
               <span className="text-[9px] text-slate-400 font-medium mt-1 truncate max-w-full">
                 {brand.tagline}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

@@ -54,6 +54,15 @@ export class CreateCategoryDto {
   @IsOptional()
   isActive?: boolean;
 
+  @ApiPropertyOptional({
+    example: false,
+    default: false,
+    description: 'Whether this category or subcategory should appear in homepage Browse Catalog',
+  })
+  @IsBoolean({ message: 'showInBrowseCatalog must be a boolean' })
+  @IsOptional()
+  showInBrowseCatalog?: boolean;
+
   @ApiPropertyOptional({ example: 1, default: 0, description: 'Ordering position in navigation menus' })
   @IsInt({ message: 'Sort order must be an integer' })
   @Min(0, { message: 'Sort order must be greater than or equal to 0' })

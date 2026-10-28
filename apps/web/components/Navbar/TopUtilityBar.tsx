@@ -15,11 +15,11 @@ export function TopUtilityBar({ wishlistCount = 0, onOpenWishlist }: TopUtilityB
         {/* Left: Location & Support */}
         <div className="flex items-center space-x-6">
           <div className="flex items-center space-x-1.5 hover:text-white transition-colors cursor-pointer">
-            <MapPin className="w-3.5 h-3.5 text-[#F97316]" />
+            <MapPin className="w-3.5 h-3.5 text-[#F97316]" aria-hidden="true" />
             <span>Deliver to: <strong className="text-white font-medium">Dhaka, Bangladesh</strong></span>
           </div>
           <div className="hidden md:flex items-center space-x-1.5 hover:text-white transition-colors">
-            <PhoneCall className="w-3.5 h-3.5 text-[#38BDF8]" />
+            <PhoneCall className="w-3.5 h-3.5 text-[#38BDF8]" aria-hidden="true" />
             <span>Helpline: <strong className="text-white font-medium">09678-123456</strong> (10 AM - 8 PM)</span>
           </div>
         </div>
@@ -28,27 +28,28 @@ export function TopUtilityBar({ wishlistCount = 0, onOpenWishlist }: TopUtilityB
         <div className="flex items-center space-x-5 text-slate-300">
           <button
             type="button"
-            className="flex items-center space-x-1 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center space-x-1 hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white rounded"
           >
-            <Package className="w-3.5 h-3.5 text-slate-400" />
+            <Package className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
             <span className="hidden sm:inline">Track Order</span>
           </button>
           <button
             type="button"
-            className="flex items-center space-x-1 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center space-x-1 hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white rounded"
           >
-            <GitCompare className="w-3.5 h-3.5 text-slate-400" />
+            <GitCompare className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
             <span className="hidden sm:inline">Compare</span>
           </button>
           <button
             type="button"
             onClick={onOpenWishlist}
-            className="flex items-center space-x-1.5 hover:text-white transition-colors cursor-pointer group"
+            className="flex items-center space-x-1.5 hover:text-white transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white rounded"
+            aria-label={`Wishlist, ${wishlistCount} items`}
           >
-            <Heart className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
+            <Heart className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" aria-hidden="true" />
             <span>Wishlist</span>
             {wishlistCount > 0 && (
-              <span className="bg-rose-500 text-[10px] text-white px-1.5 py-0.2 rounded-full font-bold">
+              <span className="bg-rose-500 text-[10px] text-white px-1.5 py-0.2 rounded-full font-bold tabular-nums">
                 {wishlistCount}
               </span>
             )}

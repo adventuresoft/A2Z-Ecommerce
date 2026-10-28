@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Phone, Mail, MapPin, ShieldCheck, Clock } from "lucide-react";
 
 export function Footer() {
@@ -37,19 +38,19 @@ export function Footer() {
 
             <div className="space-y-2.5 text-xs pt-1">
               <div className="flex items-center space-x-2.5 text-slate-300">
-                <Phone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>Helpline: <strong className="text-white">09678-123456</strong></span>
+                <Phone className="w-3.5 h-3.5 text-blue-400 shrink-0" aria-hidden="true" />
+                <span>Helpline: <strong className="text-white tabular-nums">09678-123456</strong></span>
               </div>
               <div className="flex items-center space-x-2.5 text-slate-300">
-                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden="true" />
                 <span>Working Hours: 10:00 AM - 08:00 PM (Everyday)</span>
               </div>
               <div className="flex items-center space-x-2.5 text-slate-300">
-                <Mail className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                <Mail className="w-3.5 h-3.5 text-orange-400 shrink-0" aria-hidden="true" />
                 <span>support@az-ecommerce.com</span>
               </div>
               <div className="flex items-center space-x-2.5 text-slate-300">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
                 <span>Gulshan-1, Dhaka 1212, Bangladesh</span>
               </div>
             </div>
@@ -61,11 +62,11 @@ export function Footer() {
               Customer Service
             </h3>
             <ul className="space-y-2.5 text-xs">
-              <li><a href="#" className="hover:text-white transition-colors">Help Center &amp; FAQ</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Returns &amp; Replacement</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Shipping &amp; Delivery Rates</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Track Your Order</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Warranty &amp; Service Centers</a></li>
+              <li><Link href="/faq" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Help Center &amp; FAQ</Link></li>
+              <li><Link href="/returns" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Returns &amp; Replacement</Link></li>
+              <li><Link href="/shipping" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Shipping &amp; Delivery Rates</Link></li>
+              <li><Link href="/account" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Track Your Order</Link></li>
+              <li><Link href="/warranty" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Warranty &amp; Service Centers</Link></li>
             </ul>
           </div>
 
@@ -75,11 +76,11 @@ export function Footer() {
               About AZ
             </h3>
             <ul className="space-y-2.5 text-xs">
-              <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Official Brand Partners</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Corporate &amp; Bulk Sales</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Career Opportunities</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Terms &amp; Privacy Policy</a></li>
+              <li><Link href="/about" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">About Us</Link></li>
+              <li><Link href="/#brands" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Official Brand Partners</Link></li>
+              <li><Link href="/corporate" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Corporate &amp; Bulk Sales</Link></li>
+              <li><Link href="/careers" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Career Opportunities</Link></li>
+              <li><Link href="/terms" className="hover:text-white transition-colors focus-visible:outline-hidden focus-visible:underline">Terms &amp; Privacy Policy</Link></li>
             </ul>
           </div>
 
@@ -110,7 +111,7 @@ export function Footer() {
             </div>
 
             <div className="mt-4 flex items-center space-x-2 text-emerald-400 text-xs">
-              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>SSL 256-bit Secure Checkout</span>
             </div>
           </div>
@@ -118,11 +119,11 @@ export function Footer() {
 
         {/* Bottom Legal & Copyright */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
-          <p>© 2026 A to Z Ecommerce Inc. All rights reserved.</p>
+          <p>© <span className="tabular-nums">2026</span> A to Z Ecommerce Inc. All rights reserved.</p>
           <div className="flex items-center space-x-5">
-            <a href="#" className="hover:text-slate-300 transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-slate-300 transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-slate-300 transition-colors">Security</a>
+            <Link href="/privacy" className="hover:text-slate-300 transition-colors focus-visible:outline-hidden focus-visible:underline">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-slate-300 transition-colors focus-visible:outline-hidden focus-visible:underline">Terms of Service</Link>
+            <Link href="/security" className="hover:text-slate-300 transition-colors focus-visible:outline-hidden focus-visible:underline">Security</Link>
           </div>
         </div>
       </div>

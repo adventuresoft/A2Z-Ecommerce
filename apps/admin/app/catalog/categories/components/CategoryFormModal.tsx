@@ -33,6 +33,7 @@ export function CategoryFormModal({
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [showInBrowseCatalog, setShowInBrowseCatalog] = useState(false);
   const [sortOrder, setSortOrder] = useState(0);
 
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -54,6 +55,7 @@ export function CategoryFormModal({
       setDescription(categoryToEdit.description || "");
       setImageUrl(categoryToEdit.imageUrl || "");
       setIsActive(categoryToEdit.isActive);
+      setShowInBrowseCatalog(Boolean(categoryToEdit.showInBrowseCatalog));
       setSortOrder(categoryToEdit.sortOrder);
       setShowUrlInput(Boolean(categoryToEdit.imageUrl && categoryToEdit.imageUrl.startsWith("http")));
     } else {
@@ -64,6 +66,7 @@ export function CategoryFormModal({
       setDescription("");
       setImageUrl("");
       setIsActive(true);
+      setShowInBrowseCatalog(false);
       setSortOrder(0);
       setShowUrlInput(false);
     }
@@ -139,6 +142,7 @@ export function CategoryFormModal({
       description: description.trim() ? description.trim() : undefined,
       imageUrl: imageUrl.trim() ? imageUrl.trim() : undefined,
       isActive,
+      showInBrowseCatalog,
       sortOrder: Number(sortOrder) || 0,
     };
 
@@ -428,6 +432,27 @@ export function CategoryFormModal({
                       <label htmlFor="catIsActive" className="form-check-label fw-semibold ms-2">
                         Active Category (Visible to customers on Storefront)
                       </label>
+                    </div>
+                  </div>
+
+                  {/* Show in Browse Catalog Toggle Switch */}
+                  <div className="col-md-12">
+                    <div className="form-check form-switch mt-2">
+                      <input
+                        id="catShowInBrowseCatalog"
+                        type="checkbox"
+                        role="switch"
+                        className="form-check-input"
+                        checked={showInBrowseCatalog}
+                        onChange={(e) => setShowInBrowseCatalog(e.target.checked)}
+                        disabled={saving}
+                      />
+                      <label htmlFor="catShowInBrowseCatalog" className="form-check-label fw-semibold ms-2">
+                        Show in Browse Catalog (Featured in Homepage &ldquo;Browse Catalog&rdquo; section)
+                      </label>
+                      <div className="form-text ms-2 mt-0 text-muted small">
+                        Turn on for categories or subcategories you want displayed in the circular Browse Catalog pills on the homepage.
+                      </div>
                     </div>
                   </div>
                 </div>

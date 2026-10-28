@@ -41,6 +41,9 @@ export class CategoryResponseDto {
   @ApiProperty({ example: true })
   isActive!: boolean;
 
+  @ApiProperty({ example: false })
+  showInBrowseCatalog!: boolean;
+
   @ApiProperty({ example: 0 })
   sortOrder!: number;
 
@@ -90,6 +93,39 @@ export class CategoryTreeNodeDto {
   @ApiProperty({ example: 0 })
   sortOrder!: number;
 
+  @ApiPropertyOptional({ example: false })
+  showInBrowseCatalog?: boolean;
+
+  @ApiPropertyOptional({ example: 45, description: 'Total active products including subcategories' })
+  productsCount?: number;
+
   @ApiProperty({ type: [CategoryTreeNodeDto], description: 'Child subcategories' })
   children!: CategoryTreeNodeDto[];
 }
+
+export class BrowseCatalogCategoryDto {
+  @ApiProperty({ example: 'd9b2b5e2-63a2-4a7b-a634-11e03a9364a1' })
+  id!: string;
+
+  @ApiProperty({ example: 'Gaming Laptops' })
+  name!: string;
+
+  @ApiProperty({ example: 'gaming-laptops' })
+  slug!: string;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/icon.png' })
+  imageUrl?: string | null;
+
+  @ApiProperty({ example: 0 })
+  sortOrder!: number;
+
+  @ApiPropertyOptional({ example: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d' })
+  parentId?: string | null;
+
+  @ApiProperty({ example: true })
+  showInBrowseCatalog!: boolean;
+
+  @ApiPropertyOptional({ example: 45, description: 'Total active products including subcategories' })
+  productsCount?: number;
+}
+

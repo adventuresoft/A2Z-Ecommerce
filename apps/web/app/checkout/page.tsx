@@ -497,8 +497,8 @@ export default function CheckoutPage() {
     return (
       <StorefrontShell>
         <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
-          <p className="text-sm font-semibold text-slate-500">Checking your customer session...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" aria-hidden="true" />
+          <p className="text-sm font-semibold text-slate-500">Checking your customer session…</p>
         </div>
       </StorefrontShell>
     );
@@ -511,7 +511,7 @@ export default function CheckoutPage() {
         <div className="max-w-3xl mx-auto px-4 py-12 sm:py-16 text-center">
           <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-xl space-y-6">
             <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-100 shadow-sm animate-bounce duration-1000">
-              <PackageCheck className="w-10 h-10" />
+              <PackageCheck className="w-10 h-10" aria-hidden="true" />
             </div>
 
             <div>
@@ -536,7 +536,7 @@ export default function CheckoutPage() {
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-200">
                 <span className="text-slate-500 font-semibold">Total Payable</span>
-                <span className="font-black text-sm text-slate-900">
+                <span className="font-black text-sm text-slate-900 tabular-nums">
                   {formatBDT(placedOrder.grandTotal)}
                 </span>
               </div>
@@ -559,7 +559,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between items-center pb-3 border-b border-slate-200">
                 <span className="text-slate-500 font-semibold">Estimated Delivery</span>
                 <span className="font-bold text-emerald-700 flex items-center">
-                  <Calendar className="w-3.5 h-3.5 mr-1" />
+                  <Calendar className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
                   {selectedSpeed === "express"
                     ? "Within 24 Hours (Express Priority)"
                     : isDhaka
@@ -582,14 +582,14 @@ export default function CheckoutPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <Link
                 href="/account"
-                className="w-full sm:w-auto px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-2"
+                className="w-full sm:w-auto px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
               >
                 <span>View Orders in Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </Link>
               <Link
                 href="/shop"
-                className="w-full sm:w-auto px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
+                className="w-full sm:w-auto px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
               >
                 Continue Shopping
               </Link>
@@ -606,7 +606,7 @@ export default function CheckoutPage() {
       <StorefrontShell>
         <div className="max-w-xl mx-auto px-4 py-20 text-center">
           <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-200">
-            <ShoppingBag className="w-8 h-8" />
+            <ShoppingBag className="w-8 h-8" aria-hidden="true" />
           </div>
           <h2 className="text-2xl font-black text-slate-900 mb-2">No Items in Checkout</h2>
           <p className="text-slate-500 text-xs sm:text-sm mb-6">
@@ -614,9 +614,9 @@ export default function CheckoutPage() {
           </p>
           <Link
             href="/shop"
-            className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+            className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             <span>Go to Shop Catalog</span>
           </Link>
         </div>
@@ -628,16 +628,16 @@ export default function CheckoutPage() {
     <StorefrontShell>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         {/* Breadcrumb Header */}
-        <nav className="flex items-center space-x-2 text-xs font-semibold text-slate-500 mb-6">
-          <Link href="/" className="hover:text-blue-700">
+        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-semibold text-slate-500 mb-6">
+          <Link href="/" className="hover:text-blue-700 focus-visible:outline-hidden focus-visible:underline">
             Home
           </Link>
-          <span>/</span>
-          <Link href="/cart" className="hover:text-blue-700">
+          <span aria-hidden="true">/</span>
+          <Link href="/cart" className="hover:text-blue-700 focus-visible:outline-hidden focus-visible:underline">
             Cart
           </Link>
-          <span>/</span>
-          <span className="text-slate-900 font-bold">Secure Checkout</span>
+          <span aria-hidden="true">/</span>
+          <span className="text-slate-900 font-bold" aria-current="page">Secure Checkout</span>
         </nav>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-8">
@@ -650,14 +650,14 @@ export default function CheckoutPage() {
             </p>
           </div>
           <div className="flex items-center space-x-1.5 text-xs text-slate-500 font-semibold bg-slate-100 px-3 py-1.5 rounded-full self-start sm:self-auto">
-            <Lock className="w-3.5 h-3.5 text-emerald-600" />
+            <Lock className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
             <span>256-Bit SSL Encrypted</span>
           </div>
         </div>
 
         {submitError && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center space-x-3 text-rose-700 text-xs font-bold">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div role="alert" className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center space-x-3 text-rose-700 text-xs font-bold">
+            <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{submitError}</span>
           </div>
         )}
@@ -670,7 +670,7 @@ export default function CheckoutPage() {
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-5">
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200">
                   <div className="flex items-center space-x-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center" aria-hidden="true">
                       1
                     </div>
                     <h2 className="text-base font-black text-slate-900">
@@ -681,9 +681,9 @@ export default function CheckoutPage() {
                     <button
                       type="button"
                       onClick={handleSelectNewAddress}
-                      className="text-xs font-bold text-blue-700 hover:text-blue-800 hover:underline flex items-center space-x-1 cursor-pointer"
+                      className="text-xs font-bold text-blue-700 hover:text-blue-800 hover:underline flex items-center space-x-1 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 rounded"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                       <span>Use New Address</span>
                     </button>
                   )}
@@ -701,8 +701,17 @@ export default function CheckoutPage() {
                         return (
                           <div
                             key={addr.id}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={isSelected}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSelectAddressCard(addr);
+                              }
+                            }}
                             onClick={() => handleSelectAddressCard(addr)}
-                            className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all relative ${
+                            className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all relative focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                               isSelected
                                 ? "border-blue-600 bg-blue-50/40 shadow-xs"
                                 : "border-slate-200 hover:border-slate-300 bg-slate-50/50"
@@ -710,7 +719,7 @@ export default function CheckoutPage() {
                           >
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="font-black text-xs text-slate-900 flex items-center space-x-1">
-                                <MapPin className="w-3.5 h-3.5 text-blue-600 mr-1" />
+                                <MapPin className="w-3.5 h-3.5 text-blue-600 mr-1" aria-hidden="true" />
                                 {addr.label || "Saved Address"}
                               </span>
                               {addr.isDefaultShipping && (
@@ -722,7 +731,7 @@ export default function CheckoutPage() {
                             <div className="text-xs font-bold text-slate-800">
                               {addr.recipientName}
                             </div>
-                            <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                            <div className="text-[11px] text-slate-500 font-medium mt-0.5 tabular-nums">
                               {addr.phone}
                             </div>
                             <div className="text-[11px] text-slate-600 mt-1 line-clamp-2">
@@ -755,45 +764,54 @@ export default function CheckoutPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     {/* Full Name */}
                     <div className="space-y-1 sm:col-span-1">
-                      <label className="font-bold text-slate-700 block">
+                      <label htmlFor="checkout-full-name" className="font-bold text-slate-700 block">
                         Recipient Name <span className="text-rose-500">*</span>
                       </label>
                       <input
+                        id="checkout-full-name"
+                        name="name"
                         type="text"
                         required
+                        autoComplete="name"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="e.g. Tariqul Islam"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600"
                       />
                     </div>
 
                     {/* Phone Number */}
                     <div className="space-y-1 sm:col-span-1">
-                      <label className="font-bold text-slate-700 block">
+                      <label htmlFor="checkout-phone" className="font-bold text-slate-700 block">
                         Mobile Number (+880) <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <span className="absolute left-3 top-2.5 font-bold text-slate-400">
+                        <span className="absolute left-3 top-2.5 font-bold text-slate-400" aria-hidden="true">
                           +880
                         </span>
                         <input
+                          id="checkout-phone"
+                          name="tel"
                           type="tel"
                           required
+                          autoComplete="tel"
+                          inputMode="tel"
                           value={phoneNumber}
                           onChange={(e) => setPhoneNumber(e.target.value)}
                           placeholder="1712345678"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-14 pr-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-14 pr-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
                         />
                       </div>
                     </div>
 
                     {/* Division */}
                     <div className="space-y-1 sm:col-span-1">
-                      <label className="font-bold text-slate-700 block">
+                      <label htmlFor="checkout-division" className="font-bold text-slate-700 block">
                         Division <span className="text-rose-500">*</span>
                       </label>
                       <select
+                        id="checkout-division"
+                        name="division"
                         value={selectedDivision}
                         onChange={(e) => {
                           const div = e.target.value;
@@ -802,7 +820,7 @@ export default function CheckoutPage() {
                             setSelectedDistrict(DISTRICT_SUGGESTIONS[div][0]);
                           }
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-blue-600 cursor-pointer"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-blue-600 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         {BANGLADESH_DIVISIONS.map((div) => (
                           <option key={div} value={div}>
@@ -814,13 +832,15 @@ export default function CheckoutPage() {
 
                     {/* District / City */}
                     <div className="space-y-1 sm:col-span-1">
-                      <label className="font-bold text-slate-700 block">
+                      <label htmlFor="checkout-district" className="font-bold text-slate-700 block">
                         City / District <span className="text-rose-500">*</span>
                       </label>
                       <select
+                        id="checkout-district"
+                        name="district"
                         value={selectedDistrict}
                         onChange={(e) => setSelectedDistrict(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-blue-600 cursor-pointer"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-blue-600 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         {(DISTRICT_SUGGESTIONS[selectedDivision] || ["District Center"]).map(
                           (dist) => (
@@ -834,43 +854,52 @@ export default function CheckoutPage() {
 
                     {/* Street Address */}
                     <div className="space-y-1 sm:col-span-2">
-                      <label className="font-bold text-slate-700 block">
+                      <label htmlFor="checkout-street-address" className="font-bold text-slate-700 block">
                         Street Address, House & Road <span className="text-rose-500">*</span>
                       </label>
                       <textarea
+                        id="checkout-street-address"
+                        name="street-address"
                         required
                         rows={2}
+                        autoComplete="street-address"
                         value={streetAddress}
                         onChange={(e) => setStreetAddress(e.target.value)}
                         placeholder="e.g. House 42, Road 11, Sector 4, Banani, Dhaka"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white resize-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white resize-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       />
                     </div>
 
                     {/* Postal Code & Order Notes */}
                     <div className="space-y-1 sm:col-span-1">
-                      <label className="font-bold text-slate-700 block">
+                      <label htmlFor="checkout-postal-code" className="font-bold text-slate-700 block">
                         Postal / ZIP Code
                       </label>
                       <input
+                        id="checkout-postal-code"
+                        name="postal-code"
                         type="text"
+                        autoComplete="postal-code"
+                        inputMode="numeric"
                         value={postalCode}
                         onChange={(e) => setPostalCode(e.target.value)}
                         placeholder="1212"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-600"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
                       />
                     </div>
 
                     <div className="space-y-1 sm:col-span-1">
-                      <label className="font-bold text-slate-700 block">
+                      <label htmlFor="checkout-order-notes" className="font-bold text-slate-700 block">
                         Delivery Notes (Optional)
                       </label>
                       <input
+                        id="checkout-order-notes"
+                        name="order-notes"
                         type="text"
                         value={orderNotes}
                         onChange={(e) => setOrderNotes(e.target.value)}
                         placeholder="e.g. Call before delivery"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-600"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600"
                       />
                     </div>
 
@@ -880,6 +909,7 @@ export default function CheckoutPage() {
                         <label className="flex items-center space-x-2 cursor-pointer text-xs font-semibold text-slate-700">
                           <input
                             type="checkbox"
+                            name="save-address"
                             checked={saveAddressToBook}
                             onChange={(e) => setSaveAddressToBook(e.target.checked)}
                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
@@ -895,7 +925,7 @@ export default function CheckoutPage() {
               {/* Step 2: Delivery Speed & Method */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-4">
                 <div className="flex items-center space-x-2.5 pb-4 border-b border-slate-200">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center" aria-hidden="true">
                     2
                   </div>
                   <h2 className="text-base font-black text-slate-900">
@@ -905,9 +935,18 @@ export default function CheckoutPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   {/* Standard */}
-                  <label
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={selectedSpeed === "standard"}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedSpeed("standard");
+                      }
+                    }}
                     onClick={() => setSelectedSpeed("standard")}
-                    className={`p-4 rounded-2xl border-2 flex items-start justify-between cursor-pointer transition-all ${
+                    className={`p-4 rounded-2xl border-2 flex items-start justify-between cursor-pointer transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                       selectedSpeed === "standard"
                         ? "border-blue-600 bg-blue-50/50 shadow-2xs"
                         : "border-slate-200 hover:border-slate-300"
@@ -921,15 +960,24 @@ export default function CheckoutPage() {
                         {isDhaka ? "24–48 Hours within Dhaka" : "3–5 Days nationwide"}
                       </div>
                     </div>
-                    <span className="font-black text-blue-700">
+                    <span className="font-black text-blue-700 tabular-nums">
                       {subtotal >= 100000 ? "FREE" : isDhaka ? "৳60" : "৳120"}
                     </span>
-                  </label>
+                  </div>
 
                   {/* Express */}
-                  <label
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={selectedSpeed === "express"}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedSpeed("express");
+                      }
+                    }}
                     onClick={() => setSelectedSpeed("express")}
-                    className={`p-4 rounded-2xl border-2 flex items-start justify-between cursor-pointer transition-all ${
+                    className={`p-4 rounded-2xl border-2 flex items-start justify-between cursor-pointer transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                       selectedSpeed === "express"
                         ? "border-blue-600 bg-blue-50/50 shadow-2xs"
                         : "border-slate-200 hover:border-slate-300"
@@ -946,17 +994,17 @@ export default function CheckoutPage() {
                         Same-day / Next-day priority courier
                       </div>
                     </div>
-                    <span className="font-black text-blue-700">
+                    <span className="font-black text-blue-700 tabular-nums">
                       {isDhaka ? "৳150" : "৳210"}
                     </span>
-                  </label>
+                  </div>
                 </div>
               </div>
 
               {/* Step 3: Payment Method Selection */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-4">
                 <div className="flex items-center space-x-2.5 pb-4 border-b border-slate-200">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center" aria-hidden="true">
                     3
                   </div>
                   <h2 className="text-base font-black text-slate-900">
@@ -966,9 +1014,18 @@ export default function CheckoutPage() {
 
                 <div className="space-y-3">
                   {/* COD */}
-                  <label
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={paymentMethod === "CASH_ON_DELIVERY"}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setPaymentMethod("CASH_ON_DELIVERY");
+                      }
+                    }}
                     onClick={() => setPaymentMethod("CASH_ON_DELIVERY")}
-                    className={`p-4 rounded-2xl border-2 flex items-start space-x-3 cursor-pointer transition-all ${
+                    className={`p-4 rounded-2xl border-2 flex items-start space-x-3 cursor-pointer transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                       paymentMethod === "CASH_ON_DELIVERY"
                         ? "border-blue-600 bg-blue-50/40 shadow-xs"
                         : "border-slate-200 hover:border-slate-300"
@@ -981,7 +1038,7 @@ export default function CheckoutPage() {
                     </div>
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center space-x-2">
-                        <Banknote className="w-4 h-4 text-emerald-600" />
+                        <Banknote className="w-4 h-4 text-emerald-600" aria-hidden="true" />
                         <span className="font-black text-sm text-slate-900">
                           Cash on Delivery (COD)
                         </span>
@@ -993,12 +1050,21 @@ export default function CheckoutPage() {
                         Pay cash directly to our delivery courier after receiving and inspecting the package at your doorstep.
                       </p>
                     </div>
-                  </label>
+                  </div>
 
                   {/* bKash / Nagad Mobile Banking */}
                   <div
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={paymentMethod === "MOBILE_BANKING"}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setPaymentMethod("MOBILE_BANKING");
+                      }
+                    }}
                     onClick={() => setPaymentMethod("MOBILE_BANKING")}
-                    className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                    className={`p-4 rounded-2xl border-2 transition-all cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                       paymentMethod === "MOBILE_BANKING"
                         ? "border-blue-600 bg-blue-50/40 shadow-xs"
                         : "border-slate-200 hover:border-slate-300"
@@ -1012,7 +1078,7 @@ export default function CheckoutPage() {
                       </div>
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center space-x-2">
-                          <Smartphone className="w-4 h-4 text-pink-600" />
+                          <Smartphone className="w-4 h-4 text-pink-600" aria-hidden="true" />
                           <span className="font-black text-sm text-slate-900">
                             bKash / Nagad Mobile Banking
                           </span>
@@ -1035,34 +1101,42 @@ export default function CheckoutPage() {
                         <div className="p-3 bg-pink-50 border border-pink-200 rounded-xl text-xs text-pink-900">
                           <p className="font-bold">Payment Instructions:</p>
                           <p className="mt-0.5">
-                            Please make payment of <strong>{formatBDT(grandTotal)}</strong> to Merchant Account:{" "}
-                            <span className="font-mono font-black text-pink-800">01700-000000</span> (bKash/Nagad).
+                            Please make payment of <strong className="tabular-nums">{formatBDT(grandTotal)}</strong> to Merchant Account:{" "}
+                            <span className="font-mono font-black text-pink-800 tabular-nums">01700-000000</span> (bKash/Nagad).
                           </p>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                           <div>
-                            <label className="font-bold text-slate-700 block mb-1">
+                            <label htmlFor="checkout-mfs-phone" className="font-bold text-slate-700 block mb-1">
                               Sender Mobile Number <span className="text-rose-500">*</span>
                             </label>
                             <input
+                              id="checkout-mfs-phone"
+                              name="mfs-phone"
                               type="tel"
+                              autoComplete="tel"
+                              inputMode="tel"
                               value={mfsSenderPhone}
                               onChange={(e) => setMfsSenderPhone(e.target.value)}
                               placeholder="01712345678"
-                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-medium text-slate-800 focus:outline-none focus:border-blue-600"
+                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
                             />
                           </div>
                           <div>
-                            <label className="font-bold text-slate-700 block mb-1">
+                            <label htmlFor="checkout-mfs-trxid" className="font-bold text-slate-700 block mb-1">
                               Transaction ID (TrxID) <span className="text-rose-500">*</span>
                             </label>
                             <input
+                              id="checkout-mfs-trxid"
+                              name="mfs-trxid"
                               type="text"
+                              autoComplete="off"
+                              spellCheck={false}
                               value={mfsTrxId}
                               onChange={(e) => setMfsTrxId(e.target.value.toUpperCase())}
                               placeholder="e.g. 9X7B2144A9"
-                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-mono font-bold text-slate-800 uppercase focus:outline-none focus:border-blue-600"
+                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-mono font-bold text-slate-800 uppercase focus:outline-none focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600"
                             />
                           </div>
                         </div>
@@ -1096,7 +1170,7 @@ export default function CheckoutPage() {
             <div className="lg:col-span-4 sticky top-28 space-y-6">
               <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-5">
                 <h3 className="text-base font-black text-slate-900 pb-3 border-b border-slate-200">
-                  Review Your Order ({cart.reduce((a, b) => a + b.quantity, 0)} items)
+                  Review Your Order (<span className="tabular-nums">{cart.reduce((a, b) => a + b.quantity, 0)}</span> items)
                 </h3>
 
                 {/* Items Thumbnails list */}
@@ -1117,8 +1191,8 @@ export default function CheckoutPage() {
                           {item.product.title}
                         </h4>
                         <div className="text-[11px] text-slate-500 font-medium flex justify-between">
-                          <span>Qty: {item.quantity}</span>
-                          <span className="font-bold text-slate-800">
+                          <span className="tabular-nums">Qty: {item.quantity}</span>
+                          <span className="font-bold text-slate-800 tabular-nums">
                             {formatBDT(item.price * item.quantity)}
                           </span>
                         </div>
@@ -1129,22 +1203,22 @@ export default function CheckoutPage() {
 
                 {/* Coupon Code Section */}
                 <div className="pt-3 border-t border-slate-100">
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center space-x-1">
-                    <Tag className="w-3.5 h-3.5 text-blue-600" />
+                  <label htmlFor="checkout-coupon-code" className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center space-x-1">
+                    <Tag className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
                     <span>Coupon Promotion</span>
                   </label>
                   {appliedCoupon ? (
                     <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
                       <div>
                         <span className="font-black text-emerald-700">{appliedCoupon.code}</span>
-                        <span className="text-[10px] text-emerald-600 block">
+                        <span className="text-[10px] text-emerald-600 block tabular-nums">
                           Savings: {formatBDT(appliedCoupon.discount)}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={handleRemoveCoupon}
-                        className="text-[10px] font-black text-rose-600 hover:underline"
+                        className="text-[10px] font-black text-rose-600 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
                       >
                         Remove
                       </button>
@@ -1153,24 +1227,28 @@ export default function CheckoutPage() {
                     <div className="space-y-1.5">
                       <div className="flex space-x-2">
                         <input
+                          id="checkout-coupon-code"
+                          name="coupon"
                           type="text"
+                          autoComplete="off"
+                          spellCheck={false}
                           value={couponCodeInput}
                           onChange={(e) => setCouponCodeInput(e.target.value)}
-                          placeholder="e.g. AZDEAL"
-                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 uppercase"
+                          placeholder="e.g. AZDEAL…"
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 uppercase focus-visible:ring-2 focus-visible:ring-blue-600"
                         />
                         <button
                           type="button"
                           onClick={handleApplyCoupon}
                           disabled={isApplyingCoupon}
-                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
                         >
-                          {isApplyingCoupon ? "..." : "Apply"}
+                          {isApplyingCoupon ? "Applying…" : "Apply"}
                         </button>
                       </div>
                       {couponError && (
-                        <p className="text-[11px] text-rose-600 font-semibold flex items-center">
-                          <AlertCircle className="w-3 h-3 mr-1 shrink-0" />
+                        <p role="alert" className="text-[11px] text-rose-600 font-semibold flex items-center">
+                          <AlertCircle className="w-3 h-3 mr-1 shrink-0" aria-hidden="true" />
                           {couponError}
                         </p>
                       )}
@@ -1182,12 +1260,12 @@ export default function CheckoutPage() {
                 <div className="space-y-2 pt-3 border-t border-slate-200 text-xs">
                   <div className="flex justify-between text-slate-600">
                     <span>Subtotal</span>
-                    <span className="font-bold text-slate-900">{formatBDT(subtotal)}</span>
+                    <span className="font-bold text-slate-900 tabular-nums">{formatBDT(subtotal)}</span>
                   </div>
 
                   <div className="flex justify-between text-slate-600">
                     <span>Delivery Fee ({selectedDivision})</span>
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-slate-900 tabular-nums">
                       {shippingFee === 0 ? "FREE" : formatBDT(shippingFee)}
                     </span>
                   </div>
@@ -1195,14 +1273,14 @@ export default function CheckoutPage() {
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-emerald-600 font-bold">
                       <span>Coupon Discount</span>
-                      <span>-{formatBDT(discountAmount)}</span>
+                      <span className="tabular-nums">-{formatBDT(discountAmount)}</span>
                     </div>
                   )}
 
                   {calculation?.totalTaxAmount ? (
                     <div className="flex justify-between text-[11px] text-slate-400 font-medium">
                       <span>Statutory VAT (Inclusive)</span>
-                      <span>{formatBDT(calculation.totalTaxAmount)}</span>
+                      <span className="tabular-nums">{formatBDT(calculation.totalTaxAmount)}</span>
                     </div>
                   ) : null}
 
@@ -1213,7 +1291,7 @@ export default function CheckoutPage() {
                         VAT & Courier Included
                       </span>
                     </div>
-                    <span className="text-xl font-black text-blue-700">
+                    <span className="text-xl font-black text-blue-700 tabular-nums">
                       {formatBDT(grandTotal)}
                     </span>
                   </div>
@@ -1221,8 +1299,8 @@ export default function CheckoutPage() {
 
                 {/* Stock Warning if ineligible */}
                 {calculation && !calculation.isEligibleForCheckout && (
-                  <p className="text-[11px] text-rose-600 font-semibold text-center mt-2 flex items-center justify-center">
-                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                  <p role="alert" className="text-[11px] text-rose-600 font-semibold text-center mt-2 flex items-center justify-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" aria-hidden="true" />
                     Some items exceed current warehouse stock. Please return to cart.
                   </p>
                 )}
@@ -1235,17 +1313,17 @@ export default function CheckoutPage() {
                     isCalculating ||
                     (calculation !== null && !calculation.isEligibleForCheckout)
                   }
-                  className="w-full py-4 px-4 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 disabled:opacity-60 text-white font-extrabold text-sm rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+                  className="w-full py-4 px-4 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 disabled:opacity-60 text-white font-extrabold text-sm rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center space-x-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Confirming Order...</span>
+                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                      <span>Confirming Order…</span>
                     </span>
                   ) : (
                     <>
-                      <Lock className="w-4 h-4" />
-                      <span>Confirm Order • {formatBDT(grandTotal)}</span>
+                      <Lock className="w-4 h-4" aria-hidden="true" />
+                      <span>Confirm Order • <span className="tabular-nums">{formatBDT(grandTotal)}</span></span>
                     </>
                   )}
                 </button>
@@ -1258,15 +1336,15 @@ export default function CheckoutPage() {
               {/* Trust Box */}
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2.5 text-xs text-slate-600">
                 <div className="flex items-center space-x-2 font-semibold">
-                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <ShieldCheck className="w-4 h-4 text-blue-600" aria-hidden="true" />
                   <span>Official Authorized Warranty</span>
                 </div>
                 <div className="flex items-center space-x-2 font-semibold">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden="true" />
                   <span>Inspect package before COD payment</span>
                 </div>
                 <div className="flex items-center space-x-2 font-semibold">
-                  <Truck className="w-4 h-4 text-indigo-600" />
+                  <Truck className="w-4 h-4 text-indigo-600" aria-hidden="true" />
                   <span>Fast Delivery Across 64 Districts</span>
                 </div>
               </div>

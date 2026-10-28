@@ -6,6 +6,7 @@ export interface CategoryItem {
   imageUrl?: string | null;
   parentId?: string | null;
   isActive: boolean;
+  showInBrowseCatalog?: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -52,6 +53,7 @@ export interface CreateCategoryPayload {
   imageUrl?: string;
   parentId?: string;
   isActive?: boolean;
+  showInBrowseCatalog?: boolean;
   sortOrder?: number;
 }
 

@@ -244,6 +244,16 @@ export function CategoriesTable({
                           </span>
                         )}
                         <span>{cat.name}</span>
+                        {cat.showInBrowseCatalog && (
+                          <span
+                            className="badge bg-primary-subtle text-primary border border-primary-subtle"
+                            style={{ fontSize: "0.68rem" }}
+                            title="Featured in Homepage Browse Catalog section"
+                          >
+                            <i className="bi bi-grid-fill me-1"></i>
+                            Browse Catalog
+                          </span>
+                        )}
                       </div>
                       {cat.description && (
                         <small className="text-secondary text-truncate d-block" style={{ maxWidth: "250px" }}>

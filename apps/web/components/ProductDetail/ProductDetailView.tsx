@@ -368,14 +368,18 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
             <button
               type="button"
               onClick={handleShareClick}
-              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-slate-50 hover:bg-white text-slate-500 hover:text-blue-600 border border-slate-200 flex items-center justify-center transition-all cursor-pointer shadow-xs"
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-slate-50 hover:bg-white text-slate-500 hover:text-blue-600 border border-slate-200 flex items-center justify-center transition-all cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               aria-label="Share product"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-4 h-4" aria-hidden="true" />
             </button>
 
             {copiedLink && (
-              <div className="absolute top-14 right-4 z-20 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shadow-lg">
+              <div
+                role="status"
+                aria-live="polite"
+                className="absolute top-14 right-4 z-20 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shadow-lg"
+              >
                 Link copied!
               </div>
             )}
@@ -411,7 +415,8 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
                     key={idx}
                     type="button"
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-50 p-1 border-2 transition-all cursor-pointer shrink-0 ${
+                    aria-label={`View ${productData.title} image ${idx + 1}`}
+                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-50 p-1 border-2 transition-all cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                       activeImageIndex === idx
                         ? "border-blue-600 ring-2 ring-blue-600/20 shadow-xs"
                         : "border-slate-200 hover:border-slate-300 opacity-75 hover:opacity-100"
@@ -419,7 +424,7 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
                   >
                     <Image
                       src={img}
-                      alt={`${productData.title} - view ${idx + 1}`}
+                      alt={`${productData.title} - thumbnail ${idx + 1}`}
                       fill
                       className="object-contain p-1"
                     />

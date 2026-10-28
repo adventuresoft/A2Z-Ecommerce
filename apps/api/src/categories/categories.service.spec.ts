@@ -216,6 +216,37 @@ describe('CategoriesService', () => {
     });
   });
 
+  describe('findBrowseCatalog', () => {
+    it('should return only categories and subcategories with showInBrowseCatalog true', async () => {
+      prismaMock.category.findMany.mockResolvedValueOnce([
+        { id: '1', name: 'Electronics', slug: 'electronics', imageUrl: null, parentId: null, sortOrder: 0, showInBrowseCatalog: false, _count: { products: 5 } },
+        { id: '2', name: 'Gaming Laptops', slug: 'gaming-laptops', imageUrl: null, parentId: '1', sortOrder: 1, showInBrowseCatalog: true, _count: { products: 12 } },
+        { id: '3', name: 'Accessories', slug: 'accessories', imageUrl: null, parentId: '2', sortOrder: 2, showInBrowseCatalog: false, _count: { products: 3 } },
+      ]);
+
+      const result = await service.findBrowseCatalog();
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('2');
+      expect(result[0].name).toBe('Gaming Laptops');
+      // Rolled-up count: 12 direct products + 3 child products = 15
+      expect(result[0].productsCount).toBe(15);
+    });
+
+    it('should fallback to active root categories if no categories have showInBrowseCatalog enabled', async () => {
+      prismaMock.category.findMany.mockResolvedValueOnce([
+        { id: '1', name: 'Electronics', slug: 'electronics', imageUrl: null, parentId: null, sortOrder: 0, showInBrowseCatalog: false, _count: { products: 10 } },
+        { id: '2', name: 'Fashion', slug: 'fashion', imageUrl: null, parentId: null, sortOrder: 1, showInBrowseCatalog: false, _count: { products: 20 } },
+        { id: '3', name: 'Shirts', slug: 'shirts', imageUrl: null, parentId: '2', sortOrder: 0, showInBrowseCatalog: false, _count: { products: 5 } },
+      ]);
+
+      const result = await service.findBrowseCatalog();
+      expect(result).toHaveLength(2);
+      expect(result.map((c) => c.name)).toEqual(['Electronics', 'Fashion']);
+      expect(result[0].productsCount).toBe(10);
+      expect(result[1].productsCount).toBe(25); // 20 + 5 from Shirts
+    });
+  });
+
   describe('findBySlug', () => {
     it('should return category with breadcrumb hierarchy trail', async () => {
       prismaMock.category.findUnique

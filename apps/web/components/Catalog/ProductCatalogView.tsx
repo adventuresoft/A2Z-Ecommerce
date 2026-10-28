@@ -56,6 +56,22 @@ interface BrandOption {
   count?: number;
 }
 
+interface FacetAttributeValue {
+  id: string;
+  value: string;
+  label?: string | null;
+  colorCode?: string | null;
+  count?: number;
+}
+
+interface FacetAttribute {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  values: FacetAttributeValue[];
+}
+
 function ProductCatalogViewInner({
   title,
   subtitle,
@@ -76,6 +92,9 @@ function ProductCatalogViewInner({
   const urlPage = parseInt(searchParams.get("page") || "1", 10);
   const urlCategory = searchParams.get("categorySlug") || searchParams.get("category") || (categoryScope ? "" : "All");
   const urlBrands = searchParams.get("brand") ? searchParams.get("brand")!.split(",") : [];
+  const urlAttributes = searchParams.get("attributeValues")
+    ? searchParams.get("attributeValues")!.split(",").map((v) => v.trim()).filter(Boolean)
+    : [];
   const urlMinPrice = parseInt(searchParams.get("minPrice") || "0", 10);
   const urlMaxPrice = parseInt(searchParams.get("maxPrice") || "500000", 10);
   const urlInStock = searchParams.get("inStock") === "true";
@@ -85,6 +104,7 @@ function ProductCatalogViewInner({
   // Filter States
   const [selectedCategory, setSelectedCategory] = useState<string>(categoryScope || urlCategory || "All");
   const [selectedBrands, setSelectedBrands] = useState<string[]>(urlBrands);
+  const [selectedAttributeValues, setSelectedAttributeValues] = useState<string[]>(urlAttributes);
   const [minPrice, setMinPrice] = useState<number>(urlMinPrice);
   const [maxPrice, setMaxPrice] = useState<number>(urlMaxPrice);
   const [inStockOnly, setInStockOnly] = useState<boolean>(urlInStock);
@@ -101,14 +121,16 @@ function ProductCatalogViewInner({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [availableCategories, setAvailableCategories] = useState<CategoryOption[]>([]);
   const [availableBrands, setAvailableBrands] = useState<BrandOption[]>([]);
+  const [availableAttributes, setAvailableAttributes] = useState<FacetAttribute[]>([]);
 
   // Fetch Category Tree and Brands for Filter Facets
   useEffect(() => {
     async function fetchFacets() {
       try {
-        const [catsRes, brandsRes] = await Promise.allSettled([
+        const [catsRes, brandsRes, attrsRes] = await Promise.allSettled([
           apiClient.get<any[]>("/categories/tree", { skipAuth: true }),
           apiClient.get<any[]>("/brands/public", { skipAuth: true }),
+          apiClient.get<any[]>("/attributes", { skipAuth: true }),
         ]);
 
         if (catsRes.status === "fulfilled" && Array.isArray(catsRes.value)) {
@@ -145,6 +167,24 @@ function ProductCatalogViewInner({
               slug: b.toLowerCase().replace(/\s+/g, "-"),
             }))
           );
+        }
+
+        if (attrsRes.status === "fulfilled" && Array.isArray(attrsRes.value)) {
+          const mappedAttrs: FacetAttribute[] = attrsRes.value.map((a: any) => ({
+            id: a.id,
+            name: a.name,
+            slug: a.slug,
+            type: a.type || "TEXT",
+            values: Array.isArray(a.values)
+              ? a.values.map((v: any) => ({
+                  id: v.id,
+                  value: v.value,
+                  label: v.label || v.value,
+                  colorCode: v.colorCode || null,
+                }))
+              : [],
+          }));
+          setAvailableAttributes((prev) => (prev.length > 0 ? prev : mappedAttrs));
         }
       } catch {
         // Fallback to fixture categories/brands
@@ -207,6 +247,10 @@ function ProductCatalogViewInner({
         params.set("brandSlug", selectedBrands.join(","));
       }
 
+      if (selectedAttributeValues.length > 0) {
+        params.set("attributeValues", selectedAttributeValues.join(","));
+      }
+
       if (minPrice > 0) {
         params.set("minPrice", minPrice.toString());
       }
@@ -255,6 +299,13 @@ function ProductCatalogViewInner({
         setProducts(mapped);
         setTotalProducts(res.total || 0);
         setTotalPages(res.totalPages || 1);
+        if (
+          res.facets?.attributes &&
+          Array.isArray(res.facets.attributes) &&
+          res.facets.attributes.length > 0
+        ) {
+          setAvailableAttributes(res.facets.attributes);
+        }
       }
     } catch {
       // Fallback to local mock products if API is unreachable
@@ -287,6 +338,7 @@ function ProductCatalogViewInner({
     categoryScope,
     selectedCategory,
     selectedBrands,
+    selectedAttributeValues,
     minPrice,
     maxPrice,
     inStockOnly,
@@ -310,6 +362,32 @@ function ProductCatalogViewInner({
     updateUrlParams({ brand: updated.length > 0 ? updated.join(",") : null, page: "1" });
   };
 
+  // Toggle attribute value checkbox/swatch/pill
+  const handleToggleAttributeValue = (val: string) => {
+    const updated = selectedAttributeValues.includes(val)
+      ? selectedAttributeValues.filter((v) => v !== val)
+      : [...selectedAttributeValues, val];
+    setSelectedAttributeValues(updated);
+    setCurrentPage(1);
+    updateUrlParams({
+      attributeValues: updated.length > 0 ? updated.join(",") : null,
+      page: "1",
+    });
+  };
+
+  // Clear single attribute group
+  const handleClearAttribute = (attributeValuesInThisAttr: string[]) => {
+    const updated = selectedAttributeValues.filter(
+      (v) => !attributeValuesInThisAttr.includes(v)
+    );
+    setSelectedAttributeValues(updated);
+    setCurrentPage(1);
+    updateUrlParams({
+      attributeValues: updated.length > 0 ? updated.join(",") : null,
+      page: "1",
+    });
+  };
+
   // Change Category
   const handleSelectCategory = (catName: string) => {
     setSelectedCategory(catName);
@@ -328,6 +406,7 @@ function ProductCatalogViewInner({
   const handleResetFilters = () => {
     setSelectedCategory(categoryScope || "All");
     setSelectedBrands([]);
+    setSelectedAttributeValues([]);
     setMinPrice(0);
     setMaxPrice(500000);
     setInStockOnly(false);
@@ -337,6 +416,7 @@ function ProductCatalogViewInner({
     updateUrlParams({
       categorySlug: null,
       brand: null,
+      attributeValues: null,
       minPrice: null,
       maxPrice: null,
       inStock: null,
@@ -350,6 +430,7 @@ function ProductCatalogViewInner({
   const activeFiltersCount =
     (selectedCategory !== "All" && !categoryScope ? 1 : 0) +
     selectedBrands.length +
+    selectedAttributeValues.length +
     (minPrice > 0 || maxPrice < 500000 ? 1 : 0) +
     (inStockOnly ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
@@ -413,12 +494,16 @@ function ProductCatalogViewInner({
 
           {/* Search within results */}
           <div>
-            <label className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
+            <label htmlFor="catalog-search-input" className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
               Search Products
             </label>
             <div className="relative">
               <input
-                type="text"
+                id="catalog-search-input"
+                name="search"
+                type="search"
+                autoComplete="off"
+                spellCheck={false}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -427,10 +512,10 @@ function ProductCatalogViewInner({
                     updateUrlParams({ q: searchQuery.trim() || null, page: "1" });
                   }
                 }}
-                placeholder="Model, keyword, specs..."
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white"
+                placeholder="e.g. Model, keyword, specs…"
+                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus:bg-white"
               />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" aria-hidden="true" />
             </div>
           </div>
 
@@ -503,6 +588,128 @@ function ProductCatalogViewInner({
               })}
             </div>
           </div>
+
+          {/* Dynamic Attributes Filter (Color, Size, RAM, etc.) */}
+          {availableAttributes.length > 0 && (
+            <div className="space-y-4 pt-3 border-t border-slate-100">
+              {availableAttributes.map((attr) => {
+                const valuesInThisAttr = attr.values.map((v) => v.value);
+                const hasActiveSelection = valuesInThisAttr.some((v) =>
+                  selectedAttributeValues.includes(v)
+                );
+
+                return (
+                  <div key={attr.id || attr.slug}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-extrabold uppercase text-slate-700 tracking-wider">
+                        {attr.name}
+                      </label>
+                      {hasActiveSelection && (
+                        <button
+                          type="button"
+                          onClick={() => handleClearAttribute(valuesInThisAttr)}
+                          className="text-[10px] font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {attr.type === "COLOR" ? (
+                      /* Color Swatches */
+                      <div className="flex flex-wrap gap-2">
+                        {attr.values.map((val) => {
+                          const isChecked = selectedAttributeValues.includes(val.value);
+                          const colorHex = val.colorCode || "#94a3b8";
+                          const isDark =
+                            colorHex.toLowerCase() === "#000000" ||
+                            colorHex.toLowerCase() === "#1e293b" ||
+                            colorHex.toLowerCase().startsWith("#0") ||
+                            colorHex.toLowerCase().startsWith("#1");
+
+                          return (
+                            <button
+                              key={val.id || val.value}
+                              type="button"
+                              onClick={() => handleToggleAttributeValue(val.value)}
+                              title={val.label || val.value}
+                              aria-label={`Filter by ${attr.name}: ${val.label || val.value}`}
+                              className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                isChecked
+                                  ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs ring-2 ring-blue-600/20"
+                                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                              }`}
+                            >
+                              <span
+                                className="w-3.5 h-3.5 rounded-full border border-black/15 shadow-2xs shrink-0 flex items-center justify-center"
+                                style={{ backgroundColor: colorHex }}
+                              >
+                                {isChecked && (
+                                  <Check
+                                    className={`w-2.5 h-2.5 ${
+                                      isDark ? "text-white" : "text-slate-900"
+                                    }`}
+                                    strokeWidth={3}
+                                  />
+                                )}
+                              </span>
+                              <span className="capitalize">{val.label || val.value}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : attr.type === "BUTTON" ? (
+                      /* Button Pills (Size, Specs, etc.) */
+                      <div className="flex flex-wrap gap-1.5">
+                        {attr.values.map((val) => {
+                          const isChecked = selectedAttributeValues.includes(val.value);
+
+                          return (
+                            <button
+                              key={val.id || val.value}
+                              type="button"
+                              onClick={() => handleToggleAttributeValue(val.value)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                                isChecked
+                                  ? "bg-blue-600 border-blue-600 text-white shadow-xs"
+                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+                              }`}
+                            >
+                              <span>{val.label || val.value}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* Text Checkboxes */
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {attr.values.map((val) => {
+                          const isChecked = selectedAttributeValues.includes(val.value);
+
+                          return (
+                            <label
+                              key={val.id || val.value}
+                              className="flex items-center justify-between text-xs text-slate-700 hover:text-blue-700 cursor-pointer select-none py-0.5"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleToggleAttributeValue(val.value)}
+                                  className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                                />
+                                <span className="font-semibold">{val.label || val.value}</span>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Price Range Slider */}
           <div>
@@ -618,79 +825,132 @@ function ProductCatalogViewInner({
             </div>
           </div>
 
-          {/* Active Filter Badges */}
+          {/* Active Filter Badges / Tags */}
           {activeFiltersCount > 0 && (
             <div className="flex flex-wrap items-center gap-2 mb-6">
-              <span className="text-xs font-bold text-slate-400 mr-1">Active:</span>
+              <span className="text-xs font-bold text-slate-400 mr-1">Active Filters:</span>
 
               {selectedCategory !== "All" && !categoryScope && (
-                <span className="inline-flex items-center bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-lg border border-blue-200">
-                  {selectedCategory}
+                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-full border border-blue-200/90 shadow-2xs">
+                  <span>Category: {selectedCategory}</span>
                   <button
+                    type="button"
                     onClick={() => handleSelectCategory("All")}
-                    className="ml-1.5 hover:text-blue-900 cursor-pointer"
+                    className="hover:text-blue-900 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+                    aria-label={`Remove category filter: ${selectedCategory}`}
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3 h-3" aria-hidden="true" />
                   </button>
                 </span>
               )}
 
-              {selectedBrands.map((b) => (
-                <span
-                  key={b}
-                  className="inline-flex items-center bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-lg border border-blue-200"
-                >
-                  {b}
-                  <button
-                    onClick={() => handleToggleBrand(b)}
-                    className="ml-1.5 hover:text-blue-900 cursor-pointer"
+              {selectedBrands.map((b) => {
+                const brandObj = availableBrands.find(
+                  (brand) =>
+                    brand.slug.toLowerCase() === b.toLowerCase() ||
+                    brand.name.toLowerCase() === b.toLowerCase()
+                );
+                const brandDisplayName = brandObj
+                  ? brandObj.name
+                  : b.charAt(0).toUpperCase() + b.slice(1);
+
+                return (
+                  <span
+                    key={b}
+                    className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200/90 shadow-2xs hover:bg-blue-100/70 transition-colors"
                   >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
+                    <span>Brand: {brandDisplayName}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBrand(b)}
+                      className="hover:text-blue-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+                      aria-label={`Remove brand filter: ${brandDisplayName}`}
+                    >
+                      <X className="w-3 h-3" aria-hidden="true" />
+                    </button>
+                  </span>
+                );
+              })}
+
+              {selectedAttributeValues.map((val) => {
+                let attrLabel = val;
+                let attrName = "";
+                for (const a of availableAttributes) {
+                  const matchedVal = a.values.find(
+                    (v) => v.value === val || v.id === val
+                  );
+                  if (matchedVal) {
+                    attrName = a.name;
+                    attrLabel = matchedVal.label || matchedVal.value;
+                    break;
+                  }
+                }
+
+                return (
+                  <span
+                    key={val}
+                    className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-800 text-xs font-bold px-3 py-1 rounded-full border border-indigo-200/90 shadow-2xs hover:bg-indigo-100/70 transition-colors"
+                  >
+                    <span>{attrName ? `${attrName}: ` : ""}{attrLabel}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAttributeValue(val)}
+                      className="hover:text-indigo-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600"
+                      aria-label={`Remove filter: ${attrLabel}`}
+                    >
+                      <X className="w-3 h-3" aria-hidden="true" />
+                    </button>
+                  </span>
+                );
+              })}
 
               {maxPrice < 500000 && (
-                <span className="inline-flex items-center bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-lg border border-blue-200">
-                  Max: {formatBDT(maxPrice)}
+                <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1 rounded-full border border-slate-200">
+                  <span className="tabular-nums">Max: {formatBDT(maxPrice)}</span>
                   <button
+                    type="button"
                     onClick={() => {
                       setMaxPrice(500000);
                       updateUrlParams({ maxPrice: null, page: "1" });
                     }}
-                    className="ml-1.5 hover:text-blue-900 cursor-pointer"
+                    className="hover:text-slate-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-600"
+                    aria-label="Remove maximum price filter"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3 h-3" aria-hidden="true" />
                   </button>
                 </span>
               )}
 
               {inStockOnly && (
-                <span className="inline-flex items-center bg-emerald-50 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-lg border border-emerald-200">
-                  In Stock Only
+                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
+                  <span>In Stock Only</span>
                   <button
+                    type="button"
                     onClick={() => {
                       setInStockOnly(false);
                       updateUrlParams({ inStock: null, page: "1" });
                     }}
-                    className="ml-1.5 hover:text-emerald-900 cursor-pointer"
+                    className="hover:text-emerald-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600"
+                    aria-label="Remove in-stock filter"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3 h-3" aria-hidden="true" />
                   </button>
                 </span>
               )}
 
               {searchQuery.trim() && (
-                <span className="inline-flex items-center bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-200">
-                  &quot;{searchQuery}&quot;
+                <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+                  <span>&quot;{searchQuery}&quot;</span>
                   <button
+                    type="button"
                     onClick={() => {
                       setSearchQuery("");
                       updateUrlParams({ q: null, page: "1" });
                     }}
-                    className="ml-1.5 cursor-pointer"
+                    className="hover:text-amber-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-600"
+                    aria-label={`Clear search query: ${searchQuery}`}
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3 h-3" aria-hidden="true" />
                   </button>
                 </span>
               )}
@@ -698,7 +958,7 @@ function ProductCatalogViewInner({
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="text-xs font-bold text-rose-600 hover:underline ml-2 cursor-pointer"
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline ml-1 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500 rounded px-1.5 py-0.5"
               >
                 Clear all
               </button>
@@ -907,6 +1167,119 @@ function ProductCatalogViewInner({
                   })}
                 </div>
               </div>
+
+              {/* Dynamic Attributes Filter (Mobile) */}
+              {availableAttributes.length > 0 && (
+                <div className="space-y-4 pt-3 border-t border-slate-100">
+                  {availableAttributes.map((attr) => {
+                    const valuesInThisAttr = attr.values.map((v) => v.value);
+                    const hasActiveSelection = valuesInThisAttr.some((v) =>
+                      selectedAttributeValues.includes(v)
+                    );
+
+                    return (
+                      <div key={`m-${attr.id || attr.slug}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-black uppercase text-slate-700 tracking-wider">
+                            {attr.name}
+                          </label>
+                          {hasActiveSelection && (
+                            <button
+                              type="button"
+                              onClick={() => handleClearAttribute(valuesInThisAttr)}
+                              className="text-[10px] font-bold text-rose-600 hover:text-rose-700"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
+                        {attr.type === "COLOR" ? (
+                          <div className="flex flex-wrap gap-2">
+                            {attr.values.map((val) => {
+                              const isChecked = selectedAttributeValues.includes(val.value);
+                              const colorHex = val.colorCode || "#94a3b8";
+                              const isDark =
+                                colorHex.toLowerCase() === "#000000" ||
+                                colorHex.toLowerCase() === "#1e293b" ||
+                                colorHex.toLowerCase().startsWith("#0") ||
+                                colorHex.toLowerCase().startsWith("#1");
+
+                              return (
+                                <button
+                                  key={`m-${val.id || val.value}`}
+                                  type="button"
+                                  onClick={() => handleToggleAttributeValue(val.value)}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                                    isChecked
+                                      ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs ring-2 ring-blue-600/20"
+                                      : "border-slate-200 bg-white text-slate-700"
+                                  }`}
+                                >
+                                  <span
+                                    className="w-3.5 h-3.5 rounded-full border border-black/15 shadow-2xs shrink-0 flex items-center justify-center"
+                                    style={{ backgroundColor: colorHex }}
+                                  >
+                                    {isChecked && (
+                                      <Check
+                                        className={`w-2.5 h-2.5 ${
+                                          isDark ? "text-white" : "text-slate-900"
+                                        }`}
+                                        strokeWidth={3}
+                                      />
+                                    )}
+                                  </span>
+                                  <span className="capitalize">{val.label || val.value}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : attr.type === "BUTTON" ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {attr.values.map((val) => {
+                              const isChecked = selectedAttributeValues.includes(val.value);
+                              return (
+                                <button
+                                  key={`m-${val.id || val.value}`}
+                                  type="button"
+                                  onClick={() => handleToggleAttributeValue(val.value)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                                    isChecked
+                                      ? "bg-blue-600 border-blue-600 text-white shadow-xs"
+                                      : "bg-slate-50 border-slate-200 text-slate-700"
+                                  }`}
+                                >
+                                  <span>{val.label || val.value}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                            {attr.values.map((val) => {
+                              const isChecked = selectedAttributeValues.includes(val.value);
+                              return (
+                                <label
+                                  key={`m-${val.id || val.value}`}
+                                  className="flex items-center space-x-2 text-xs font-semibold text-slate-700"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => handleToggleAttributeValue(val.value)}
+                                    className="rounded text-blue-600 w-3.5 h-3.5"
+                                  />
+                                  <span>{val.label || val.value}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Price */}
               <div>
