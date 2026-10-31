@@ -112,6 +112,20 @@ export class ProductBrandSummaryDto {
   slug!: string;
 }
 
+export class ProductTagSummaryDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiPropertyOptional()
+  colorCode?: string | null;
+}
+
 export class ProductResponseDto {
   @ApiProperty()
   id!: string;
@@ -155,6 +169,9 @@ export class ProductResponseDto {
   @ApiProperty({ type: () => [ProductVariantResponseDto] })
   variants!: ProductVariantResponseDto[];
 
+  @ApiProperty({ type: () => [ProductTagSummaryDto] })
+  tags!: ProductTagSummaryDto[];
+
   @ApiPropertyOptional()
   primaryImage?: ProductImageResponseDto | null;
 
@@ -163,6 +180,12 @@ export class ProductResponseDto {
 
   @ApiPropertyOptional()
   maxPrice?: number;
+
+  @ApiPropertyOptional()
+  warrantyText?: string | null;
+
+  @ApiPropertyOptional()
+  specifications?: any;
 
   @ApiProperty()
   variantCount!: number;

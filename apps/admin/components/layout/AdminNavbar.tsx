@@ -90,7 +90,7 @@ export function AdminNavbar() {
               aria-label="Toggle navigation sidebar"
               title="Toggle sidebar"
             >
-              <i className="bi bi-list fs-4"></i>
+              <i className="bi bi-list fs-4" aria-hidden="true"></i>
             </button>
           </li>
         </ul>
@@ -124,12 +124,13 @@ export function AdminNavbar() {
                 loadNotifications();
               }}
               aria-expanded={notificationsOpen}
+              aria-haspopup="true"
               aria-label="Notifications"
             >
-              <i className="bi bi-bell fs-5"></i>
+              <i className="bi bi-bell fs-5" aria-hidden="true"></i>
               {unreadCount > 0 && (
                 <span
-                  className="position-absolute top-1 start-100 translate-middle badge rounded-pill bg-danger"
+                  className="position-absolute top-1 start-100 translate-middle badge rounded-pill bg-danger tabular-nums"
                   style={{ fontSize: "0.65rem", transform: "translate(-85%, 25%)" }}
                 >
                   {unreadCount > 99 ? "99+" : unreadCount}
@@ -220,6 +221,7 @@ export function AdminNavbar() {
               className="nav-link btn btn-link text-body d-flex align-items-center gap-2 p-1 text-decoration-none"
               onClick={() => setProfileOpen((prev) => !prev)}
               aria-expanded={profileOpen}
+              aria-haspopup="true"
               aria-label="User profile menu"
             >
               <div
@@ -250,7 +252,7 @@ export function AdminNavbar() {
                   {user?.role || "GUEST"}
                 </span>
               </div>
-              <i className="bi bi-chevron-down small text-muted d-none d-sm-inline"></i>
+              <i className="bi bi-chevron-down small text-muted d-none d-sm-inline" aria-hidden="true"></i>
             </button>
 
             {profileOpen && (

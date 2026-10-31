@@ -72,23 +72,25 @@ export function BrandsTable({
           <div className="col-12 col-md-4">
             <div className="input-group input-group-sm">
               <span className="input-group-text bg-body-tertiary">
-                <i className="bi bi-search"></i>
+                <i className="bi bi-search" aria-hidden="true"></i>
               </span>
               <input
-                type="text"
+                type="search"
                 className="form-control"
-                placeholder="Search by name or slug..."
+                placeholder="Search by name or slug…"
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
+                aria-label="Search brands by name or slug"
               />
               {searchTerm && (
                 <button
                   type="button"
                   className="btn btn-outline-secondary"
                   onClick={() => onSearchChange("")}
+                  aria-label="Clear search input"
                   title="Clear search"
                 >
-                  <i className="bi bi-x"></i>
+                  <i className="bi bi-x" aria-hidden="true"></i>
                 </button>
               )}
             </div>
@@ -100,7 +102,7 @@ export function BrandsTable({
               className="form-select form-select-sm w-auto"
               value={statusFilter}
               onChange={(e) => onStatusFilterChange(e.target.value)}
-              aria-label="Filter by status"
+              aria-label="Filter by active status"
             >
               <option value="">All Statuses</option>
               <option value="true">Active Only</option>

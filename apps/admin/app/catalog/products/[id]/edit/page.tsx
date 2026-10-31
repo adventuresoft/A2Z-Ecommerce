@@ -9,6 +9,7 @@ import {
   getProduct,
   updateProduct,
   UpdateProductPayload,
+  getProductStorefrontUrl,
 } from "../../../../../services/products";
 import { CategoryItem, categoriesApi, formatCategoryOptions } from "../../../../../services/categories";
 import { BrandItem, brandsApi } from "../../../../../services/brands";
@@ -18,6 +19,13 @@ import {
   VariantMatrixGenerator,
   VariantRow,
 } from "../../components/VariantMatrixGenerator";
+import { TagMultiSelect } from "../../components/TagMultiSelect";
+import { TiptapEditor } from "../../components/TiptapEditor";
+import {
+  ProductSpecificationsEditor,
+  SpecificationItem,
+  DEFAULT_SPECIFICATIONS,
+} from "../../components/ProductSpecificationsEditor";
 
 interface EditProductPageProps {
   params: Promise<{ id: string }>;
@@ -44,8 +52,17 @@ function EditProductContent({ params }: EditProductPageProps) {
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [warrantyText, setWarrantyText] = useState("Official BTRC / Warranty");
+  const [specifications, setSpecifications] = useState<SpecificationItem[]>([]);
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
+
+  // Tags State
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedNewTags, setSelectedNewTags] = useState<string[]>([]);
+  const [initialTags, setInitialTags] = useState<
+    Array<{ id: string; name: string; colorCode?: string | null }>
+  >([]);
 
   // Media Gallery & Variants
   const [galleryImages, setGalleryImages] = useState<ProductImageItem[]>([]);
@@ -64,6 +81,22 @@ function EditProductContent({ params }: EditProductPageProps) {
         }
       : null,
   );
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUrl = (url: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+    } else if (typeof document !== "undefined") {
+      const el = document.createElement("textarea");
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     async function load() {
@@ -83,8 +116,25 @@ function EditProductContent({ params }: EditProductPageProps) {
         setShortDescription(prod.shortDescription || "");
         setDescription(prod.description);
         setThumbnailUrl(prod.thumbnailUrl || "");
+        setWarrantyText(prod.warrantyText ?? "Official BTRC / Warranty");
+        if (Array.isArray(prod.specifications)) {
+          setSpecifications(prod.specifications);
+        } else if (prod.specifications && typeof prod.specifications === "object") {
+          const converted = Object.entries(prod.specifications).map(([k, v]) => ({
+            key: k,
+            value: typeof v === "string" ? v : JSON.stringify(v),
+          }));
+          setSpecifications(converted);
+        } else {
+          setSpecifications([...DEFAULT_SPECIFICATIONS]);
+        }
         setIsFeatured(prod.isFeatured);
         setIsActive(prod.isActive);
+
+        const existingTags = prod.tags || [];
+        setInitialTags(existingTags);
+        setSelectedTagIds(existingTags.map((t) => t.id));
+        setSelectedNewTags([]);
 
         setGalleryImages(prod.images || []);
 
@@ -127,7 +177,7 @@ function EditProductContent({ params }: EditProductPageProps) {
       setAlert({ type: "danger", text: "Please select a Category." });
       return;
     }
-    if (!description.trim()) {
+    if (!description || !description.trim() || description === "<p></p>") {
       setAlert({ type: "danger", text: "Product description is required." });
       return;
     }
@@ -141,8 +191,12 @@ function EditProductContent({ params }: EditProductPageProps) {
         slug: slug.trim() || undefined,
         categoryId,
         brandId: brandId || undefined,
+        tagIds: selectedTagIds,
+        tags: selectedNewTags.length > 0 ? selectedNewTags : undefined,
         shortDescription: shortDescription.trim() || undefined,
         thumbnailUrl: thumbnailUrl.trim() || undefined,
+        warrantyText: warrantyText.trim() || undefined,
+        specifications: specifications.filter((s) => s.key.trim() !== ""),
         description: description.trim(),
         isFeatured,
         isActive,
@@ -159,8 +213,10 @@ function EditProductContent({ params }: EditProductPageProps) {
         })),
       };
 
-      await updateProduct(productId, payload);
-      router.push("/catalog/products?updated=true");
+      const updated = await updateProduct(productId, payload);
+      router.push(
+        `/catalog/products?saved=true&slug=${encodeURIComponent(updated.slug)}&title=${encodeURIComponent(updated.title)}`,
+      );
     } catch (err: unknown) {
       setAlert({
         type: "danger",
@@ -215,6 +271,18 @@ function EditProductContent({ params }: EditProductPageProps) {
           </h4>
         </div>
         <div className="d-flex align-items-center gap-2">
+          {product.slug && (
+            <a
+              href={getProductStorefrontUrl(product.slug)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1 shadow-sm"
+              title="View on Customer Storefront"
+            >
+              <i className="bi bi-box-arrow-up-right"></i>
+              <span>View on Storefront</span>
+            </a>
+          )}
           <Link href="/catalog/products" className="btn btn-outline-secondary btn-sm">
             <i className="bi bi-arrow-left me-1"></i> Back to Products
           </Link>
@@ -223,19 +291,55 @@ function EditProductContent({ params }: EditProductPageProps) {
 
       {alert && (
         <div className={`alert alert-${alert.type} alert-dismissible fade show mb-4 shadow-sm`} role="alert">
-          <div className="d-flex align-items-center gap-2">
-            <i
-              className={`bi ${
-                alert.type === "success"
-                  ? "bi-check-circle-fill"
-                  : alert.type === "danger"
-                    ? "bi-exclamation-octagon-fill"
-                    : "bi-info-circle-fill"
-              }`}
-            ></i>
-            <span>{alert.text}</span>
+          <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+            <div className="d-flex align-items-center gap-2">
+              <i
+                className={`bi ${
+                  alert.type === "success"
+                    ? "bi-check-circle-fill fs-5"
+                    : alert.type === "danger"
+                      ? "bi-exclamation-octagon-fill fs-5"
+                      : "bi-info-circle-fill fs-5"
+                }`}
+              ></i>
+              <div>
+                <span className="fw-semibold">{alert.text}</span>
+                {alert.type === "success" && product?.slug && (
+                  <div className="small text-muted mt-1 d-flex flex-wrap align-items-center gap-2">
+                    <span>Storefront Link:</span>
+                    <code className="text-primary bg-white px-2 py-0.5 rounded border small font-monospace">
+                      {getProductStorefrontUrl(product.slug)}
+                    </code>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {alert.type === "success" && product?.slug && (
+              <div className="d-flex align-items-center gap-2 mt-2 mt-md-0 ms-md-auto me-4">
+                <a
+                  href={getProductStorefrontUrl(product.slug)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-sm btn-success d-flex align-items-center gap-1 shadow-sm px-3"
+                  title="Open storefront product page in a new tab"
+                >
+                  <i className="bi bi-box-arrow-up-right"></i>
+                  <span>View Live</span>
+                </a>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary bg-white d-flex align-items-center gap-1 shadow-sm px-2"
+                  onClick={() => handleCopyUrl(getProductStorefrontUrl(product.slug))}
+                  title="Copy Storefront URL"
+                >
+                  <i className={`bi ${copied ? "bi-check2 text-success" : "bi-clipboard"}`}></i>
+                  <span>{copied ? "Copied!" : "Copy URL"}</span>
+                </button>
+              </div>
+            )}
           </div>
-          <button type="button" className="btn-close" onClick={() => setAlert(null)}></button>
+          <button type="button" className="btn-close" onClick={() => setAlert(null)} aria-label="Close"></button>
         </div>
       )}
 
@@ -300,13 +404,11 @@ function EditProductContent({ params }: EditProductPageProps) {
                   <label className="form-label fw-semibold">
                     Full Description <span className="text-danger">*</span>
                   </label>
-                  <textarea
-                    className="form-control"
-                    rows={6}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    required
-                  ></textarea>
+                  <TiptapEditor
+                    content={description}
+                    onChange={(html) => setDescription(html)}
+                    disabled={submitting}
+                  />
                 </div>
               </div>
             </div>
@@ -317,6 +419,12 @@ function EditProductContent({ params }: EditProductPageProps) {
               galleryImages={galleryImages}
               variants={variants}
               onChange={setVariants}
+            />
+
+            {/* Dynamic Product Specifications Table */}
+            <ProductSpecificationsEditor
+              specifications={specifications}
+              onChange={setSpecifications}
             />
           </div>
 
@@ -335,16 +443,18 @@ function EditProductContent({ params }: EditProductPageProps) {
               </div>
               <div className="card-body">
                 <div className="mb-3">
-                  <label className="form-label fw-semibold">
+                  <label className="form-label fw-semibold" htmlFor="editProductCategorySelect">
                     Category <span className="text-danger">*</span>
                   </label>
                   <select
+                    id="editProductCategorySelect"
                     className="form-select"
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
                     required
+                    aria-label="Select product category"
                   >
-                    <option value="">Select Category...</option>
+                    <option value="">Select Category…</option>
                     {formatCategoryOptions(categories).map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.label}
@@ -354,11 +464,13 @@ function EditProductContent({ params }: EditProductPageProps) {
                 </div>
 
                 <div className="mb-0">
-                  <label className="form-label fw-semibold">Brand / Manufacturer</label>
+                  <label className="form-label fw-semibold" htmlFor="editProductBrandSelect">Brand / Manufacturer</label>
                   <select
+                    id="editProductBrandSelect"
                     className="form-select"
                     value={brandId}
                     onChange={(e) => setBrandId(e.target.value)}
+                    aria-label="Select product brand"
                   >
                     <option value="">No Brand (Generic / Store Brand)</option>
                     {brands.map((b) => (
@@ -367,6 +479,56 @@ function EditProductContent({ params }: EditProductPageProps) {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="mt-3">
+                  <label className="form-label fw-semibold d-flex align-items-center justify-content-between">
+                    <span>Product Tags</span>
+                    <Link
+                      href="/catalog/tags"
+                      target="_blank"
+                      className="small text-decoration-none"
+                    >
+                      Manage Tags <i className="bi bi-box-arrow-up-right small"></i>
+                    </Link>
+                  </label>
+                  <TagMultiSelect
+                    selectedTagIds={selectedTagIds}
+                    selectedNewTags={selectedNewTags}
+                    initialTags={initialTags}
+                    onChange={(ids, newTags) => {
+                      setSelectedTagIds(ids);
+                      setSelectedNewTags(newTags);
+                    }}
+                  />
+                  <div className="form-text small">
+                    Pick existing tags or type to create new tags on-the-fly.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Warranty & Badging Card */}
+            <div className="card shadow-sm border-0 mb-4">
+              <div className="card-header bg-white py-3 border-bottom">
+                <h6 className="card-title fw-bold m-0 text-dark">
+                  <i className="bi bi-shield-check text-primary me-2"></i>
+                  Warranty &amp; Badge
+                </h6>
+              </div>
+              <div className="card-body">
+                <div className="mb-0">
+                  <label className="form-label fw-semibold">Warranty / Badge Text</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Official BTRC / Warranty"
+                    value={warrantyText}
+                    onChange={(e) => setWarrantyText(e.target.value)}
+                  />
+                  <div className="form-text small">
+                    Displays under product title in storefront. Leave blank to hide.
+                  </div>
                 </div>
               </div>
             </div>
@@ -415,13 +577,13 @@ function EditProductContent({ params }: EditProductPageProps) {
                 >
                   {submitting ? (
                     <>
-                      <span className="spinner-border spinner-border-sm" role="status"></span>
-                      Saving Changes...
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                      <span>Saving Changes…</span>
                     </>
                   ) : (
                     <>
-                      <i className="bi bi-save"></i>
-                      Save Product Changes
+                      <i className="bi bi-save" aria-hidden="true"></i>
+                      <span>Save Product Changes</span>
                     </>
                   )}
                 </button>
@@ -438,9 +600,9 @@ export default function EditProductPage({ params }: EditProductPageProps) {
   return (
     <Suspense
       fallback={
-        <div className="container-fluid py-4 text-center">
+        <div className="container-fluid py-4 text-center" role="status" aria-live="polite">
           <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading editor...</span>
+            <span className="visually-hidden">Loading editor…</span>
           </div>
         </div>
       }

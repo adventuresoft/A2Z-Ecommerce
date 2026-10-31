@@ -40,6 +40,16 @@ export class ProductQueryDto {
   @IsOptional()
   brandId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by tag UUID' })
+  @IsUUID('4')
+  @IsOptional()
+  tagId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by tag slug' })
+  @IsString()
+  @IsOptional()
+  tagSlug?: string;
+
   @ApiPropertyOptional({ description: 'Filter by active status' })
   @Type(() => Boolean)
   @IsBoolean()

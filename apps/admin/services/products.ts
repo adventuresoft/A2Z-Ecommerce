@@ -56,8 +56,16 @@ export interface ProductItem {
   } | null;
   isFeatured: boolean;
   isActive: boolean;
+  warrantyText?: string | null;
+  specifications?: Array<{ key: string; value: string }> | null;
   images: ProductImageItem[];
   variants: ProductVariantItem[];
+  tags?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    colorCode?: string | null;
+  }>;
   primaryImage?: ProductImageItem | null;
   minPrice?: number;
   maxPrice?: number;
@@ -72,6 +80,8 @@ export interface ProductQuery {
   search?: string;
   categoryId?: string;
   brandId?: string;
+  tagId?: string;
+  tagSlug?: string;
   isActive?: boolean;
   isFeatured?: boolean;
   sortBy?: 'title' | 'createdAt' | 'updatedAt';
@@ -124,6 +134,10 @@ export interface CreateProductPayload {
   brandId?: string;
   isFeatured?: boolean;
   isActive?: boolean;
+  warrantyText?: string;
+  specifications?: Array<{ key: string; value: string }>;
+  tagIds?: string[];
+  tags?: string[];
   variants?: CreateVariantPayload[];
   // Simple product shortcuts
   sku?: string;
@@ -244,6 +258,8 @@ export async function getProducts(query: ProductQuery = {}): Promise<PaginatedPr
   if (query.search) params.set('search', query.search);
   if (query.categoryId) params.set('categoryId', query.categoryId);
   if (query.brandId) params.set('brandId', query.brandId);
+  if (query.tagId) params.set('tagId', query.tagId);
+  if (query.tagSlug) params.set('tagSlug', query.tagSlug);
   if (query.isActive !== undefined) params.set('isActive', query.isActive.toString());
   if (query.isFeatured !== undefined) params.set('isFeatured', query.isFeatured.toString());
   if (query.sortBy) params.set('sortBy', query.sortBy);
@@ -451,3 +467,13 @@ export async function uploadProductImage(file: File): Promise<{ imageUrl: string
   return res.json();
 }
 
+/**
+ * Resolves the public customer storefront URL for a product slug
+ */
+export function getProductStorefrontUrl(slug: string): string {
+  const storeUrl =
+    process.env.NEXT_PUBLIC_STORE_URL ||
+    process.env.NEXT_PUBLIC_STOREFRONT_URL ||
+    'http://localhost:3000';
+  return `${storeUrl.replace(/\/$/, '')}/products/${slug}`;
+}

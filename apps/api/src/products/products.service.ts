@@ -7,6 +7,7 @@ import {
 import { ReviewStatus, type Prisma } from '@prisma/client';
 import fs from 'node:fs';
 import { join } from 'node:path';
+import { TagsService } from '../tags/tags.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CreateProductDto,
@@ -33,7 +34,10 @@ import type {
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tagsService: TagsService,
+  ) {}
 
   /**
    * Format text into a clean lowercase kebab-case slug
@@ -173,6 +177,13 @@ export class ProductsService {
     const minPrice = prices.length > 0 ? Math.min(...prices) : undefined;
     const maxPrice = prices.length > 0 ? Math.max(...prices) : undefined;
 
+    const tags = (product.tags || []).map((pt: any) => ({
+      id: pt.tag?.id || pt.tagId,
+      name: pt.tag?.name || '',
+      slug: pt.tag?.slug || '',
+      colorCode: pt.tag?.colorCode || null,
+    }));
+
     return {
       id: product.id,
       title: product.title,
@@ -196,8 +207,11 @@ export class ProductsService {
         : null,
       isFeatured: product.isFeatured,
       isActive: product.isActive,
+      warrantyText: product.warrantyText,
+      specifications: product.specifications,
       images,
       variants,
+      tags,
       primaryImage,
       minPrice,
       maxPrice,
@@ -333,6 +347,11 @@ export class ProductsService {
           thumbnailUrl: dto.thumbnailUrl?.trim() || null,
           categoryId: dto.categoryId,
           brandId: dto.brandId || null,
+          warrantyText:
+            dto.warrantyText !== undefined
+              ? (dto.warrantyText?.trim() || null)
+              : 'Official BTRC / Warranty',
+          specifications: dto.specifications ?? undefined,
           isFeatured: dto.isFeatured ?? false,
           isActive: dto.isActive ?? true,
         },
@@ -373,12 +392,35 @@ export class ProductsService {
         }
       }
 
+      // Resolve and link tags if provided
+      if (
+        (dto.tagIds && dto.tagIds.length > 0) ||
+        (dto.tags && dto.tags.length > 0)
+      ) {
+        const resolvedTagIds = await this.tagsService.resolveOrCreateTags(
+          dto.tagIds,
+          dto.tags,
+          tx,
+        );
+        if (resolvedTagIds.length > 0) {
+          await tx.productTag.createMany({
+            data: resolvedTagIds.map((tagId) => ({
+              productId: product.id,
+              tagId,
+            })),
+          });
+        }
+      }
+
       return tx.product.findUniqueOrThrow({
         where: { id: product.id },
         include: {
           category: true,
           brand: true,
           images: { orderBy: { sortOrder: 'asc' } },
+          tags: {
+            include: { tag: true },
+          },
           variants: {
             include: {
               image: true,
@@ -433,6 +475,18 @@ export class ProductsService {
       where.isFeatured = query.isFeatured;
     }
 
+    if (query.tagId) {
+      where.tags = {
+        some: { tagId: query.tagId },
+      };
+    }
+
+    if (query.tagSlug) {
+      where.tags = {
+        some: { tag: { slug: query.tagSlug } },
+      };
+    }
+
     const orderBy: Prisma.ProductOrderByWithRelationInput = {};
     const sortField = query.sortBy || 'createdAt';
     const sortDir = query.sortOrder || 'desc';
@@ -449,6 +503,9 @@ export class ProductsService {
           category: true,
           brand: true,
           images: { orderBy: { sortOrder: 'asc' } },
+          tags: {
+            include: { tag: true },
+          },
           variants: {
             include: {
               image: true,
@@ -490,6 +547,9 @@ export class ProductsService {
         category: true,
         brand: true,
         images: { orderBy: { sortOrder: 'asc' } },
+        tags: {
+          include: { tag: true },
+        },
         variants: {
           include: {
             image: true,
@@ -641,6 +701,14 @@ export class ProductsService {
               : undefined,
           categoryId: dto.categoryId !== undefined ? dto.categoryId : undefined,
           brandId: dto.brandId !== undefined ? dto.brandId || null : undefined,
+          warrantyText:
+            dto.warrantyText !== undefined
+              ? (dto.warrantyText?.trim() || null)
+              : undefined,
+          specifications:
+            dto.specifications !== undefined
+              ? dto.specifications
+              : undefined,
           isFeatured: dto.isFeatured !== undefined ? dto.isFeatured : undefined,
           isActive: dto.isActive !== undefined ? dto.isActive : undefined,
         },
@@ -686,6 +754,28 @@ export class ProductsService {
               })),
             });
           }
+        }
+      }
+
+      // Handle tags update if provided
+      if (dto.tagIds !== undefined || dto.tags !== undefined) {
+        const resolvedTagIds = await this.tagsService.resolveOrCreateTags(
+          dto.tagIds || [],
+          dto.tags || [],
+          tx,
+        );
+
+        await tx.productTag.deleteMany({
+          where: { productId: id },
+        });
+
+        if (resolvedTagIds.length > 0) {
+          await tx.productTag.createMany({
+            data: resolvedTagIds.map((tagId) => ({
+              productId: id,
+              tagId,
+            })),
+          });
         }
       }
     });
@@ -1257,6 +1347,24 @@ export class ProductsService {
       }
     }
 
+    if (query.tagSlug || query.tags) {
+      const tagSlugs = (query.tags || query.tagSlug || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (tagSlugs.length > 0) {
+        where.tags = {
+          some: {
+            tag: {
+              slug: { in: tagSlugs },
+              isActive: true,
+            },
+          },
+        };
+      }
+    }
+
     if (query.q && query.q.trim()) {
       const term = query.q.trim();
       where.OR = [
@@ -1401,6 +1509,14 @@ export class ProductsService {
           images: {
             orderBy: { sortOrder: 'asc' },
           },
+          tags: {
+            where: { tag: { isActive: true } },
+            include: {
+              tag: {
+                select: { id: true, name: true, slug: true, colorCode: true },
+              },
+            },
+          },
           variants: {
             where: { isActive: true },
             include: {
@@ -1476,6 +1592,13 @@ export class ProductsService {
             )
           : 0;
 
+      const tags = (product.tags || []).map((pt: any) => ({
+        id: pt.tag?.id || pt.tagId,
+        name: pt.tag?.name || '',
+        slug: pt.tag?.slug || '',
+        colorCode: pt.tag?.colorCode || null,
+      }));
+
       return {
         id: product.id,
         title: product.title,
@@ -1501,6 +1624,7 @@ export class ProductsService {
         isFeatured: product.isFeatured,
         rating,
         reviewsCount,
+        tags,
         createdAt: product.createdAt,
       };
     });
@@ -1637,6 +1761,14 @@ export class ProductsService {
         images: {
           orderBy: { sortOrder: 'asc' },
         },
+        tags: {
+          where: { tag: { isActive: true } },
+          include: {
+            tag: {
+              select: { id: true, name: true, slug: true, colorCode: true },
+            },
+          },
+        },
         variants: {
           where: { isActive: true },
           include: {
@@ -1745,6 +1877,9 @@ export class ProductsService {
           where: { status: 'APPROVED' },
           select: { rating: true },
         },
+        tags: {
+          include: { tag: true },
+        },
       },
     });
 
@@ -1828,6 +1963,21 @@ export class ProductsService {
           isFeatured: relProd.isFeatured,
           rating: relRating,
           reviewsCount: relCount,
+          tags: (relProd.tags || []).map((pt: any) =>
+            pt.tag
+              ? {
+                  id: pt.tag.id,
+                  name: pt.tag.name,
+                  slug: pt.tag.slug,
+                  colorCode: pt.tag.colorCode,
+                }
+              : {
+                  id: pt.id,
+                  name: pt.name,
+                  slug: pt.slug,
+                  colorCode: pt.colorCode,
+                },
+          ),
           createdAt: relProd.createdAt,
         };
       },
@@ -1850,6 +2000,12 @@ export class ProductsService {
         sortOrder: img.sortOrder,
       })),
       variants: mappedVariants,
+      tags: (product.tags || []).map((pt: any) => ({
+        id: pt.tag?.id || pt.tagId,
+        name: pt.tag?.name || '',
+        slug: pt.tag?.slug || '',
+        colorCode: pt.tag?.colorCode || null,
+      })),
       rating,
       reviewsCount,
       reviews: reviews.map((r) => ({
@@ -1862,6 +2018,8 @@ export class ProductsService {
         createdAt: r.createdAt,
       })),
       relatedProducts,
+      warrantyText: product.warrantyText,
+      specifications: product.specifications,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
@@ -2030,6 +2188,21 @@ export class ProductsService {
       isFeatured: product.isFeatured,
       rating,
       reviewsCount,
+      tags: (product.tags || []).map((pt: any) =>
+        pt.tag
+          ? {
+              id: pt.tag.id,
+              name: pt.tag.name,
+              slug: pt.tag.slug,
+              colorCode: pt.tag.colorCode,
+            }
+          : {
+              id: pt.id,
+              name: pt.name,
+              slug: pt.slug,
+              colorCode: pt.colorCode,
+            },
+      ),
       createdAt: product.createdAt,
     };
   }
@@ -2041,6 +2214,7 @@ export class ProductsService {
     const publicInclude = {
       category: { select: { id: true, name: true, slug: true } },
       brand: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      tags: { include: { tag: true } },
       images: {
         select: {
           id: true,

@@ -102,5 +102,38 @@ describe('Product DTO Validation', () => {
     expect(properties).toContain('sortBy');
     expect(properties).toContain('minPrice');
   });
+
+  it('should accept valid tagIds and tags in CreateProductDto', async () => {
+    const dto = new CreateProductDto();
+    dto.title = 'Summer T-Shirt';
+    dto.description = 'Comfortable cotton shirt';
+    dto.categoryId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+    dto.tagIds = ['b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22'];
+    dto.tags = ['Summer 2026', 'Trending'];
+
+    const errors = await validate(dto);
+    expect(errors.length).toBe(0);
+  });
+
+  it('should reject invalid UUIDs in tagIds array', async () => {
+    const dto = new CreateProductDto();
+    dto.title = 'Summer T-Shirt';
+    dto.description = 'Comfortable cotton shirt';
+    dto.categoryId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+    dto.tagIds = ['not-a-valid-uuid'];
+
+    const errors = await validate(dto);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].property).toBe('tagIds');
+  });
+
+  it('should accept tagSlug and tags in PublicProductQueryDto', async () => {
+    const queryDto = new PublicProductQueryDto();
+    queryDto.tags = 'summer-collection,trending';
+    queryDto.tagSlug = 'summer-collection';
+
+    const errors = await validate(queryDto);
+    expect(errors.length).toBe(0);
+  });
 });
 

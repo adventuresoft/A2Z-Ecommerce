@@ -10,6 +10,10 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@tiptap/extension-link": "^3.32.1",
+    "@tiptap/pm": "^3.32.1",
+    "@tiptap/react": "^3.32.1",
+    "@tiptap/starter-kit": "^3.32.1",
     "admin-lte": "4.10.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.2",

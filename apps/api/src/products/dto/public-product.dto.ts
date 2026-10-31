@@ -51,6 +51,19 @@ export class PublicProductQueryDto {
   @IsOptional()
   brandSlug?: string;
 
+  @ApiPropertyOptional({
+    description: 'Filter by tag slug or comma-separated tag slugs',
+    example: 'summer-collection,trending',
+  })
+  @IsString()
+  @IsOptional()
+  tags?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by single tag slug' })
+  @IsString()
+  @IsOptional()
+  tagSlug?: string;
+
   @ApiPropertyOptional({ description: 'Minimum price filter', example: 100 })
   @Type(() => Number)
   @IsNumber()
@@ -121,6 +134,20 @@ export class PublicProductBrandDto {
   logoUrl?: string | null;
 }
 
+export class PublicProductTagDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiPropertyOptional()
+  colorCode?: string | null;
+}
+
 export class PublicProductImageDto {
   @ApiProperty()
   id!: string;
@@ -186,6 +213,9 @@ export class PublicProductSummaryDto {
 
   @ApiProperty()
   reviewsCount!: number;
+
+  @ApiProperty({ type: [PublicProductTagDto] })
+  tags!: PublicProductTagDto[];
 
   @ApiProperty()
   createdAt!: Date;
@@ -359,6 +389,9 @@ export class PublicProductDetailDto {
   @ApiProperty({ type: [PublicProductVariantDto] })
   variants!: PublicProductVariantDto[];
 
+  @ApiProperty({ type: [PublicProductTagDto] })
+  tags!: PublicProductTagDto[];
+
   @ApiProperty()
   rating!: number;
 
@@ -370,6 +403,12 @@ export class PublicProductDetailDto {
 
   @ApiProperty({ type: [PublicProductSummaryDto] })
   relatedProducts!: PublicProductSummaryDto[];
+
+  @ApiPropertyOptional()
+  warrantyText?: string | null;
+
+  @ApiPropertyOptional()
+  specifications?: any;
 
   @ApiProperty()
   createdAt!: Date;

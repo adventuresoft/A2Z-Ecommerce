@@ -13,6 +13,7 @@ const ITEM_MODULE_MAP: Record<string, AppModule> = {
   "products-categories": "categories",
   "products-all": "products",
   "products-brands": "brands",
+  "products-tags": "products",
   "products-attributes": "attributes",
   "products-variants": "variants",
   orders: "orders",
@@ -132,7 +133,7 @@ export function AdminSidebar() {
             className="brand-image bg-primary text-white rounded d-flex align-items-center justify-content-center shadow-sm"
             style={{ width: "32px", height: "32px" }}
           >
-            <i className="bi bi-cart4 fs-6"></i>
+            <i className="bi bi-cart4 fs-6" aria-hidden="true"></i>
           </div>
           <div className="d-flex flex-column" style={{ lineHeight: 1.15 }}>
             <span className="brand-text fw-bold text-white tracking-wide" style={{ fontSize: "0.86rem", letterSpacing: "0.03em" }}>
@@ -186,12 +187,13 @@ export function AdminSidebar() {
                       aria-expanded={isGroupOpen}
                     >
                       <div className="d-flex align-items-center gap-2">
-                        {item.icon && <i className={`${item.icon} text-secondary-emphasis`} style={{ fontSize: "0.95rem" }}></i>}
+                        {item.icon && <i className={`${item.icon} text-secondary-emphasis`} style={{ fontSize: "0.95rem" }} aria-hidden="true"></i>}
                         <span>{item.title}</span>
                       </div>
                       <div className="d-flex align-items-center gap-2">
                         <i
                           className={`bi bi-chevron-right small text-secondary`}
+                          aria-hidden="true"
                           style={{
                             fontSize: "0.7rem",
                             transform: isGroupOpen ? "rotate(90deg)" : "none",
@@ -223,9 +225,9 @@ export function AdminSidebar() {
                               >
                                 <div className="d-flex align-items-center gap-2">
                                   {child.icon ? (
-                                    <i className={`${child.icon}`} style={{ fontSize: "0.85rem" }}></i>
+                                    <i className={`${child.icon}`} style={{ fontSize: "0.85rem" }} aria-hidden="true"></i>
                                   ) : (
-                                    <i className="bi bi-circle" style={{ fontSize: "0.45rem" }}></i>
+                                    <i className="bi bi-circle" style={{ fontSize: "0.45rem" }} aria-hidden="true"></i>
                                   )}
                                   <span>{child.title}</span>
                                 </div>
@@ -260,7 +262,7 @@ export function AdminSidebar() {
                     aria-current={active ? "page" : undefined}
                   >
                     <div className="d-flex align-items-center gap-2">
-                      {item.icon && <i className={`${item.icon}`} style={{ fontSize: "0.95rem" }}></i>}
+                      {item.icon && <i className={`${item.icon}`} style={{ fontSize: "0.95rem" }} aria-hidden="true"></i>}
                       <span>{item.title}</span>
                     </div>
                     {item.badge && (

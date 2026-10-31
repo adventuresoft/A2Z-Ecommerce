@@ -26,6 +26,7 @@ import { AccountModule } from './account/account.module.js';
 import { CouponsModule } from './coupons/coupons.module.js';
 import { CheckoutModule } from './checkout/checkout.module.js';
 import { WishlistModule } from './wishlist/wishlist.module.js';
+import { TagsModule } from './tags/tags.module.js';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { WishlistModule } from './wishlist/wishlist.module.js';
     CouponsModule,
     CheckoutModule,
     WishlistModule,
+    TagsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

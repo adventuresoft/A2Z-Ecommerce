@@ -37,6 +37,8 @@ erDiagram
 
     Product ||--o{ ProductImage : "displays"
     Product ||--o{ ProductVariant : "offers"
+    Product ||--o{ ProductTag : "tagged with"
+    Tag ||--o{ ProductTag : "labels"
     Product ||--o{ Review : "receives"
 
     Attribute ||--o{ AttributeValue : "has values"
@@ -172,6 +174,8 @@ Conceptual product master holding shared marketing attributes and descriptions.
 | `categoryId` | `UUID` | FK → `Category.id` (Restrict), Not Null | Primary taxonomy category. |
 | `brandId` | `UUID` | FK → `Brand.id` (Restrict), Nullable | Brand reference. |
 | `taxClassId` | `UUID` | FK → `TaxClass.id` (Set Null), Nullable | Product-level tax class override. |
+| `warrantyText` | `VARCHAR(150)` | Nullable, Default `'Official BTRC / Warranty'` | Dynamic warranty or badge text. |
+| `specifications` | `JSONB` | Nullable | Dynamic key-value technical specifications array. |
 | `isFeatured` | `BOOLEAN` | Not Null, Default `false` | Featured on homepage flag. |
 | `isActive` | `BOOLEAN` | Not Null, Default `true` | Catalog visibility toggle. |
 | `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Creation timestamp. |
@@ -244,6 +248,27 @@ Association table assigning attribute values to specific physical SKUs (`Product
 - **`attributeValueId`:** `UUID` (FK → `AttributeValue.id` Restrict).
 - Composite PK `(variantId, attributeValueId)`.
 
+#### `Tag`
+Product categorization and discovery tags for merchandising and search filtering.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `UUID` | PK, default `gen_random_uuid()` | Tag identifier. |
+| `name` | `VARCHAR(100)` | Not Null | Display name (e.g. "Trending", "Summer Collection"). |
+| `slug` | `VARCHAR(120)` | Unique, Not Null | URL-safe slug. |
+| `colorCode` | `VARCHAR(20)` | Nullable | Optional hex color (e.g. `#0d6efd` for UI badge). |
+| `isActive` | `BOOLEAN` | Not Null, Default `true` | Visibility state. |
+| `createdAt` | `TIMESTAMP` | Not Null, Default `now()` | Timestamp. |
+| `updatedAt` | `TIMESTAMP` | Not Null | Timestamp. |
+
+#### `ProductTag`
+Many-to-many relationship linking products and tags.
+
+- **`productId`:** `UUID` (FK → `Product.id` Cascade).
+- **`tagId`:** `UUID` (FK → `Tag.id` Cascade).
+- **`createdAt`:** `TIMESTAMP` (Not Null, Default `now()`).
+- Composite PK `(productId, tagId)`.
+- Indexes: `@@index([tagId])`, `@@index([productId])`.
 
 ---
 

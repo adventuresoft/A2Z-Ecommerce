@@ -55,7 +55,7 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
   // Variant selections: attributeName -> value
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<"specs" | "overview" | "reviews">("specs");
+  const [activeTab, setActiveTab] = useState<"specs" | "descriptions">("specs");
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -151,6 +151,28 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
     });
 
     return Array.from(attrMap.values());
+  }, [productData]);
+
+  // Normalize dynamic specifications from API or mock
+  const specList = useMemo<Array<{ key: string; value: string }>>(() => {
+    if (!productData) return [];
+    if (Array.isArray(productData.specifications)) {
+      return productData.specifications.filter((s: any) => s && (s.key || s.value));
+    }
+    if (productData.specifications && typeof productData.specifications === "object") {
+      const items: Array<{ key: string; value: string }> = [];
+      Object.entries(productData.specifications).forEach(([grpOrKey, val]) => {
+        if (typeof val === "object" && val !== null) {
+          Object.entries(val).forEach(([k, v]) => {
+            items.push({ key: `${grpOrKey} - ${k}`, value: String(v) });
+          });
+        } else if (val) {
+          items.push({ key: grpOrKey, value: String(val) });
+        }
+      });
+      return items;
+    }
+    return [];
   }, [productData]);
 
   // Initialize selected variants
@@ -500,20 +522,23 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
             <button
               type="button"
               onClick={() => {
-                setActiveTab("reviews");
-                const el = document.getElementById("pdp-deep-dive");
+                const el = document.getElementById("customer-reviews-section");
                 el?.scrollIntoView({ behavior: "smooth" });
               }}
               className="text-xs font-bold text-blue-700 hover:text-blue-800 hover:underline cursor-pointer flex items-center space-x-1"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span>{productData.reviewsCount || 0} Customer Reviews</span>
+              <span>{productData.reviewsCount || (productData.reviews?.length || 0)} Customer Reviews</span>
             </button>
-            <span className="text-slate-300">|</span>
-            <span className="text-xs text-slate-500 font-medium flex items-center">
-              <Sparkles className="w-3 h-3 text-amber-500 mr-1" />
-              Official BTRC / Warranty
-            </span>
+            {productData.warrantyText !== null && productData.warrantyText !== "" && (
+              <>
+                <span className="text-slate-300">|</span>
+                <span className="text-xs text-slate-500 font-medium flex items-center">
+                  <Sparkles className="w-3 h-3 text-amber-500 mr-1" />
+                  {productData.warrantyText || "Official BTRC / Warranty"}
+                </span>
+              </>
+            )}
           </div>
 
           {/* Pricing Highlight Box */}
@@ -733,8 +758,8 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
         </div>
       </div>
 
-      {/* 3. Deep Dive Section: Tabs (Specifications, Overview, Customer Reviews) */}
-      <div id="pdp-deep-dive" className="mb-16 scroll-mt-28">
+      {/* 3. Deep Dive Section: Tabs (Specifications, Descriptions) */}
+      <div id="pdp-deep-dive" className="mb-10 scroll-mt-28">
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
           {/* Tab Headers */}
           <div className="flex border-b border-slate-200 bg-slate-50/70 overflow-x-auto">
@@ -747,183 +772,213 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
-              <span>Full Specifications</span>
+              <span>Specifications</span>
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("overview")}
+              onClick={() => setActiveTab("descriptions")}
               className={`py-4 px-6 text-sm font-black transition-all cursor-pointer border-b-2 flex items-center space-x-2 shrink-0 ${
-                activeTab === "overview"
+                activeTab === "descriptions"
                   ? "border-blue-700 text-blue-700 bg-white"
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
-              <span>Product Overview</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("reviews")}
-              className={`py-4 px-6 text-sm font-black transition-all cursor-pointer border-b-2 flex items-center space-x-2 shrink-0 ${
-                activeTab === "reviews"
-                  ? "border-blue-700 text-blue-700 bg-white"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <span>Customer Reviews ({productData.reviewsCount || (productData.reviews?.length || 0)})</span>
+              <span>Descriptions</span>
             </button>
           </div>
 
           {/* Tab Contents */}
           <div className="p-6 sm:p-8">
-            {/* Tab 1: Full Specifications Matrix */}
+            {/* Tab 1: Specifications Matrix */}
             {activeTab === "specs" && (
               <div>
                 <h3 className="text-lg font-black text-slate-900 mb-4">
                   Technical Specifications
                 </h3>
                 <div className="rounded-xl overflow-hidden border border-slate-200 divide-y divide-slate-100">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs bg-slate-50/50">
-                    <span className="font-bold text-slate-500">Category</span>
-                    <span className="font-medium text-slate-800 sm:col-span-2">{categoryName}</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
-                    <span className="font-bold text-slate-500">Brand</span>
-                    <span className="font-medium text-slate-800 sm:col-span-2">{brandName || "Authentic"}</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs bg-slate-50/50">
-                    <span className="font-bold text-slate-500">Active SKU</span>
-                    <span className="font-mono text-slate-800 sm:col-span-2">{sku || "Standard SKU"}</span>
-                  </div>
-                  {activeVariant?.weightGrams && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
-                      <span className="font-bold text-slate-500">Weight</span>
-                      <span className="font-medium text-slate-800 sm:col-span-2">{activeVariant.weightGrams}g</span>
-                    </div>
-                  )}
-                  {distinctAttributes.map((attr) => (
-                    <div key={attr.name} className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
-                      <span className="font-bold text-slate-500">{attr.name}</span>
-                      <span className="font-medium text-slate-800 sm:col-span-2">
-                        {attr.values.map((v) => v.value).join(", ")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Overview & Description */}
-            {activeTab === "overview" && (
-              <div className="prose max-w-none text-slate-700 leading-relaxed space-y-4">
-                <h3 className="text-lg font-black text-slate-900">
-                  About {productData.title}
-                </h3>
-                <p className="text-sm">
-                  {productData.description ||
-                    `Experience unprecedented performance and reliability with the ${productData.title}. Sourced through official authorized channels with verified quality guarantees for customers across Bangladesh.`}
-                </p>
-              </div>
-            )}
-
-            {/* Tab 3: Customer Reviews */}
-            {activeTab === "reviews" && (
-              <div className="space-y-8">
-                {/* Review Header Scorecard */}
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
-                  <div className="sm:col-span-4 flex flex-col items-center justify-center text-center border-b sm:border-b-0 sm:border-r border-slate-200 pb-4 sm:pb-0 sm:pr-4">
-                    <span className="text-5xl font-black text-slate-900 leading-none mb-1">
-                      {(productData.rating || 0).toFixed(1)}
-                    </span>
-                    <div className="flex items-center text-amber-400 my-2">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-4 h-4 ${
-                            i < Math.floor(productData.rating || 0) ? "fill-current" : "text-slate-200"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-xs font-semibold text-slate-500">
-                      Based on {productData.reviewsCount || (productData.reviews?.length || 0)} verified ratings
-                    </span>
-                  </div>
-
-                  <div className="sm:col-span-8 flex flex-col justify-center space-y-1.5">
-                    {[
-                      { star: "5 Star", pct: 85 },
-                      { star: "4 Star", pct: 12 },
-                      { star: "3 Star", pct: 2 },
-                      { star: "2 Star", pct: 1 },
-                      { star: "1 Star", pct: 0 },
-                    ].map((row) => (
-                      <div key={row.star} className="flex items-center space-x-3 text-xs">
-                        <span className="w-12 font-bold text-slate-600">{row.star}</span>
-                        <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
-                          <div
-                            className="bg-amber-400 h-2 rounded-full"
-                            style={{ width: `${row.pct}%` }}
-                          />
-                        </div>
-                        <span className="w-8 text-right font-medium text-slate-500">
-                          {row.pct}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Individual Review Comments */}
-                <div className="space-y-4">
-                  {productData.reviews && productData.reviews.length > 0 ? (
-                    productData.reviews.map((rev: any) => (
+                  {specList.length > 0 ? (
+                    specList.map((item: { key: string; value: string }, idx: number) => (
                       <div
-                        key={rev.id}
-                        className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2 shadow-2xs"
+                        key={idx}
+                        className={`grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs ${
+                          idx % 2 === 0 ? "bg-slate-50/50" : "bg-white"
+                        }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center">
-                              {(rev.reviewerName || rev.userName || "C")[0]}
-                            </div>
-                            <div>
-                              <h5 className="text-xs font-black text-slate-800">
-                                {rev.reviewerName || rev.userName || "Verified Customer"}
-                              </h5>
-                              {(rev.isVerifiedPurchase || rev.isVerified) && (
-                                <span className="text-[10px] text-emerald-600 font-bold flex items-center">
-                                  <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                                  Verified Purchase
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : rev.date || "Recent"}
-                          </span>
-                        </div>
-                        <div className="flex items-center text-amber-400">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-3 h-3 ${i < rev.rating ? "fill-current" : "text-slate-200"}`}
-                            />
-                          ))}
-                        </div>
-                        {rev.title && (
-                          <h6 className="text-xs font-bold text-slate-800">{rev.title}</h6>
-                        )}
-                        <p className="text-xs text-slate-600 leading-relaxed">{rev.comment}</p>
+                        <span className="font-bold text-slate-600">{item.key}</span>
+                        <span className="font-medium text-slate-800 sm:col-span-2">
+                          {item.value}
+                        </span>
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-8 text-slate-400 text-xs">
-                      No customer written reviews yet. Be the first verified customer to review!
-                    </div>
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs bg-slate-50/50">
+                        <span className="font-bold text-slate-500">Category</span>
+                        <span className="font-medium text-slate-800 sm:col-span-2">{categoryName}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
+                        <span className="font-bold text-slate-500">Brand</span>
+                        <span className="font-medium text-slate-800 sm:col-span-2">{brandName || "Authentic"}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs bg-slate-50/50">
+                        <span className="font-bold text-slate-500">Active SKU</span>
+                        <span className="font-mono text-slate-800 sm:col-span-2">{sku || "Standard SKU"}</span>
+                      </div>
+                      {activeVariant?.weightGrams && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
+                          <span className="font-bold text-slate-500">Weight</span>
+                          <span className="font-medium text-slate-800 sm:col-span-2">{activeVariant.weightGrams}g</span>
+                        </div>
+                      )}
+                      {distinctAttributes.map((attr) => (
+                        <div key={attr.name} className="grid grid-cols-1 sm:grid-cols-3 p-3.5 text-xs">
+                          <span className="font-bold text-slate-500">{attr.name}</span>
+                          <span className="font-medium text-slate-800 sm:col-span-2">
+                            {attr.values.map((v) => v.value).join(", ")}
+                          </span>
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
               </div>
             )}
+
+            {/* Tab 2: Descriptions (Render Tiptap HTML cleanly) */}
+            {activeTab === "descriptions" && (
+              <div className="text-slate-700 leading-relaxed">
+                <h3 className="text-lg font-black text-slate-900 mb-4">
+                  About {productData.title}
+                </h3>
+                {productData.description ? (
+                  <div
+                    className="prose prose-slate max-w-none text-sm leading-relaxed prose-headings:font-bold prose-headings:text-slate-900 prose-h2:text-xl prose-h2:mt-6 prose-h2:mb-3 prose-h3:text-lg prose-h3:mt-4 prose-h3:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-1 prose-img:rounded-xl prose-table:my-4"
+                    dangerouslySetInnerHTML={{ __html: productData.description }}
+                  />
+                ) : (
+                  <p className="text-sm">
+                    {`Experience unprecedented performance and reliability with the ${productData.title}. Sourced through official authorized channels with verified quality guarantees for customers across Bangladesh.`}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Standalone Customer Reviews Section (Outside and Below Tabs) */}
+      <div id="customer-reviews-section" className="mb-16 scroll-mt-28">
+        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8">
+          <div className="flex items-center justify-between pb-6 mb-6 border-b border-slate-200">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-blue-700" />
+                <span>Customer Reviews</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Ratings &amp; real customer feedback for {productData.title}
+              </p>
+            </div>
+            <span className="text-xs font-black px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200/60">
+              {productData.reviewsCount || (productData.reviews?.length || 0)} Total Reviews
+            </span>
+          </div>
+
+          <div className="space-y-8">
+            {/* Review Header Scorecard */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
+              <div className="sm:col-span-4 flex flex-col items-center justify-center text-center border-b sm:border-b-0 sm:border-r border-slate-200 pb-4 sm:pb-0 sm:pr-4">
+                <span className="text-5xl font-black text-slate-900 leading-none mb-1">
+                  {(productData.rating || 0).toFixed(1)}
+                </span>
+                <div className="flex items-center text-amber-400 my-2">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-4 h-4 ${
+                        i < Math.floor(productData.rating || 0) ? "fill-current" : "text-slate-200"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs font-semibold text-slate-500">
+                  Based on {productData.reviewsCount || (productData.reviews?.length || 0)} verified ratings
+                </span>
+              </div>
+
+              <div className="sm:col-span-8 flex flex-col justify-center space-y-1.5">
+                {[
+                  { star: "5 Star", pct: 85 },
+                  { star: "4 Star", pct: 12 },
+                  { star: "3 Star", pct: 2 },
+                  { star: "2 Star", pct: 1 },
+                  { star: "1 Star", pct: 0 },
+                ].map((row) => (
+                  <div key={row.star} className="flex items-center space-x-3 text-xs">
+                    <span className="w-12 font-bold text-slate-600">{row.star}</span>
+                    <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-amber-400 h-2 rounded-full"
+                        style={{ width: `${row.pct}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right font-medium text-slate-500">
+                      {row.pct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Individual Review Comments */}
+            <div className="space-y-4">
+              {productData.reviews && productData.reviews.length > 0 ? (
+                productData.reviews.map((rev: any) => (
+                  <div
+                    key={rev.id}
+                    className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2 shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center">
+                          {(rev.reviewerName || rev.userName || "C")[0]}
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-black text-slate-800">
+                            {rev.reviewerName || rev.userName || "Verified Customer"}
+                          </h5>
+                          {(rev.isVerifiedPurchase || rev.isVerified) && (
+                            <span className="text-[10px] text-emerald-600 font-bold flex items-center">
+                              <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                              Verified Purchase
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : rev.date || "Recent"}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-amber-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-3 h-3 ${i < rev.rating ? "fill-current" : "text-slate-200"}`}
+                        />
+                      ))}
+                    </div>
+                    {rev.title && (
+                      <h6 className="text-xs font-bold text-slate-800">{rev.title}</h6>
+                    )}
+                    <p className="text-xs text-slate-600 leading-relaxed">{rev.comment}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-slate-400 text-xs">
+                  No customer written reviews yet. Be the first verified customer to review!
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

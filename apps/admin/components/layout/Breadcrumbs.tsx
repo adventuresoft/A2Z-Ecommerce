@@ -27,12 +27,12 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
             >
               {!isLast && item.href ? (
                 <Link href={item.href} className="text-decoration-none text-primary fw-medium">
-                  {index === 0 && <i className="bi bi-house-door me-1 small"></i>}
+                  {index === 0 && <i className="bi bi-house-door me-1 small" aria-hidden="true"></i>}
                   {item.title}
                 </Link>
               ) : (
                 <span className="fw-medium text-body-secondary">
-                  {index === 0 && <i className="bi bi-house-door me-1 small"></i>}
+                  {index === 0 && <i className="bi bi-house-door me-1 small" aria-hidden="true"></i>}
                   {item.title}
                 </span>
               )}

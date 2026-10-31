@@ -62,6 +62,14 @@ export const navigationConfig: NavItem[] = [
         badge: { text: "Live", variant: "success" },
       },
       {
+        id: "products-tags",
+        title: "Tags",
+        href: "/catalog/tags",
+        icon: "bi bi-tag",
+        phase: 1,
+        badge: { text: "Live", variant: "success" },
+      },
+      {
         id: "products-attributes",
         title: "Attributes",
         href: "/catalog/attributes",

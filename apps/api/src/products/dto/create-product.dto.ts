@@ -85,6 +85,23 @@ export class CreateProductDto {
   thumbnailUrl?: string;
 
   @ApiPropertyOptional({
+    example: 'Official BTRC / Warranty',
+    description: 'Warranty or badge label shown on product page',
+    maxLength: 150,
+  })
+  @IsString({ message: 'warrantyText must be a string' })
+  @IsOptional()
+  @MaxLength(150)
+  warrantyText?: string;
+
+  @ApiPropertyOptional({
+    example: [{ key: 'Brand', value: 'Apple' }, { key: 'Model', value: 'iPhone 15' }],
+    description: 'Dynamic key-value specification attributes',
+  })
+  @IsOptional()
+  specifications?: any;
+
+  @ApiPropertyOptional({
     example: false,
     description: 'Featured product flag for homepage promotion',
     default: false,
@@ -103,6 +120,26 @@ export class CreateProductDto {
   @IsBoolean({ message: 'isActive must be a boolean' })
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    example: ['d9b2b5e2-63a2-4a7b-a634-11e03a9364a1'],
+    description: 'Array of existing Tag UUIDs to link to the product',
+    type: [String],
+  })
+  @IsArray({ message: 'tagIds must be an array' })
+  @IsUUID('4', { each: true, message: 'Each tag ID must be a valid UUID' })
+  @IsOptional()
+  tagIds?: string[];
+
+  @ApiPropertyOptional({
+    example: ['Summer Collection', 'Trending'],
+    description: 'Array of tag names to link (creates on-the-fly if non-existent)',
+    type: [String],
+  })
+  @IsArray({ message: 'tags must be an array' })
+  @IsString({ each: true, message: 'Each tag must be a string' })
+  @IsOptional()
+  tags?: string[];
 
   @ApiPropertyOptional({
     type: () => [CreateProductVariantDto],

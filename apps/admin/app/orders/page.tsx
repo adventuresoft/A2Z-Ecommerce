@@ -176,19 +176,21 @@ export default function OrdersListPage() {
                   <i className="bi bi-search text-muted"></i>
                 </span>
                 <input
-                  type="text"
+                  type="search"
                   className="form-control border-start-0 ps-0"
-                  placeholder="Search order #, customer, phone..."
+                  placeholder="Search order #, customer, phone…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  aria-label="Search orders by order number, customer, or phone"
                 />
                 {searchTerm && (
                   <button
                     className="btn btn-outline-secondary bg-white border-start-0"
                     type="button"
                     onClick={() => setSearchTerm("")}
+                    aria-label="Clear search input"
                   >
-                    <i className="bi bi-x"></i>
+                    <i className="bi bi-x" aria-hidden="true"></i>
                   </button>
                 )}
               </div>
@@ -203,6 +205,7 @@ export default function OrdersListPage() {
                   setOrderStatusFilter(e.target.value as OrderStatus | "");
                   setPage(1);
                 }}
+                aria-label="Filter by order status"
               >
                 <option value="">Order Status: All</option>
                 <option value="PENDING">Pending</option>
@@ -224,6 +227,7 @@ export default function OrdersListPage() {
                   setPaymentStatusFilter(e.target.value as PaymentStatus | "");
                   setPage(1);
                 }}
+                aria-label="Filter by payment status"
               >
                 <option value="">Payment: All</option>
                 <option value="PENDING">Pending</option>
@@ -242,6 +246,7 @@ export default function OrdersListPage() {
                   setShipmentStatusFilter(e.target.value as ShipmentStatus | "");
                   setPage(1);
                 }}
+                aria-label="Filter by shipment status"
               >
                 <option value="">Shipment: All</option>
                 <option value="UNFULFILLED">Unfulfilled</option>
@@ -267,8 +272,9 @@ export default function OrdersListPage() {
                   setShipmentStatusFilter("");
                   setPage(1);
                 }}
+                aria-label="Reset all search and status filters"
               >
-                <i className="bi bi-arrow-counterclockwise me-1"></i>Reset
+                <i className="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Reset
               </button>
             </div>
           </div>
@@ -308,17 +314,17 @@ export default function OrdersListPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-5">
+                    <td colSpan={10} className="text-center py-5" role="status" aria-live="polite">
                       <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading orders...</span>
+                        <span className="visually-hidden">Loading orders…</span>
                       </div>
-                      <p className="text-muted mt-2 mb-0">Loading order records...</p>
+                      <p className="text-muted mt-2 mb-0 small">Loading order records…</p>
                     </td>
                   </tr>
                 ) : orders.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="text-center py-5 text-muted">
-                      <i className="bi bi-cart-x fs-1 d-block mb-2 text-secondary"></i>
+                      <i className="bi bi-cart-x fs-1 d-block mb-2 text-secondary" aria-hidden="true"></i>
                       <p className="h6 mb-1">No orders found</p>
                       <p className="small mb-0">Try adjusting your filters or search keywords.</p>
                     </td>
@@ -331,9 +337,9 @@ export default function OrdersListPage() {
                           {order.orderNumber}
                         </Link>
                       </td>
-                      <td className="small text-muted">
+                      <td className="small text-muted tabular-nums">
                         {new Date(order.createdAt).toLocaleDateString()}
-                        <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                        <div className="text-muted tabular-nums" style={{ fontSize: "0.75rem" }}>
                           {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </td>
@@ -345,12 +351,12 @@ export default function OrdersListPage() {
                         {order.shippingCity}
                         {order.shippingState ? `, ${order.shippingState}` : ""}
                       </td>
-                      <td className="text-end font-monospace">
-                        <span className="badge bg-light text-dark border">
+                      <td className="text-end font-monospace tabular-nums">
+                        <span className="badge bg-light text-dark border tabular-nums">
                           {order.items?.length || 0}
                         </span>
                       </td>
-                      <td className="text-end fw-bold font-monospace text-dark">
+                      <td className="text-end fw-bold font-monospace text-dark tabular-nums">
                         ৳{order.grandTotal.toFixed(2)}
                       </td>
                       <td className="text-center">{getOrderStatusBadge(order.orderStatus)}</td>
@@ -360,8 +366,9 @@ export default function OrdersListPage() {
                         <Link
                           href={`/orders/${order.id}`}
                           className="btn btn-sm btn-outline-primary"
+                          aria-label={`View details for order ${order.orderNumber}`}
                         >
-                          <i className="bi bi-eye me-1"></i> Details
+                          <i className="bi bi-eye me-1" aria-hidden="true"></i> Details
                         </Link>
                       </td>
                     </tr>
@@ -376,13 +383,18 @@ export default function OrdersListPage() {
         {!loading && totalPages > 1 && (
           <div className="card-footer bg-white border-top py-3">
             <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <div className="small text-muted">
+              <div className="small text-muted tabular-nums">
                 Showing {Math.min((page - 1) * limit + 1, total)} to{" "}
                 {Math.min(page * limit, total)} of {total} orders
               </div>
               <ul className="pagination pagination-sm mb-0">
                 <li className={`page-item ${page === 1 ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => setPage(page - 1)} disabled={page === 1}>
+                  <button
+                    className="page-link"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 1}
+                    aria-label="Previous page"
+                  >
                     Previous
                   </button>
                 </li>
@@ -394,7 +406,12 @@ export default function OrdersListPage() {
                   ) {
                     return (
                       <li key={p} className={`page-item ${p === page ? "active" : ""}`}>
-                        <button className="page-link" onClick={() => setPage(p)}>
+                        <button
+                          className="page-link tabular-nums"
+                          onClick={() => setPage(p)}
+                          aria-label={`Page ${p}`}
+                          aria-current={p === page ? "page" : undefined}
+                        >
                           {p}
                         </button>
                       </li>
@@ -402,15 +419,20 @@ export default function OrdersListPage() {
                   }
                   if (p === page - 3 || p === page + 3) {
                     return (
-                      <li key={p} className="page-item disabled">
-                        <span className="page-link">...</span>
+                      <li key={p} className="page-item disabled" aria-hidden="true">
+                        <span className="page-link">…</span>
                       </li>
                     );
                   }
                   return null;
                 })}
                 <li className={`page-item ${page === totalPages ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => setPage(page + 1)} disabled={page === totalPages}>
+                  <button
+                    className="page-link"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page === totalPages}
+                    aria-label="Next page"
+                  >
                     Next
                   </button>
                 </li>

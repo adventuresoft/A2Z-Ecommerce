@@ -201,6 +201,8 @@ model Product {
   brandId          String?
   taxClassId       String?
   thumbnailUrl     String?          @db.VarChar(255)
+  warrantyText     String?          @default("Official BTRC / Warranty") @db.VarChar(150)
+  specifications   Json?
   isFeatured       Boolean          @default(false)
   isActive         Boolean          @default(true)
   createdAt        DateTime         @default(now())
@@ -211,6 +213,7 @@ model Product {
   taxClass         TaxClass?        @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
   images           ProductImage[]
   variants         ProductVariant[]
+  tags             ProductTag[]
   reviews          Review[]
   wishlistItems    WishlistItem[]
 
@@ -276,6 +279,36 @@ model ProductVariantAttributeValue {
   @@id([variantId, attributeValueId])
   @@index([attributeValueId])
   @@map("ProductVariantAttributeValue")
+}
+
+model Tag {
+  id        String       @id @default(uuid())
+  name      String       @db.VarChar(100)
+  slug      String       @unique @db.VarChar(120)
+  colorCode String?      @db.VarChar(20)
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  products  ProductTag[]
+
+  @@index([isActive])
+  @@index([slug])
+  @@map("Tag")
+}
+
+model ProductTag {
+  productId String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+  @@index([tagId])
+  @@index([productId])
+  @@map("ProductTag")
 }
 
 enum StockMovementType {

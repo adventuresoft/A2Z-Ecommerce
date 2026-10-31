@@ -11,6 +11,13 @@ import {
   VariantMatrixGenerator,
   VariantRow,
 } from "../components/VariantMatrixGenerator";
+import { TagMultiSelect } from "../components/TagMultiSelect";
+import { TiptapEditor } from "../components/TiptapEditor";
+import {
+  ProductSpecificationsEditor,
+  SpecificationItem,
+  DEFAULT_SPECIFICATIONS,
+} from "../components/ProductSpecificationsEditor";
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -27,8 +34,16 @@ export default function NewProductPage() {
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [warrantyText, setWarrantyText] = useState("Official BTRC / Warranty");
+  const [specifications, setSpecifications] = useState<SpecificationItem[]>([
+    ...DEFAULT_SPECIFICATIONS,
+  ]);
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
+
+  // Tags State
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedNewTags, setSelectedNewTags] = useState<string[]>([]);
 
   // Simple Product Pricing Shortcuts
   const [isMultiVariant, setIsMultiVariant] = useState(false);
@@ -75,7 +90,7 @@ export default function NewProductPage() {
       setError("Please select a Category.");
       return;
     }
-    if (!description.trim()) {
+    if (!description || !description.trim() || description === "<p></p>") {
       setError("Product description is required.");
       return;
     }
@@ -89,8 +104,12 @@ export default function NewProductPage() {
         slug: slug.trim() || undefined,
         categoryId,
         brandId: brandId || undefined,
+        tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        tags: selectedNewTags.length > 0 ? selectedNewTags : undefined,
         shortDescription: shortDescription.trim() || undefined,
         thumbnailUrl: thumbnailUrl.trim() || undefined,
+        warrantyText: warrantyText.trim() || undefined,
+        specifications: specifications.filter((s) => s.key.trim() !== ""),
         description: description.trim(),
         isFeatured,
         isActive,
@@ -218,14 +237,11 @@ export default function NewProductPage() {
                   <label className="form-label fw-semibold">
                     Full Description <span className="text-danger">*</span>
                   </label>
-                  <textarea
-                    className="form-control"
-                    rows={6}
-                    placeholder="Detailed specifications, features, materials, sizing..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    required
-                  ></textarea>
+                  <TiptapEditor
+                    content={description}
+                    onChange={(html) => setDescription(html)}
+                    disabled={submitting}
+                  />
                 </div>
               </div>
             </div>
@@ -274,6 +290,7 @@ export default function NewProductPage() {
                         type="number"
                         step="0.01"
                         min="0.01"
+                        inputMode="decimal"
                         className="form-control"
                         placeholder="29.99"
                         value={simpleRegularPrice}
@@ -287,6 +304,7 @@ export default function NewProductPage() {
                         type="number"
                         step="0.01"
                         min="0.01"
+                        inputMode="decimal"
                         className="form-control"
                         placeholder="Optional promotional price"
                         value={simpleSalePrice}
@@ -298,6 +316,7 @@ export default function NewProductPage() {
                       <input
                         type="number"
                         min="0"
+                        inputMode="numeric"
                         className="form-control"
                         placeholder="200"
                         value={simpleWeightGrams}
@@ -315,6 +334,12 @@ export default function NewProductPage() {
                 )}
               </div>
             </div>
+
+            {/* Dynamic Product Specifications Table */}
+            <ProductSpecificationsEditor
+              specifications={specifications}
+              onChange={setSpecifications}
+            />
           </div>
 
           {/* Sidebar Settings Column */}
@@ -333,19 +358,21 @@ export default function NewProductPage() {
               </div>
               <div className="card-body">
                 <div className="mb-3">
-                  <label className="form-label fw-semibold">
+                  <label className="form-label fw-semibold" htmlFor="productCategorySelect">
                     Category <span className="text-danger">*</span>
                   </label>
                   {loadingOptions ? (
-                    <div className="small text-muted">Loading categories...</div>
+                    <div className="small text-muted" role="status" aria-live="polite">Loading categories…</div>
                   ) : (
                     <select
+                      id="productCategorySelect"
                       className="form-select"
                       value={categoryId}
                       onChange={(e) => setCategoryId(e.target.value)}
                       required
+                      aria-label="Select product category"
                     >
-                      <option value="">Select Category...</option>
+                      <option value="">Select Category…</option>
                       {formatCategoryOptions(categories).map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.label}
@@ -356,14 +383,16 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="mb-0">
-                  <label className="form-label fw-semibold">Brand / Manufacturer</label>
+                  <label className="form-label fw-semibold" htmlFor="productBrandSelect">Brand / Manufacturer</label>
                   {loadingOptions ? (
-                    <div className="small text-muted">Loading brands...</div>
+                    <div className="small text-muted" role="status" aria-live="polite">Loading brands…</div>
                   ) : (
                     <select
+                      id="productBrandSelect"
                       className="form-select"
                       value={brandId}
                       onChange={(e) => setBrandId(e.target.value)}
+                      aria-label="Select product brand"
                     >
                       <option value="">No Brand (Generic / Store Brand)</option>
                       {brands.map((b) => (
@@ -373,6 +402,55 @@ export default function NewProductPage() {
                       ))}
                     </select>
                   )}
+                </div>
+
+                <div className="mt-3">
+                  <label className="form-label fw-semibold d-flex align-items-center justify-content-between">
+                    <span>Product Tags</span>
+                    <Link
+                      href="/catalog/tags"
+                      target="_blank"
+                      className="small text-decoration-none"
+                    >
+                      Manage Tags <i className="bi bi-box-arrow-up-right small"></i>
+                    </Link>
+                  </label>
+                  <TagMultiSelect
+                    selectedTagIds={selectedTagIds}
+                    selectedNewTags={selectedNewTags}
+                    onChange={(ids, newTags) => {
+                      setSelectedTagIds(ids);
+                      setSelectedNewTags(newTags);
+                    }}
+                  />
+                  <div className="form-text small">
+                    Pick existing tags or type to create new tags on-the-fly.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Warranty & Badging Card */}
+            <div className="card shadow-sm border-0 mb-4">
+              <div className="card-header bg-white py-3 border-bottom">
+                <h6 className="card-title fw-bold m-0 text-dark">
+                  <i className="bi bi-shield-check text-primary me-2"></i>
+                  Warranty &amp; Badge
+                </h6>
+              </div>
+              <div className="card-body">
+                <div className="mb-0">
+                  <label className="form-label fw-semibold">Warranty / Badge Text</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Official BTRC / Warranty"
+                    value={warrantyText}
+                    onChange={(e) => setWarrantyText(e.target.value)}
+                  />
+                  <div className="form-text small">
+                    Displays under product title in storefront. Leave blank to hide.
+                  </div>
                 </div>
               </div>
             </div>

@@ -7,9 +7,11 @@ import {
   ProductItem,
   getProducts,
   updateProduct,
+  getProductStorefrontUrl,
 } from "../../../services/products";
 import { CategoryItem, categoriesApi, formatCategoryOptions } from "../../../services/categories";
 import { BrandItem, brandsApi } from "../../../services/brands";
+import { TagItem, tagsApi } from "../../../services/tags";
 import { ProductsTable } from "./components/ProductsTable";
 import { ProductDeleteModal } from "./components/ProductDeleteModal";
 
@@ -17,17 +19,21 @@ function ProductsPageContent() {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [brands, setBrands] = useState<BrandItem[]>([]);
+  const [availableTags, setAvailableTags] = useState<TagItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  const searchParams = useSearchParams();
+
   // Filters & Sorting
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState(searchParams.get("tagId") || "");
   const [statusFilter, setStatusFilter] = useState("");
   const [featuredFilter, setFeaturedFilter] = useState("");
   const [sortBy, setSortBy] = useState<"title" | "createdAt" | "updatedAt">("createdAt");
@@ -37,20 +43,42 @@ function ProductsPageContent() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<ProductItem | null>(null);
 
-  const searchParams = useSearchParams();
-
   // Alert feedback
+  const isSaved = searchParams.get("saved") === "true" || searchParams.get("updated") === "true";
+  const savedSlug = searchParams.get("slug");
+  const savedTitle = searchParams.get("title");
+
   const [alert, setAlert] = useState<{
     type: "success" | "danger" | "info";
     text: string;
+    slug?: string | null;
   } | null>(
-    searchParams.get("updated") === "true"
+    isSaved
       ? {
           type: "success",
-          text: "Product updated successfully!",
+          text: savedTitle
+            ? `Product "${decodeURIComponent(savedTitle)}" saved successfully!`
+            : "Product saved successfully!",
+          slug: savedSlug ? decodeURIComponent(savedSlug) : null,
         }
       : null,
   );
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUrl = (url: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+    } else if (typeof document !== "undefined") {
+      const el = document.createElement("textarea");
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Debounce search
   useEffect(() => {
@@ -65,14 +93,16 @@ function ProductsPageContent() {
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [catRes, brandRes] = await Promise.all([
+        const [catRes, brandRes, tagsRes] = await Promise.all([
           categoriesApi.getCategories({ limit: 100 }),
           brandsApi.getBrands({ limit: 100 }),
+          tagsApi.getTags({ limit: 100, isActive: true }),
         ]);
         setCategories(catRes.items);
         setBrands(brandRes.items);
+        setAvailableTags(tagsRes.items);
       } catch (err) {
-        console.error("Failed to load category/brand options:", err);
+        console.error("Failed to load category/brand/tag options:", err);
       }
     }
     loadOptions();
@@ -88,6 +118,7 @@ function ProductsPageContent() {
         search: debouncedSearch || undefined,
         categoryId: categoryFilter || undefined,
         brandId: brandFilter || undefined,
+        tagId: tagFilter || undefined,
         isActive: statusFilter === "" ? undefined : statusFilter === "true",
         isFeatured: featuredFilter === "" ? undefined : featuredFilter === "true",
         sortBy,
@@ -103,7 +134,7 @@ function ProductsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, debouncedSearch, categoryFilter, brandFilter, statusFilter, featuredFilter, sortBy, sortOrder]);
+  }, [page, limit, debouncedSearch, categoryFilter, brandFilter, tagFilter, statusFilter, featuredFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchProducts();
@@ -124,6 +155,7 @@ function ProductsPageContent() {
     setDebouncedSearch("");
     setCategoryFilter("");
     setBrandFilter("");
+    setTagFilter("");
     setStatusFilter("");
     setFeaturedFilter("");
     setSortBy("createdAt");
@@ -186,17 +218,53 @@ function ProductsPageContent() {
       {/* Alert Notification */}
       {alert && (
         <div className={`alert alert-${alert.type} alert-dismissible fade show mb-4 shadow-sm`} role="alert">
-          <div className="d-flex align-items-center gap-2">
-            <i
-              className={`bi ${
-                alert.type === "success"
-                  ? "bi-check-circle-fill"
-                  : alert.type === "danger"
-                    ? "bi-exclamation-octagon-fill"
-                    : "bi-info-circle-fill"
-              }`}
-            ></i>
-            <span>{alert.text}</span>
+          <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+            <div className="d-flex align-items-center gap-2">
+              <i
+                className={`bi ${
+                  alert.type === "success"
+                    ? "bi-check-circle-fill fs-5"
+                    : alert.type === "danger"
+                      ? "bi-exclamation-octagon-fill fs-5"
+                      : "bi-info-circle-fill fs-5"
+                }`}
+              ></i>
+              <div>
+                <span className="fw-semibold">{alert.text}</span>
+                {alert.slug && (
+                  <div className="small text-muted mt-1 d-flex flex-wrap align-items-center gap-2">
+                    <span>Storefront Link:</span>
+                    <code className="text-primary bg-white px-2 py-0.5 rounded border small font-monospace">
+                      {getProductStorefrontUrl(alert.slug)}
+                    </code>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {alert.slug && (
+              <div className="d-flex align-items-center gap-2 mt-2 mt-md-0 ms-md-auto me-4">
+                <a
+                  href={getProductStorefrontUrl(alert.slug)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-sm btn-success d-flex align-items-center gap-1 shadow-sm px-3"
+                  title="Open storefront product page in a new tab"
+                >
+                  <i className="bi bi-box-arrow-up-right"></i>
+                  <span>View Live</span>
+                </a>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary bg-white d-flex align-items-center gap-1 shadow-sm px-2"
+                  onClick={() => handleCopyUrl(getProductStorefrontUrl(alert.slug!))}
+                  title="Copy Storefront URL"
+                >
+                  <i className={`bi ${copied ? "bi-check2 text-success" : "bi-clipboard"}`}></i>
+                  <span>{copied ? "Copied!" : "Copy URL"}</span>
+                </button>
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -215,22 +283,24 @@ function ProductsPageContent() {
             <div className="col-12 col-md-4">
               <div className="input-group input-group-sm">
                 <span className="input-group-text bg-white border-end-0">
-                  <i className="bi bi-search text-muted"></i>
+                  <i className="bi bi-search text-muted" aria-hidden="true"></i>
                 </span>
                 <input
-                  type="text"
+                  type="search"
                   className="form-control border-start-0 ps-0"
-                  placeholder="Search products by title, slug, SKU..."
+                  placeholder="Search products by title, slug, SKU…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  aria-label="Search products by title, slug, or SKU"
                 />
                 {searchTerm && (
                   <button
                     className="btn btn-outline-secondary border-start-0"
                     type="button"
                     onClick={() => setSearchTerm("")}
+                    aria-label="Clear search input"
                   >
-                    <i className="bi bi-x"></i>
+                    <i className="bi bi-x" aria-hidden="true"></i>
                   </button>
                 )}
               </div>
@@ -245,6 +315,7 @@ function ProductsPageContent() {
                   setCategoryFilter(e.target.value);
                   setPage(1);
                 }}
+                aria-label="Filter products by category"
               >
                 <option value="">All Categories</option>
                 {formatCategoryOptions(categories).map((c) => (
@@ -264,11 +335,32 @@ function ProductsPageContent() {
                   setBrandFilter(e.target.value);
                   setPage(1);
                 }}
+                aria-label="Filter products by brand"
               >
                 <option value="">All Brands</option>
                 {brands.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tag Filter */}
+            <div className="col-6 col-md-2">
+              <select
+                className="form-select form-select-sm"
+                value={tagFilter}
+                onChange={(e) => {
+                  setTagFilter(e.target.value);
+                  setPage(1);
+                }}
+                aria-label="Filter products by tag"
+              >
+                <option value="">All Tags</option>
+                {availableTags.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
                   </option>
                 ))}
               </select>
@@ -283,6 +375,7 @@ function ProductsPageContent() {
                   setStatusFilter(e.target.value);
                   setPage(1);
                 }}
+                aria-label="Filter products by active status"
               >
                 <option value="">All Statuses</option>
                 <option value="true">Active Only</option>
@@ -299,6 +392,7 @@ function ProductsPageContent() {
                   setFeaturedFilter(e.target.value);
                   setPage(1);
                 }}
+                aria-label="Filter products by featured flag"
               >
                 <option value="">Featured</option>
                 <option value="true">Yes</option>
@@ -312,9 +406,10 @@ function ProductsPageContent() {
                 type="button"
                 className="btn btn-outline-secondary btn-sm w-100"
                 onClick={handleResetFilters}
+                aria-label="Reset all search and filter criteria"
                 title="Reset Filters"
               >
-                <i className="bi bi-arrow-counterclockwise"></i> Reset
+                <i className="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
               </button>
             </div>
           </div>
@@ -357,8 +452,9 @@ function ProductsPageContent() {
                   className="page-link"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
+                  aria-label="Previous page"
                 >
-                  <i className="bi bi-chevron-left"></i> Previous
+                  <i className="bi bi-chevron-left" aria-hidden="true"></i> Previous
                 </button>
               </li>
 
@@ -367,15 +463,17 @@ function ProductsPageContent() {
                 .map((p, idx, arr) => (
                   <React.Fragment key={p}>
                     {idx > 0 && p - arr[idx - 1] > 1 && (
-                      <li className="page-item disabled">
-                        <span className="page-link">...</span>
+                      <li className="page-item disabled" aria-hidden="true">
+                        <span className="page-link">…</span>
                       </li>
                     )}
                     <li className={`page-item ${p === page ? "active" : ""}`}>
                       <button
                         type="button"
-                        className="page-link"
+                        className="page-link tabular-nums"
                         onClick={() => setPage(p)}
+                        aria-label={`Page ${p}`}
+                        aria-current={p === page ? "page" : undefined}
                       >
                         {p}
                       </button>
@@ -389,8 +487,9 @@ function ProductsPageContent() {
                   className="page-link"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
+                  aria-label="Next page"
                 >
-                  Next <i className="bi bi-chevron-right"></i>
+                  Next <i className="bi bi-chevron-right" aria-hidden="true"></i>
                 </button>
               </li>
             </ul>
@@ -422,9 +521,9 @@ export default function ProductsPage() {
   return (
     <Suspense
       fallback={
-        <div className="container-fluid py-4 text-center">
+        <div className="container-fluid py-4 text-center" role="status" aria-live="polite">
           <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading products...</span>
+            <span className="visually-hidden">Loading products…</span>
           </div>
         </div>
       }

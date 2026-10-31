@@ -88,15 +88,60 @@ The system SHALL prevent deletion of any product or variant that is referenced b
 - **WHEN** an administrator deletes a product that has no historical order references
 - **THEN** the system removes the product, its variants, and gallery records, unlinks disk files, and returns HTTP 200 OK
 
+### Requirement: Product Tag Association and On-The-Fly Tag Creation
+The system SHALL accept `tagIds?: string[]` and/or `tags?: string[]` in product creation and update requests (`POST /api/v1/admin/products`, `PUT /api/v1/admin/products/:id`), validating referenced tag UUIDs, looking up or creating new tags by name on the fly, and persisting associations in `ProductTag` within the product save transaction.
+
+#### Scenario: Creating product with existing tag IDs and new tag names
+- **WHEN** an administrator creates a product with existing `tagIds: ["tag-uuid-1"]` and new `tags: ["Summer 2026"]`
+- **THEN** the system resolves the existing tag, creates the new tag `"Summer 2026"` with slug `"summer-2026"`, links both tags to the product, and returns them in the response
+
+#### Scenario: Updating product tags replacing previous associations
+- **WHEN** an administrator updates a product with a new list of tag IDs
+- **THEN** the system updates the product's tag associations to match the new list and removes unmentioned associations
+
 ### Requirement: Administrative Product and Variant Endpoints
-The system SHALL expose administrative REST endpoints beneath `/api/v1/admin/products` and `/api/v1/admin/variants` restricted to `ADMIN` and `SUPER_ADMIN` roles, supporting pagination, keyword search over `title`, `slug`, and `sku`, filtering by `categoryId`, `brandId`, and `isActive`, and multipart image uploading.
+The system SHALL expose administrative REST endpoints beneath `/api/v1/admin/products` and `/api/v1/admin/variants` restricted to `ADMIN` and `SUPER_ADMIN` roles, supporting pagination, keyword search over `title`, `slug`, and `sku`, filtering by `categoryId`, `brandId`, `tagId`, and `isActive`, multipart image uploading, returning associated tags, and persisting full rich-text HTML descriptions without stripping valid semantic tags.
 
 #### Scenario: Searching and filtering products
 - **WHEN** an administrator requests `GET /api/v1/admin/products?search=shirt&categoryId=uuid-cat&page=1&limit=10`
-- **THEN** the system returns a paginated list of matching products with image thumbnails, category/brand metadata, and variant count
+- **THEN** the system returns a paginated list of matching products with image thumbnails, category/brand metadata, associated tags, and variant count
+
+#### Scenario: Filtering products by tag in admin table
+- **WHEN** an administrator requests `GET /api/v1/admin/products?tagId=uuid-tag-1`
+- **THEN** the system returns only products that are linked to the specified tag
+
+#### Scenario: Persisting rich HTML description
+- **WHEN** an administrator submits a product with an HTML description containing headings and lists
+- **THEN** the system stores the HTML string intact in the database and returns it in the product detail response
+
+### Requirement: Administrative Storefront Product Preview and Live Link Generation
+The administrative interface SHALL resolve and present direct customer storefront URLs for products (`${STOREFRONT_URL}/products/${slug}`) upon creation or update, displaying a prominent success alert with a "View Live" new-tab link and "Copy URL" button on the products catalog page, a persistent "View on Storefront" action button in the product edit header, and an external preview icon button in the products table actions column.
+
+#### Scenario: Viewing live storefront link after saving a product
+- **WHEN** an administrator creates or updates a product and is redirected to `/catalog/products`
+- **THEN** the system displays a success banner showing the full product storefront URL, a "View Live" button that opens the storefront page in a new browser tab, and a "Copy URL" button
+
+#### Scenario: Copying product storefront URL to clipboard
+- **WHEN** an administrator clicks the "Copy URL" button in the success banner
+- **THEN** the system copies the complete storefront URL to the clipboard and shows confirmation feedback
+
+#### Scenario: Opening storefront preview from products table
+- **WHEN** an administrator clicks the external link icon button for a product in the catalog table
+- **THEN** the system opens the product's live storefront URL in a new browser tab
+
+### Requirement: Rich Text Description Formatting with Tiptap
+The administrative product create and edit interfaces SHALL provide a rich-text WYSIWYG editor powered by Tiptap for the product's full `description`, supporting bold, italic, strikethrough, headings (H2, H3), bullet lists, ordered lists, blockquotes, hyperlinks, horizontal rules, and undo/redo history, outputting valid HTML for database persistence.
+
+#### Scenario: Formatting structured product description
+- **WHEN** an administrator inputs formatted content using the Tiptap toolbar including headings, bold text, and a bulleted list
+- **THEN** the editor renders the formatted text in real time and emits formatted HTML into the form payload
+
+#### Scenario: Loading and editing existing HTML description
+- **WHEN** an administrator opens an existing product with saved HTML description in the edit form
+- **THEN** the Tiptap editor parses and renders the formatted document with all styles and list structures intact for further editing
 
 ### Requirement: Public Product Catalog Listing and Faceted Filtering
-The system SHALL expose a public REST endpoint `GET /api/v1/products` that returns a paginated collection of active products supporting faceted filtering by category ID or slug, brand ID or slug, price range, stock availability, discount presence, and sorting orders.
+The system SHALL expose a public REST endpoint `GET /api/v1/products` that returns a paginated collection of active products supporting faceted filtering by category ID or slug, brand ID or slug, tag slug(s), price range, stock availability, discount presence, and sorting orders, including assigned tags in each product summary.
 
 #### Scenario: Filtering products by category and price range
 - **WHEN** a client sends `GET /api/v1/products?categorySlug=smartphones&minPrice=10000&maxPrice=50000&inStock=true`
@@ -110,12 +155,16 @@ The system SHALL expose a public REST endpoint `GET /api/v1/products` that retur
 - **WHEN** a client sends `GET /api/v1/products?hasDiscount=true`
 - **THEN** the system returns HTTP 200 containing only active products having at least one variant where `salePrice` is less than `regularPrice`
 
+#### Scenario: Filtering products by tag slug
+- **WHEN** a client sends `GET /api/v1/products?tags=summer-collection`
+- **THEN** the system returns HTTP 200 containing only active products that possess the `"summer-collection"` tag
+
 ### Requirement: Public Slug-Based Product Detail Resolution
-The system SHALL expose a public REST endpoint `GET /api/v1/products/:slug` that resolves an active product by its unique URL slug, returning full product master details, media gallery images, all active variants with bound attribute values, real-time inventory stock balances, approved customer reviews, and category-related products.
+The system SHALL expose a public REST endpoint `GET /api/v1/products/:slug` that resolves an active product by its unique URL slug, returning full product master details, media gallery images, all active variants with bound attribute values, real-time inventory stock balances, approved customer reviews, category-related products, and all assigned tags.
 
 #### Scenario: Resolving valid product by slug
 - **WHEN** a client sends `GET /api/v1/products/apple-macbook-pro-16-m3-max`
-- **THEN** the system returns HTTP 200 with product metadata, primary image, full gallery, variants with inventory quantities, attribute matrix, and approved reviews
+- **THEN** the system returns HTTP 200 with product metadata, primary image, full gallery, variants with inventory quantities, attribute matrix, approved reviews, and associated tags with names and color badges
 
 #### Scenario: Requesting non-existent or inactive product slug
 - **WHEN** a client sends `GET /api/v1/products/non-existent-product-slug`
