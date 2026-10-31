@@ -6,6 +6,9 @@ export interface PaymentMethodSetting {
   instructions: string | null;
   isEnabled: boolean;
   sortOrder: number;
+  merchantId?: string | null;
+  password?: string | null;
+  isSandbox?: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,6 +19,9 @@ export interface UpdatePaymentMethodPayload {
   instructions?: string;
   isEnabled?: boolean;
   sortOrder?: number;
+  merchantId?: string;
+  password?: string;
+  isSandbox?: boolean;
 }
 
 export interface TogglePaymentMethodPayload {

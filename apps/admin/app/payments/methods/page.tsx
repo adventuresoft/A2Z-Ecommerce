@@ -52,6 +52,20 @@ const FALLBACK_METHODS: PaymentMethodSetting[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: "meth-5",
+    code: "PAYSTATION",
+    name: "PayStation Online Gateway",
+    description: "Pay securely using bKash, Nagad, Rocket, Visa, Mastercard, or Internet Banking.",
+    instructions: "You will be redirected to the secure PayStation payment portal to complete your transaction with instant confirmation.",
+    isEnabled: true,
+    sortOrder: 5,
+    merchantId: "104-1653730183",
+    password: "gamecoderstorepass",
+    isSandbox: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 export default function PaymentMethodsPage() {
@@ -63,6 +77,7 @@ export default function PaymentMethodsPage() {
   // Edit Modal State
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodSetting | null>(null);
   const [editForm, setEditForm] = useState<UpdatePaymentMethodPayload>({});
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
 
   const fetchMethods = useCallback(async () => {
@@ -126,17 +141,22 @@ export default function PaymentMethodsPage() {
 
   const openEditModal = (method: PaymentMethodSetting) => {
     setSelectedMethod(method);
+    setShowPassword(false);
     setEditForm({
       name: method.name,
       description: method.description || "",
       instructions: method.instructions || "",
       isEnabled: method.isEnabled,
       sortOrder: method.sortOrder,
+      merchantId: method.merchantId || (method.code === "PAYSTATION" ? "104-1653730183" : ""),
+      password: method.password || (method.code === "PAYSTATION" ? "gamecoderstorepass" : ""),
+      isSandbox: method.isSandbox ?? true,
     });
   };
 
   const closeEditModal = () => {
     setSelectedMethod(null);
+    setShowPassword(false);
     setEditForm({});
   };
 
@@ -177,6 +197,8 @@ export default function PaymentMethodsPage() {
         return "bi-bank text-info";
       case "MOBILE_BANKING":
         return "bi-phone text-warning";
+      case "PAYSTATION":
+        return "bi-shield-check text-primary";
       default:
         return "bi-credit-card text-secondary";
     }
@@ -357,6 +379,26 @@ export default function PaymentMethodsPage() {
                             No post-order instructions
                           </span>
                         )}
+
+                        {method.code === "PAYSTATION" && (
+                          <div className="d-flex align-items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className="badge bg-light text-secondary border font-monospace" style={{ fontSize: "0.68rem" }}>
+                              <i className="bi bi-person-badge text-primary me-1"></i>
+                              Merchant: {method.merchantId || "104-1653730183"}
+                            </span>
+                            <span
+                              className={`badge ${
+                                method.isSandbox !== false
+                                  ? "bg-warning-subtle text-warning-emphasis border border-warning-subtle"
+                                  : "bg-success-subtle text-success-emphasis border border-success-subtle"
+                              }`}
+                              style={{ fontSize: "0.68rem" }}
+                            >
+                              <i className={`bi ${method.isSandbox !== false ? "bi-flask" : "bi-broadcast"} me-1`}></i>
+                              {method.isSandbox !== false ? "Sandbox" : "Production"}
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Priority Sort Order */}
@@ -521,7 +563,7 @@ export default function PaymentMethodsPage() {
                     <label className="form-label fw-medium small">Post-Order Payment Instructions</label>
                     <textarea
                       className="form-control"
-                      rows={3}
+                      rows={2}
                       value={editForm.instructions || ""}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, instructions: e.target.value }))}
                       placeholder="e.g., Bank details, Check payee name and mailing address, or bKash merchant counter instructions"
@@ -530,6 +572,113 @@ export default function PaymentMethodsPage() {
                       Sent on invoice and shown on the order confirmation screen after order placement.
                     </div>
                   </div>
+
+                  {/* Gateway API Credentials (For online gateways like PAYSTATION) */}
+                  {selectedMethod.code === "PAYSTATION" && (
+                    <div className="p-3 rounded-3 border border-primary-subtle bg-primary-subtle/10 d-flex flex-column gap-3">
+                      <div className="d-flex align-items-center justify-content-between border-bottom pb-2">
+                        <div className="d-flex align-items-center gap-2">
+                          <div
+                            className="bg-primary text-white rounded-2 d-flex align-items-center justify-content-center"
+                            style={{ width: "26px", height: "26px" }}
+                          >
+                            <i className="bi bi-key-fill" style={{ fontSize: "0.8rem" }}></i>
+                          </div>
+                          <div>
+                            <div className="fw-semibold text-body small">PayStation Gateway Credentials</div>
+                            <div className="text-secondary" style={{ fontSize: "0.7rem" }}>
+                              Used for initiating hosted checkout and verifying transactions
+                            </div>
+                          </div>
+                        </div>
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                          API Auth
+                        </span>
+                      </div>
+
+                      <div className="row g-2">
+                        <div className="col-12 col-md-6">
+                          <label className="form-label fw-medium small mb-1">
+                            Merchant ID <span className="text-danger">*</span>
+                          </label>
+                          <div className="input-group input-group-sm">
+                            <span className="input-group-text bg-body-tertiary">
+                              <i className="bi bi-person-vcard text-secondary"></i>
+                            </span>
+                            <input
+                              type="text"
+                              className="form-control font-monospace"
+                              value={editForm.merchantId ?? ""}
+                              onChange={(e) => setEditForm((prev) => ({ ...prev, merchantId: e.target.value }))}
+                              placeholder="e.g. 104-1653730183"
+                              required={selectedMethod.code === "PAYSTATION"}
+                            />
+                          </div>
+                          <div className="form-text" style={{ fontSize: "0.7rem" }}>
+                            Your official merchant ID from PayStation dashboard
+                          </div>
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                          <label className="form-label fw-medium small mb-1">
+                            Password / API Key <span className="text-danger">*</span>
+                          </label>
+                          <div className="input-group input-group-sm">
+                            <span className="input-group-text bg-body-tertiary">
+                              <i className="bi bi-shield-lock text-secondary"></i>
+                            </span>
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              className="form-control font-monospace"
+                              value={editForm.password ?? ""}
+                              onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))}
+                              placeholder="e.g. gamecoderstorepass"
+                              required={selectedMethod.code === "PAYSTATION"}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary"
+                              onClick={() => setShowPassword((prev) => !prev)}
+                              title={showPassword ? "Hide password" : "Show password"}
+                            >
+                              <i className={`bi ${showPassword ? "bi-eye-slash-fill" : "bi-eye-fill"}`}></i>
+                            </button>
+                          </div>
+                          <div className="form-text" style={{ fontSize: "0.7rem" }}>
+                            Merchant store password for transaction signing
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sandbox vs Production environment toggle */}
+                      <div className="p-2.5 rounded-2 bg-body border d-flex align-items-center justify-content-between mt-1">
+                        <div>
+                          <div className="fw-medium small text-body d-flex align-items-center gap-1.5">
+                            <i className={`bi ${editForm.isSandbox ?? true ? "bi-flask text-warning" : "bi-broadcast text-success"}`}></i>
+                            <span>
+                              Environment: {editForm.isSandbox ?? true ? "Sandbox Testing" : "Production Live"}
+                            </span>
+                          </div>
+                          <small className="text-secondary" style={{ fontSize: "0.7rem" }}>
+                            {editForm.isSandbox ?? true
+                              ? "Targeting: https://sandbox.paystation.com.bd (Safe for testing)"
+                              : "Targeting: https://api.paystation.com.bd (Real live payments)"}
+                          </small>
+                        </div>
+                        <div className="form-check form-switch m-0">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            role="switch"
+                            id="sandbox-toggle-switch"
+                            checked={editForm.isSandbox ?? true}
+                            onChange={(e) => setEditForm((prev) => ({ ...prev, isSandbox: e.target.checked }))}
+                            style={{ cursor: "pointer", width: "2.4em", height: "1.2em" }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Enabled Toggle in Modal */}
                   <div className="p-3 rounded-2 border bg-body-tertiary d-flex align-items-center justify-content-between">

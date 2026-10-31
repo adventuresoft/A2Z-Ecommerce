@@ -566,6 +566,7 @@ enum PaymentMethod {
   BANK_TRANSFER
   CREDIT_CARD
   MOBILE_BANKING
+  PAYSTATION
 }
 
 model PaymentMethodSetting {
@@ -576,6 +577,9 @@ model PaymentMethodSetting {
   instructions String?  @db.Text
   isEnabled    Boolean  @default(true)
   sortOrder    Int      @default(0)
+  merchantId   String?  @db.VarChar(100)
+  password     String?  @db.VarChar(255)
+  isSandbox    Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

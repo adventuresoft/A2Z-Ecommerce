@@ -23,6 +23,7 @@ import {
   Tag,
   AlertCircle,
   Check,
+  Zap,
 } from "lucide-react";
 import { StorefrontShell } from "../../components/Shell/StorefrontShell";
 import { useStore } from "../../context/StoreContext";
@@ -166,8 +167,8 @@ export default function CheckoutPage() {
   const [selectedSpeed, setSelectedSpeed] = useState<"standard" | "express">("standard");
 
   // Payment Selection
-  const [paymentMethod, setPaymentMethod] = useState<"CASH_ON_DELIVERY" | "MOBILE_BANKING" | "CARD">(
-    "CASH_ON_DELIVERY"
+  const [paymentMethod, setPaymentMethod] = useState<"PAYSTATION" | "CASH_ON_DELIVERY" | "MOBILE_BANKING">(
+    "PAYSTATION"
   );
   const [mfsSenderPhone, setMfsSenderPhone] = useState("");
   const [mfsTrxId, setMfsTrxId] = useState("");
@@ -405,11 +406,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (paymentMethod === "CARD") {
-      setSubmitError("Online card payments are coming soon. Please select Cash on Delivery or bKash.");
-      return;
-    }
-
     if (paymentMethod === "MOBILE_BANKING") {
       if (!mfsSenderPhone.trim() || !mfsTrxId.trim()) {
         setSubmitError("Please enter your bKash/Nagad sender phone number and Transaction ID (TrxID).");
@@ -461,7 +457,7 @@ export default function CheckoutPage() {
         customerNotes: orderNotes.trim() || undefined,
         shippingMethodId: matchingShippingMethod?.id || undefined,
         couponCode: appliedCoupon?.code || undefined,
-        paymentMethod: paymentMethod === "MOBILE_BANKING" ? "MOBILE_BANKING" : "CASH_ON_DELIVERY",
+        paymentMethod: paymentMethod,
         paymentReference:
           paymentMethod === "MOBILE_BANKING"
             ? `bKash/Nagad TrxID: ${mfsTrxId.trim()} (Sender: ${mfsSenderPhone.trim()})`
@@ -477,6 +473,40 @@ export default function CheckoutPage() {
           "idempotency-key": idempotencyKey,
         },
       });
+
+      if (paymentMethod === "PAYSTATION") {
+        try {
+          const callbackUrl = `${window.location.origin}/checkout/payment-callback`;
+          const initRes = await apiClient.post<{
+            status: string;
+            payment_url: string;
+            invoice_number: string;
+          }>("/payments/paystation/initiate", {
+            orderId: res.id,
+            callbackUrl,
+          });
+
+          clearCart();
+          if (initRes.payment_url) {
+            window.location.href = initRes.payment_url;
+            return;
+          }
+        } catch (initErr: unknown) {
+          setPlacedOrder(res);
+          clearCart();
+          const initMsg =
+            initErr instanceof ApiError
+              ? initErr.message
+              : initErr instanceof Error
+              ? initErr.message
+              : "Could not reach PayStation gateway.";
+          setSubmitError(
+            `Your order ${res.orderNumber} was saved, but redirect to PayStation failed (${initMsg}). You can complete payment from your account dashboard.`
+          );
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+      }
 
       setPlacedOrder(res);
       clearCart();
@@ -543,7 +573,9 @@ export default function CheckoutPage() {
               <div className="flex justify-between items-center pb-3 border-b border-slate-200">
                 <span className="text-slate-500 font-semibold">Payment Method</span>
                 <span className="font-bold text-slate-800">
-                  {placedOrder.paymentMethod === "MOBILE_BANKING"
+                  {placedOrder.paymentMethod === "PAYSTATION"
+                    ? "PayStation Online Payment Gateway"
+                    : placedOrder.paymentMethod === "MOBILE_BANKING"
                     ? "bKash / Nagad Mobile Banking (Pending Verification)"
                     : "Cash on Delivery (COD)"}
                 </span>
@@ -1013,6 +1045,87 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="space-y-3">
+                  {/* PayStation Online Payment Gateway */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={paymentMethod === "PAYSTATION"}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setPaymentMethod("PAYSTATION");
+                      }
+                    }}
+                    onClick={() => setPaymentMethod("PAYSTATION")}
+                    className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                      paymentMethod === "PAYSTATION"
+                        ? "border-blue-600 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white shadow-xs"
+                        : "border-slate-200 hover:border-slate-300 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start space-x-3.5">
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                        {paymentMethod === "PAYSTATION" && (
+                          <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                        )}
+                      </div>
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center space-x-1.5">
+                            <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" aria-hidden="true" />
+                            <span className="font-black text-sm text-slate-900 tracking-tight">
+                              PayStation Online Gateway
+                            </span>
+                          </div>
+                          <span className="inline-flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
+                            <Zap className="w-3 h-3 fill-amber-300 text-amber-300" aria-hidden="true" />
+                            <span>Instant Confirmation</span>
+                          </span>
+                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                            Zero Fee
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Pay instantly via Visa, Mastercard, bKash, Nagad, Rocket, or Internet Banking with 256-bit bank-grade encryption.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Supported Channels Strip */}
+                    <div className="mt-3.5 pt-3.5 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mr-1">
+                        Accepted:
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-pink-50 text-[#D12053] border border-pink-200/80">
+                        bKash
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-orange-50 text-[#EA580C] border border-orange-200/80">
+                        Nagad
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-purple-50 text-[#8C3494] border border-purple-200/80">
+                        Rocket
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-blue-50 text-[#1A1F71] border border-blue-200/80">
+                        Visa
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-amber-50 text-[#B45309] border border-amber-200/80">
+                        Mastercard
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
+                        Internet Banking
+                      </span>
+                    </div>
+
+                    {paymentMethod === "PAYSTATION" && (
+                      <div className="mt-3 p-3 bg-blue-50/70 rounded-xl border border-blue-200/70 text-xs text-blue-900 flex items-start space-x-2">
+                        <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
+                        <p className="leading-relaxed">
+                          You will be seamlessly transferred to PayStation&apos;s SSL portal to finalize payment with instant automated confirmation upon redirect.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* COD */}
                   <div
                     role="button"
@@ -1028,7 +1141,7 @@ export default function CheckoutPage() {
                     className={`p-4 rounded-2xl border-2 flex items-start space-x-3 cursor-pointer transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                       paymentMethod === "CASH_ON_DELIVERY"
                         ? "border-blue-600 bg-blue-50/40 shadow-xs"
-                        : "border-slate-200 hover:border-slate-300"
+                        : "border-slate-200 hover:border-slate-300 bg-white"
                     }`}
                   >
                     <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -1043,7 +1156,7 @@ export default function CheckoutPage() {
                           Cash on Delivery (COD)
                         </span>
                         <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                          Recommended
+                          Doorstep Cash
                         </span>
                       </div>
                       <p className="text-xs text-slate-500">
@@ -1067,7 +1180,7 @@ export default function CheckoutPage() {
                     className={`p-4 rounded-2xl border-2 transition-all cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                       paymentMethod === "MOBILE_BANKING"
                         ? "border-blue-600 bg-blue-50/40 shadow-xs"
-                        : "border-slate-200 hover:border-slate-300"
+                        : "border-slate-200 hover:border-slate-300 bg-white"
                     }`}
                   >
                     <div className="flex items-start space-x-3">
@@ -1080,14 +1193,11 @@ export default function CheckoutPage() {
                         <div className="flex items-center space-x-2">
                           <Smartphone className="w-4 h-4 text-pink-600" aria-hidden="true" />
                           <span className="font-black text-sm text-slate-900">
-                            bKash / Nagad Mobile Banking
-                          </span>
-                          <span className="text-[10px] font-bold bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full">
-                            Zero Fee
+                            Manual Mobile Banking (bKash / Nagad)
                           </span>
                         </div>
                         <p className="text-xs text-slate-500">
-                          Pay instantly via official bKash / Nagad merchant wallet.
+                          Manually send money to our merchant account and enter your TrxID below for manual verification.
                         </p>
                       </div>
                     </div>
@@ -1142,25 +1252,6 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                     )}
-                  </div>
-
-                  {/* Card (Coming Soon) */}
-                  <div className="p-4 rounded-2xl border-2 border-slate-200 bg-slate-50/60 opacity-60 flex items-start space-x-3 cursor-not-allowed">
-                    <div className="w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center shrink-0 mt-0.5" />
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="w-4 h-4 text-slate-400" />
-                        <span className="font-black text-sm text-slate-500">
-                          Credit / Debit Card (Visa, MasterCard, Amex)
-                        </span>
-                        <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
-                          Coming Soon
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        Online payment gateway integration in progress. Please choose COD or bKash.
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1318,12 +1409,25 @@ export default function CheckoutPage() {
                   {isSubmitting ? (
                     <span className="flex items-center space-x-2">
                       <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      <span>Confirming Order…</span>
+                      <span>
+                        {paymentMethod === "PAYSTATION"
+                          ? "Connecting to PayStation Gateway…"
+                          : "Confirming Order…"}
+                      </span>
                     </span>
                   ) : (
                     <>
-                      <Lock className="w-4 h-4" aria-hidden="true" />
-                      <span>Confirm Order • <span className="tabular-nums">{formatBDT(grandTotal)}</span></span>
+                      {paymentMethod === "PAYSTATION" ? (
+                        <>
+                          <Zap className="w-4 h-4 fill-amber-300 text-amber-300" aria-hidden="true" />
+                          <span>Pay with PayStation • <span className="tabular-nums">{formatBDT(grandTotal)}</span></span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4" aria-hidden="true" />
+                          <span>Confirm Order • <span className="tabular-nums">{formatBDT(grandTotal)}</span></span>
+                        </>
+                      )}
                     </>
                   )}
                 </button>

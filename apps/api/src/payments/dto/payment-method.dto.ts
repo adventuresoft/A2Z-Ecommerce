@@ -41,6 +41,23 @@ export class UpdatePaymentMethodDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+
+  @ApiPropertyOptional({ example: '104-1653730183', description: 'Merchant ID for payment gateway' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  merchantId?: string;
+
+  @ApiPropertyOptional({ example: 'gamecoderstorepass', description: 'Password or API Secret Key for gateway' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  password?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Whether the gateway runs in sandbox/test mode' })
+  @IsOptional()
+  @IsBoolean()
+  isSandbox?: boolean;
 }
 
 export class TogglePaymentMethodDto {
@@ -71,6 +88,15 @@ export class PaymentMethodResponseDto {
 
   @ApiProperty({ example: 1 })
   sortOrder: number;
+
+  @ApiPropertyOptional({ example: '104-1653730183' })
+  merchantId?: string | null;
+
+  @ApiPropertyOptional({ example: 'gamecoderstorepass' })
+  password?: string | null;
+
+  @ApiPropertyOptional({ example: true })
+  isSandbox?: boolean | null;
 
   @ApiProperty({ example: '2026-10-31T10:00:00.000Z' })
   createdAt: Date;

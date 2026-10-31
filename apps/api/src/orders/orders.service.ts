@@ -458,6 +458,8 @@ export class OrdersService {
         paymentNotes = `Check Payment pending clearing: ${paymentRef || 'Check details pending'}`;
       } else if (paymentMethod === PaymentMethod.BANK_TRANSFER) {
         paymentNotes = `Direct Bank Transfer pending wire deposit: ${paymentRef || 'Transaction ref pending'}`;
+      } else if (paymentMethod === PaymentMethod.PAYSTATION) {
+        paymentNotes = 'PayStation online payment pending initiation / gateway confirmation';
       } else if (paymentMethod === PaymentMethod.CASH_ON_DELIVERY) {
         paymentNotes = 'Initial Cash on Delivery pending courier collection';
       }

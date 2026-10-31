@@ -801,6 +801,17 @@ export class PaymentsService {
       isEnabled: false,
       sortOrder: 4,
     },
+    {
+      code: 'PAYSTATION',
+      name: 'PayStation Online Gateway',
+      description: 'Pay securely using bKash, Nagad, Rocket, Visa, Mastercard, or Internet Banking.',
+      instructions: 'You will be redirected to the secure PayStation payment portal to complete your transaction with instant confirmation.',
+      isEnabled: true,
+      sortOrder: 5,
+      merchantId: '104-1653730183',
+      password: 'gamecoderstorepass',
+      isSandbox: true,
+    },
   ];
 
   /**
@@ -879,6 +890,9 @@ export class PaymentsService {
         ...(dto.instructions !== undefined && { instructions: dto.instructions }),
         ...(dto.isEnabled !== undefined && { isEnabled: dto.isEnabled }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+        ...(dto.merchantId !== undefined && { merchantId: dto.merchantId }),
+        ...(dto.password !== undefined && { password: dto.password }),
+        ...(dto.isSandbox !== undefined && { isSandbox: dto.isSandbox }),
       },
     });
   }

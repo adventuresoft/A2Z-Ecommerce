@@ -394,6 +394,7 @@ export class ReportsService {
       [PaymentMethod.BANK_TRANSFER]: { count: 0, total: 0 },
       [PaymentMethod.CREDIT_CARD]: { count: 0, total: 0 },
       [PaymentMethod.MOBILE_BANKING]: { count: 0, total: 0 },
+      [PaymentMethod.PAYSTATION]: { count: 0, total: 0 },
     };
 
     let overallTotal = 0;

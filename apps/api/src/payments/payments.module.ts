@@ -6,6 +6,8 @@ import { PaymentsAdminController } from './payments.admin.controller.js';
 import { RefundsAdminController } from './refunds.admin.controller.js';
 import { PaymentMethodsAdminController } from './payment-methods.admin.controller.js';
 import { PaymentMethodsController } from './payment-methods.controller.js';
+import { PaystationService } from './paystation.service.js';
+import { PaystationController } from './paystation.controller.js';
 
 @Module({
   imports: [PrismaModule, AuthModule],
@@ -14,8 +16,9 @@ import { PaymentMethodsController } from './payment-methods.controller.js';
     RefundsAdminController,
     PaymentMethodsAdminController,
     PaymentMethodsController,
+    PaystationController,
   ],
-  providers: [PaymentsService],
-  exports: [PaymentsService],
+  providers: [PaymentsService, PaystationService],
+  exports: [PaymentsService, PaystationService],
 })
 export class PaymentsModule {}
