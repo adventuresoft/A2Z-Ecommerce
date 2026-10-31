@@ -78,6 +78,7 @@ export interface AdminOrder {
   customerEmail?: string;
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMethod?: string | null;
   shipmentStatus: ShipmentStatus;
   subtotal: number;
   discountAmount: number;

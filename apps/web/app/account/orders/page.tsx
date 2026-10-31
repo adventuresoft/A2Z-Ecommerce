@@ -36,6 +36,7 @@ interface OrderDto {
   orderNumber: string;
   orderStatus: string;
   paymentStatus: string;
+  paymentMethod?: string | null;
   shipmentStatus: string;
   subtotal: number;
   shippingFee: number;
@@ -223,6 +224,18 @@ function OrderHistoryContent() {
                   <div className="flex items-center gap-2">
                     <OrderStatusBadge status={order.orderStatus} size="sm" />
                     <PaymentStatusBadge status={order.paymentStatus} size="sm" />
+                    {order.paymentMethod && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        <CreditCard className="w-3 h-3 text-slate-400" />
+                        <span>
+                          {order.paymentMethod === "PAYSTATION"
+                            ? "PayStation"
+                            : order.paymentMethod === "CASH_ON_DELIVERY"
+                            ? "Cash on Delivery"
+                            : order.paymentMethod.replace(/_/g, " ")}
+                        </span>
+                      </span>
+                    )}
                   </div>
                 </div>
 

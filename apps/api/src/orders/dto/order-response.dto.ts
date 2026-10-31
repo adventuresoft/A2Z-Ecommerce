@@ -150,6 +150,9 @@ export class OrderResponseDto {
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.PENDING })
   paymentStatus: PaymentStatus;
 
+  @ApiPropertyOptional({ example: 'PAYSTATION', description: 'Primary payment method code' })
+  paymentMethod?: string | null;
+
   @ApiProperty({ enum: ShipmentStatus, example: ShipmentStatus.UNFULFILLED })
   shipmentStatus: ShipmentStatus;
 

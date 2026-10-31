@@ -169,6 +169,9 @@ export class OrdersService {
       createdAt: r.createdAt,
     }));
 
+    const primaryPayment = order.payments?.[0];
+    const paymentMethod = primaryPayment?.method || null;
+
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -177,6 +180,7 @@ export class OrdersService {
       customerEmail: order.user?.email || undefined,
       orderStatus: order.orderStatus,
       paymentStatus: order.paymentStatus,
+      paymentMethod,
       shipmentStatus: order.shipmentStatus,
       subtotal: Number(order.subtotal),
       discountAmount: Number(order.discountAmount),

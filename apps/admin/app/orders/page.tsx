@@ -105,6 +105,66 @@ export default function OrdersListPage() {
     }
   };
 
+  const getOrderPaymentMethod = (order: AdminOrder): string | null => {
+    if (order.paymentMethod) return order.paymentMethod;
+    if (order.payments && order.payments.length > 0) {
+      return order.payments[0].method;
+    }
+    return null;
+  };
+
+  const formatPaymentMethodName = (code: string) => {
+    switch (code) {
+      case "PAYSTATION":
+        return "PayStation";
+      case "CASH_ON_DELIVERY":
+        return "Cash on Delivery";
+      case "MOBILE_BANKING":
+        return "bKash / Nagad";
+      case "CHECK_PAYMENT":
+        return "Cheque";
+      case "BANK_TRANSFER":
+        return "Bank Wire";
+      case "CREDIT_CARD":
+        return "Card";
+      default:
+        return code.replace(/_/g, " ");
+    }
+  };
+
+  const getPaymentMethodIcon = (code: string) => {
+    switch (code) {
+      case "PAYSTATION":
+        return "bi-shield-check text-primary";
+      case "CASH_ON_DELIVERY":
+        return "bi-cash-coin text-success";
+      case "MOBILE_BANKING":
+        return "bi-phone text-warning";
+      case "CHECK_PAYMENT":
+        return "bi-check2-circle text-primary";
+      case "BANK_TRANSFER":
+        return "bi-bank text-info";
+      default:
+        return "bi-credit-card text-secondary";
+    }
+  };
+
+  const getPaymentMethodBadge = (order: AdminOrder) => {
+    const method = getOrderPaymentMethod(order);
+    if (!method) return null;
+
+    return (
+      <span
+        className="badge bg-light text-secondary border d-inline-flex align-items-center gap-1 font-monospace"
+        style={{ fontSize: "0.68rem" }}
+        title={`Payment Channel: ${formatPaymentMethodName(method)}`}
+      >
+        <i className={`bi ${getPaymentMethodIcon(method)}`}></i>
+        <span>{formatPaymentMethodName(method)}</span>
+      </span>
+    );
+  };
+
   const getShipmentStatusBadge = (status: ShipmentStatus) => {
     switch (status) {
       case "DELIVERED":
@@ -360,7 +420,12 @@ export default function OrdersListPage() {
                         ৳{order.grandTotal.toFixed(2)}
                       </td>
                       <td className="text-center">{getOrderStatusBadge(order.orderStatus)}</td>
-                      <td className="text-center">{getPaymentStatusBadge(order.paymentStatus)}</td>
+                      <td className="text-center">
+                        <div className="d-flex flex-column align-items-center gap-1">
+                          {getPaymentStatusBadge(order.paymentStatus)}
+                          {getPaymentMethodBadge(order)}
+                        </div>
+                      </td>
                       <td className="text-center">{getShipmentStatusBadge(order.shipmentStatus)}</td>
                       <td className="text-end pe-3">
                         <Link
