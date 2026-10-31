@@ -22,6 +22,10 @@ import type {
   RefundResponseDto,
   UpdatePaymentStatusDto,
   UpdateRefundStatusDto,
+  UpdatePaymentMethodDto,
+  TogglePaymentMethodDto,
+  PaymentMethodResponseDto,
+  ActivePaymentMethodDto,
 } from './dto/index.js';
 
 @Injectable()
@@ -760,4 +764,146 @@ export class PaymentsService {
       return this.mapRefund(updated);
     });
   }
+
+  /**
+   * Default seed definitions for payment methods
+   */
+  private readonly defaultPaymentMethods = [
+    {
+      code: 'CASH_ON_DELIVERY',
+      name: 'Cash on Delivery',
+      description: 'Pay with cash upon delivery of your items.',
+      instructions: 'Please have the exact cash ready when the delivery rider arrives at your doorstep.',
+      isEnabled: true,
+      sortOrder: 1,
+    },
+    {
+      code: 'CHECK_PAYMENT',
+      name: 'Check / Cheque Payment',
+      description: 'Pay via bank check, banker cheque, or money order.',
+      instructions: 'Please send your check payable to "A to Z E-Commerce Ltd.", Mail to: House 12, Road 5, Dhanmondi, Dhaka 1205. Your order will be dispatched once the check clears.',
+      isEnabled: false,
+      sortOrder: 2,
+    },
+    {
+      code: 'BANK_TRANSFER',
+      name: 'Direct Bank Transfer',
+      description: 'Make a direct wire or transfer to our corporate bank account.',
+      instructions: 'Bank: City Bank Ltd. Account Name: A to Z E-Commerce Ltd. Account Number: 1102938475001. Branch: Gulshan 1, Dhaka. Please use your Order Number as payment reference.',
+      isEnabled: false,
+      sortOrder: 3,
+    },
+    {
+      code: 'MOBILE_BANKING',
+      name: 'Mobile Banking (bKash / Nagad)',
+      description: 'Pay instantly using bKash, Nagad, or Rocket mobile wallet.',
+      instructions: 'Please send payment to Merchant bKash/Nagad Number: 01700000000 (Counter: 1). Enter your Order Number in the reference field.',
+      isEnabled: false,
+      sortOrder: 4,
+    },
+  ];
+
+  /**
+   * Ensure default payment methods exist in the database
+   */
+  async ensureDefaultPaymentMethods(): Promise<void> {
+    for (const def of this.defaultPaymentMethods) {
+      await this.prisma.paymentMethodSetting.upsert({
+        where: { code: def.code },
+        update: {},
+        create: def,
+      });
+    }
+  }
+
+  /**
+   * Retrieve all payment methods (Admin view)
+   */
+  async findAllPaymentMethods(): Promise<PaymentMethodResponseDto[]> {
+    await this.ensureDefaultPaymentMethods();
+    return this.prisma.paymentMethodSetting.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  /**
+   * Retrieve active payment methods only (Public / Storefront checkout)
+   */
+  async findActivePaymentMethods(): Promise<ActivePaymentMethodDto[]> {
+    await this.ensureDefaultPaymentMethods();
+    return this.prisma.paymentMethodSetting.findMany({
+      where: { isEnabled: true },
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        code: true,
+        name: true,
+        description: true,
+        instructions: true,
+        sortOrder: true,
+      },
+    });
+  }
+
+  /**
+   * Retrieve single payment method by ID
+   */
+  async findPaymentMethodById(id: string): Promise<PaymentMethodResponseDto> {
+    const method = await this.prisma.paymentMethodSetting.findUnique({
+      where: { id },
+    });
+    if (!method) {
+      throw new NotFoundException(`Payment method with ID '${id}' not found`);
+    }
+    return method;
+  }
+
+  /**
+   * Update payment method configuration
+   */
+  async updatePaymentMethod(
+    id: string,
+    dto: UpdatePaymentMethodDto,
+  ): Promise<PaymentMethodResponseDto> {
+    const existing = await this.prisma.paymentMethodSetting.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Payment method with ID '${id}' not found`);
+    }
+
+    return this.prisma.paymentMethodSetting.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.instructions !== undefined && { instructions: dto.instructions }),
+        ...(dto.isEnabled !== undefined && { isEnabled: dto.isEnabled }),
+        ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+      },
+    });
+  }
+
+  /**
+   * Toggle on/off status of a payment method
+   */
+  async togglePaymentMethod(
+    id: string,
+    dto?: TogglePaymentMethodDto,
+  ): Promise<PaymentMethodResponseDto> {
+    const existing = await this.prisma.paymentMethodSetting.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Payment method with ID '${id}' not found`);
+    }
+
+    const nextState =
+      dto?.isEnabled !== undefined ? dto.isEnabled : !existing.isEnabled;
+
+    return this.prisma.paymentMethodSetting.update({
+      where: { id },
+      data: { isEnabled: nextState },
+    });
+  }
 }
+

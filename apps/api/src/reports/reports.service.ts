@@ -390,6 +390,8 @@ export class ReportsService {
 
     const counts: Record<PaymentMethod, { count: number; total: number }> = {
       [PaymentMethod.CASH_ON_DELIVERY]: { count: 0, total: 0 },
+      [PaymentMethod.CHECK_PAYMENT]: { count: 0, total: 0 },
+      [PaymentMethod.BANK_TRANSFER]: { count: 0, total: 0 },
       [PaymentMethod.CREDIT_CARD]: { count: 0, total: 0 },
       [PaymentMethod.MOBILE_BANKING]: { count: 0, total: 0 },
     };

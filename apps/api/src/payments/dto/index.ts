@@ -7,3 +7,4 @@ export * from './update-refund-status.dto.js';
 export * from './query-refunds.dto.js';
 export * from './refund-response.dto.js';
 export * from './payment-stats-response.dto.js';
+export * from './payment-method.dto.js';

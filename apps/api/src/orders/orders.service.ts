@@ -439,11 +439,28 @@ export class OrdersService {
       }
 
       const paymentMethod = dto.paymentMethod || PaymentMethod.CASH_ON_DELIVERY;
+
+      // Validate that the requested payment method is active in payment method settings
+      const methodSetting = await tx.paymentMethodSetting.findUnique({
+        where: { code: paymentMethod },
+      });
+      if (methodSetting && !methodSetting.isEnabled) {
+        throw new BadRequestException(
+          `Payment method '${methodSetting.name}' is currently disabled and unavailable.`,
+        );
+      }
+
       const paymentRef = dto.paymentReference?.trim() || null;
-      const paymentNotes =
-        paymentMethod === PaymentMethod.MOBILE_BANKING
-          ? `Mobile Banking (bKash/Nagad) Pending Verification: ${paymentRef || 'No ref provided'}`
-          : 'Initial Cash on Delivery pending payment record';
+      let paymentNotes = 'Pending payment record';
+      if (paymentMethod === PaymentMethod.MOBILE_BANKING) {
+        paymentNotes = `Mobile Banking (bKash/Nagad) Pending Verification: ${paymentRef || 'No ref provided'}`;
+      } else if (paymentMethod === PaymentMethod.CHECK_PAYMENT) {
+        paymentNotes = `Check Payment pending clearing: ${paymentRef || 'Check details pending'}`;
+      } else if (paymentMethod === PaymentMethod.BANK_TRANSFER) {
+        paymentNotes = `Direct Bank Transfer pending wire deposit: ${paymentRef || 'Transaction ref pending'}`;
+      } else if (paymentMethod === PaymentMethod.CASH_ON_DELIVERY) {
+        paymentNotes = 'Initial Cash on Delivery pending courier collection';
+      }
 
       // 3. Create the Order header and OrderItems
       const createdOrder = await tx.order.create({

@@ -200,6 +200,14 @@ export const navigationConfig: NavItem[] = [
     phase: 4,
     children: [
       {
+        id: "payments-methods",
+        title: "Payment Methods",
+        href: "/payments/methods",
+        icon: "bi bi-toggles",
+        phase: 4,
+        badge: { text: "Live", variant: "success" },
+      },
+      {
         id: "payments-transactions",
         title: "Transactions",
         href: "/payments/transactions",

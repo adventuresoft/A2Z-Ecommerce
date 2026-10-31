@@ -1,0 +1,133 @@
+{
+	"info": {
+		"_postman_id": "2b52ca41-b4d8-46d0-8102-fff1c2160999",
+		"name": "PayStation Sandbox",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "137412"
+	},
+	"item": [
+		{
+			"name": "Initiate payment",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "invoice_number",
+							"value": "900113355",
+							"type": "text"
+						},
+						{
+							"key": "currency",
+							"value": "BDT",
+							"type": "text"
+						},
+						{
+							"key": "payment_amount",
+							"value": "1",
+							"type": "text"
+						},
+						{
+							"key": "reference",
+							"value": "Some Ref Info",
+							"type": "text"
+						},
+						{
+							"key": "cust_name",
+							"value": "MM",
+							"type": "text"
+						},
+						{
+							"key": "cust_phone",
+							"value": "01726315133",
+							"type": "text"
+						},
+						{
+							"key": "cust_email",
+							"value": "mm@mm.com",
+							"type": "text"
+						},
+						{
+							"key": "cust_address",
+							"value": "Customer address",
+							"type": "text"
+						},
+						{
+							"key": "callback_url",
+							"value": "https://sandbox.paystation.com.bd/payment-success/104",
+							"type": "text"
+						},
+						{
+							"key": "checkout_items",
+							"value": "Some text or JSON",
+							"type": "text"
+						},
+						{
+							"key": "merchantId",
+							"value": "104-1653730183",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "gamecoderstorepass",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://sandbox.paystation.com.bd/initiate-payment",
+					"protocol": "https",
+					"host": [
+						"sandbox",
+						"paystation",
+						"com",
+						"bd"
+					],
+					"path": [
+						"initiate-payment"
+					]
+				},
+				"description": "Generated from cURL: curl --location 'https://sandbox.paystation.com.bd/initiate-payment' \\\n--form 'invoice_number=\"1234AsdfFdsaw0x10024446\"' \\\n--form 'currency=\"BDT\"' \\\n--form 'payment_amount=\"10\"' \\\n--form 'reference=\"1234AsdfFdsaw0\"' \\\n--form 'cust_name=\"MM\"' \\\n--form 'cust_phone=\"01726315133\"' \\\n--form 'cust_email=\"mm@mm.com\"' \\\n--form 'cust_address=\"Address\"' \\\n--form 'callback_url=\"https://sandbox.paystation.com.bd/payment-success/104\"' \\\n--form 'checkout_items=\"Sona-Rupa\"' \\\n--form 'merchantId=\"1041653730183\"' \\\n--form 'password=\"gamecoderstorepass\"'"
+			},
+			"response": []
+		},
+		{
+			"name": "Transaction Status",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "merchantId",
+						"value": "104-1653730183",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"invoice_number\":\"66251574\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://sandbox.paystation.com.bd/transaction-status",
+					"protocol": "https",
+					"host": [
+						"sandbox",
+						"paystation",
+						"com",
+						"bd"
+					],
+					"path": [
+						"transaction-status"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

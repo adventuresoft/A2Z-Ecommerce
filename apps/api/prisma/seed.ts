@@ -2661,11 +2661,58 @@ async function seedShippingZonesAndMethods() {
   console.log('Shipping Zones and Methods seeded successfully.');
 }
 
+async function seedPaymentMethods() {
+  const methods = [
+    {
+      code: 'CASH_ON_DELIVERY',
+      name: 'Cash on Delivery',
+      description: 'Pay with cash upon delivery of your items.',
+      instructions: 'Please have the exact cash ready when the delivery rider arrives at your doorstep.',
+      isEnabled: true,
+      sortOrder: 1,
+    },
+    {
+      code: 'CHECK_PAYMENT',
+      name: 'Check / Cheque Payment',
+      description: 'Pay via bank check, banker cheque, or money order.',
+      instructions: 'Please send your check payable to "A to Z E-Commerce Ltd.", Mail to: House 12, Road 5, Dhanmondi, Dhaka 1205. Your order will be dispatched once the check clears.',
+      isEnabled: false,
+      sortOrder: 2,
+    },
+    {
+      code: 'BANK_TRANSFER',
+      name: 'Direct Bank Transfer',
+      description: 'Make a direct wire or transfer to our corporate bank account.',
+      instructions: 'Bank: City Bank Ltd. Account Name: A to Z E-Commerce Ltd. Account Number: 1102938475001. Branch: Gulshan 1, Dhaka. Please use your Order Number as payment reference.',
+      isEnabled: false,
+      sortOrder: 3,
+    },
+    {
+      code: 'MOBILE_BANKING',
+      name: 'Mobile Banking (bKash / Nagad)',
+      description: 'Pay instantly using bKash, Nagad, or Rocket mobile wallet.',
+      instructions: 'Please send payment to Merchant bKash/Nagad Number: 01700000000 (Counter: 1). Enter your Order Number in the reference field.',
+      isEnabled: false,
+      sortOrder: 4,
+    },
+  ];
+
+  for (const m of methods) {
+    await prisma.paymentMethodSetting.upsert({
+      where: { code: m.code },
+      update: {},
+      create: m,
+    });
+  }
+  console.log('Payment Methods seeded successfully.');
+}
+
 async function seed() {
   await seedDemoUsers();
   await seedTaxClasses();
   await seedCoupons();
   await seedShippingZonesAndMethods();
+  await seedPaymentMethods();
   await seedCategories();
   await seedBrands();
   await seedAttributes();

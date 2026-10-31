@@ -562,8 +562,25 @@ model StoreSetting {
 
 enum PaymentMethod {
   CASH_ON_DELIVERY
+  CHECK_PAYMENT
+  BANK_TRANSFER
   CREDIT_CARD
   MOBILE_BANKING
+}
+
+model PaymentMethodSetting {
+  id           String   @id @default(uuid())
+  code         String   @unique @db.VarChar(50)
+  name         String   @db.VarChar(100)
+  description  String?  @db.Text
+  instructions String?  @db.Text
+  isEnabled    Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isEnabled, sortOrder])
+  @@map("PaymentMethodSetting")
 }
 
 enum RefundStatus {
