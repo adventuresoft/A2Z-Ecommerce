@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useReducedMotion } from "motion/react";
 
 export interface Tilt3DCardProps {
@@ -16,7 +16,8 @@ export interface Tilt3DCardProps {
 
 /**
  * Interactive 3D perspective card with compositor-friendly transform tilt
- * and dynamic specular glare highlight. Automatically honors prefers-reduced-motion.
+ * and dynamic specular glare highlight. Automatically honors prefers-reduced-motion
+ * and guards against SSR hydration mismatches.
  */
 export function Tilt3DCard({
   children,
@@ -29,18 +30,21 @@ export function Tilt3DCard({
   disabled = false,
 }: Tilt3DCardProps) {
   const prefersReducedMotion = useReducedMotion();
+  const [isMounted, setIsMounted] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
-  const [transformStyle, setTransformStyle] = useState<string>(
-    "perspective(1100px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)"
-  );
+  const [transformStyle, setTransformStyle] = useState<string>("none");
   const [glarePos, setGlarePos] = useState<{ x: number; y: number; active: boolean }>({
     x: 50,
     y: 50,
     active: false,
   });
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const effectiveTilt = maxTiltDeg ?? maxTilt;
-  const isDisabled = disabled || Boolean(prefersReducedMotion);
+  const isDisabled = disabled || (isMounted && Boolean(prefersReducedMotion));
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isDisabled || !cardRef.current) return;
@@ -65,7 +69,7 @@ export function Tilt3DCard({
 
   const handleMouseLeave = () => {
     if (isDisabled) return;
-    setTransformStyle("perspective(1100px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");
+    setTransformStyle("none");
     setGlarePos((prev) => ({ ...prev, active: false }));
   };
 
@@ -75,23 +79,24 @@ export function Tilt3DCard({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{
-        transform: isDisabled ? "none" : transformStyle,
-        transition: isDisabled
-          ? "none"
-          : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+        transform: !isMounted || isDisabled ? "none" : transformStyle,
+        transition:
+          !isMounted || isDisabled || transformStyle === "none"
+            ? "none"
+            : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
         transformStyle: "preserve-3d",
       }}
       className={`relative will-change-transform ${className}`}
     >
       {children}
 
-      {/* Dynamic Specular Glare Overlay */}
-      {!isDisabled && glare && (
+      {/* Dynamic Specular Glare Overlay - rendered only after client mount to prevent SSR mismatch */}
+      {isMounted && !isDisabled && glare && (
         <div
           aria-hidden="true"
           style={{
             opacity: glarePos.active ? glareOpacity : 0,
-            background: `radial-gradient(circle 320px at ${glarePos.x}% ${glarePos.y}%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 80%)`,
+            background: `radial-gradient(circle 320px at ${glarePos.x}% ${glarePos.y}%, rgba(255,255,255,0.7) 0%, rgba(255,255,255) 80%)`,
             transition: "opacity 0.25s ease-out",
           }}
           className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] mix-blend-overlay"
