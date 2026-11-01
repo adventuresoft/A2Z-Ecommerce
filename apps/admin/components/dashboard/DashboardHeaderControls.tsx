@@ -30,43 +30,55 @@ export function DashboardHeaderControls({
   ];
 
   return (
-    <div className="card shadow-sm border-0 mb-4 bg-body">
+    <div className="card card-3d border-0 mb-3 animate-stagger-1">
       <div className="card-body p-3">
         <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
           {/* Left: Operational status banner */}
           <div className="d-flex align-items-center gap-3 flex-wrap">
             <div className="d-flex align-items-center gap-2">
               <span className="pulse-indicator" aria-hidden="true"></span>
-              <span className="fw-semibold text-body" style={{ fontSize: "0.875rem" }}>
-                Live Store Operations
+              <span className="fw-bold text-body" style={{ fontSize: "0.88rem", letterSpacing: "-0.01em" }}>
+                Live Store Telemetry
               </span>
             </div>
 
             <div className="vr d-none d-sm-block text-secondary opacity-25" style={{ height: "16px" }}></div>
 
             {isFallback ? (
-              <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1" style={{ fontSize: "0.72rem" }}>
+              <span
+                className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1"
+                style={{ fontSize: "0.72rem" }}
+              >
                 <i className="bi bi-info-circle-fill"></i>
-                <span>Demo Data Mode (API Inactive)</span>
+                <span>Demo Data Mode (API Offline)</span>
               </span>
             ) : (
-              <span className="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1" style={{ fontSize: "0.72rem" }}>
+              <span
+                className="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1"
+                style={{ fontSize: "0.72rem" }}
+              >
                 <i className="bi bi-check-circle-fill"></i>
-                <span>Database Connected</span>
+                <span>Database Synchronized</span>
               </span>
             )}
 
             {lastUpdated && (
-              <small className="text-secondary" style={{ fontSize: "0.75rem" }}>
-                Updated {lastUpdated}
+              <small className="text-secondary d-flex align-items-center gap-1" style={{ fontSize: "0.75rem" }}>
+                <i className="bi bi-clock-history"></i>
+                <span>Synced {lastUpdated}</span>
               </small>
             )}
           </div>
 
           {/* Right: Date interval buttons & Action controls */}
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            {/* Filter Pills */}
-            <div className="btn-group btn-group-sm p-1 bg-body-tertiary rounded-3 border" role="group" aria-label="Time period range">
+            {/* 3D Recessed Filter Pill Track */}
+            <div
+              className="btn-group btn-group-sm p-1 bg-body-tertiary rounded-3 border"
+              style={{ boxShadow: "var(--az-shadow-inset)" }}
+              role="group"
+              aria-label="Time period range"
+            >
               {timeRanges.map((range) => {
                 const isActive = timeRange === range.value;
                 return (
@@ -74,12 +86,12 @@ export function DashboardHeaderControls({
                     key={range.value}
                     type="button"
                     onClick={() => onTimeRangeChange(range.value)}
-                    className={`btn btn-sm px-2 py-1 border-0 ${
+                    className={`btn btn-sm px-2-5 py-1 border-0 rounded-2 ${
                       isActive
-                        ? "btn-primary shadow-sm fw-medium text-white"
-                        : "btn-light text-secondary"
+                        ? "btn-primary fw-semibold text-white"
+                        : "bg-transparent text-secondary"
                     }`}
-                    style={{ fontSize: "0.75rem" }}
+                    style={{ fontSize: "0.75rem", padding: "0.28rem 0.65rem" }}
                   >
                     {range.label}
                   </button>
@@ -87,29 +99,29 @@ export function DashboardHeaderControls({
               })}
             </div>
 
-            {/* Refresh Button */}
+            {/* Refresh 3D Tile Button */}
             <button
               type="button"
               onClick={onRefresh}
               disabled={isLoading}
-              className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 px-2 py-1"
+              className="btn tile-3d btn-sm d-flex align-items-center gap-1 px-2-5 py-1 text-body"
               title="Refresh dashboard metrics"
               aria-label="Refresh dashboard data"
+              style={{ height: "32px" }}
             >
               <i className={`bi bi-arrow-clockwise ${isLoading ? "spin" : ""}`}></i>
               <span className="d-none d-sm-inline">Refresh</span>
             </button>
 
-            {/* Quick Actions Menu */}
-            <div className="dropdown">
-              <Link
-                href="/products/new"
-                className="btn btn-primary btn-sm d-flex align-items-center gap-1"
-              >
-                <i className="bi bi-plus-lg"></i>
-                <span>New Product</span>
-              </Link>
-            </div>
+            {/* Quick Create Order CTA */}
+            <Link
+              href="/orders/create"
+              className="btn btn-primary btn-sm d-flex align-items-center gap-1 px-2-5"
+              style={{ height: "32px" }}
+            >
+              <i className="bi bi-cart-plus-fill"></i>
+              <span>POS Order</span>
+            </Link>
           </div>
         </div>
       </div>

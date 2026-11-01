@@ -59,10 +59,10 @@ export function AdminLayout({ children, headerProps, hideHeader }: AdminLayoutPr
       <AdminNavbar />
 
       {/* 3. Main Content Area (grid-area: lte-app-main) */}
-      <main className="app-main bg-body-tertiary">
+      <main className="app-main">
         {!hideHeader && <PageHeader {...headerProps} />}
 
-        <div className="app-content py-4 px-3 px-md-4">
+        <div className="app-content py-4 px-3 px-md-4 flex-grow-1">
           <div className="container-fluid p-0">{children}</div>
         </div>
       </main>
@@ -70,11 +70,11 @@ export function AdminLayout({ children, headerProps, hideHeader }: AdminLayoutPr
       {/* 4. Footer (grid-area: lte-app-footer) */}
       <AdminFooter />
 
-      {/* Mobile Drawer Overlay Backdrop */}
+      {/* Mobile Drawer Overlay Backdrop with frosted blur */}
       {mobileOpen && (
         <div
           className="sidebar-backdrop position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50"
-          style={{ zIndex: 1040, cursor: "pointer" }}
+          style={{ zIndex: 1040, cursor: "pointer", backdropFilter: "blur(4px)" }}
           onClick={closeMobileSidebar}
           aria-hidden="true"
         />

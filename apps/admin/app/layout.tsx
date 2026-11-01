@@ -23,6 +23,11 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Admin Dashboard — A to Z E-Commerce",
   description: "Back-office operations, catalog, and order management portal",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/Logo.png",
+  },
 };
 
 export default function RootLayout({

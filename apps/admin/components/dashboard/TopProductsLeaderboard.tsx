@@ -18,28 +18,28 @@ export function TopProductsLeaderboard({
   const maxRevenue = Math.max(...products.map((p) => p.revenue), 1);
 
   return (
-    <div className="card shadow-sm border-0 h-100 bg-body">
-      <div className="card-header bg-body border-bottom py-3 px-3 px-md-4 d-flex align-items-center justify-content-between">
+    <div className="card card-3d border-0 h-100">
+      <div className="card-header py-3 px-3 px-md-4 d-flex align-items-center justify-content-between">
         <div className="d-flex align-items-center gap-2">
           <div
-            className="bg-primary-subtle text-primary rounded-2 d-flex align-items-center justify-content-center"
-            style={{ width: "30px", height: "30px" }}
+            className="tile-3d d-inline-flex align-items-center justify-content-center text-primary me-1"
+            style={{ width: "34px", height: "34px", borderRadius: "0.55rem" }}
           >
-            <i className="bi bi-trophy fs-6"></i>
+            <i className="bi bi-trophy-fill fs-6" aria-hidden="true"></i>
           </div>
           <div>
-            <h5 className="card-title mb-0 fw-semibold text-body" style={{ fontSize: "0.95rem" }}>
+            <h5 className="card-title mb-0 fw-bold text-body" style={{ fontSize: "0.95rem" }}>
               Top-Selling Products
             </h5>
-            <small className="text-secondary" style={{ fontSize: "0.75rem" }}>
+            <small className="text-secondary" style={{ fontSize: "0.74rem" }}>
               Ranked by revenue contribution & unit volume
             </small>
           </div>
         </div>
 
         <Link
-          href="/products"
-          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+          href="/catalog/products"
+          className="btn tile-3d btn-sm d-flex align-items-center gap-1 text-body fw-semibold"
           style={{ fontSize: "0.75rem" }}
         >
           <span>Catalog</span>

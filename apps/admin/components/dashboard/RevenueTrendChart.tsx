@@ -93,61 +93,75 @@ export function RevenueTrendChart({
   const activePoint = hoveredIndex !== null ? points[hoveredIndex] : null;
 
   return (
-    <div className="card shadow-sm border-0 h-100 bg-body">
+    <div className="card card-3d border-0 h-100">
       {/* Chart Header */}
-      <div className="card-header bg-body border-bottom py-3 px-3 px-md-4 d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
-        <div>
-          <div className="d-flex align-items-center gap-2">
-            <h5 className="card-title mb-0 fw-semibold text-body" style={{ fontSize: "0.95rem" }}>
-              Sales & Order Performance Timeline
-            </h5>
-            <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: "0.68rem" }}>
-              Interactive Telemetry
-            </span>
+      <div className="card-header py-3 px-3 px-md-4 d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+        <div className="d-flex align-items-center gap-2-5">
+          <div
+            className="tile-3d d-inline-flex align-items-center justify-content-center text-primary me-2"
+            style={{ width: "36px", height: "36px", borderRadius: "0.6rem" }}
+          >
+            <i className="bi bi-graph-up-arrow fs-6" aria-hidden="true"></i>
           </div>
-          <small className="text-secondary" style={{ fontSize: "0.75rem" }}>
-            Track revenue progression and order volume trends across selected period
-          </small>
+          <div>
+            <div className="d-flex align-items-center gap-2">
+              <h5 className="card-title mb-0 fw-bold text-body" style={{ fontSize: "0.95rem" }}>
+                Sales & Order Performance Timeline
+              </h5>
+              <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: "0.66rem" }}>
+                Live Telemetry
+              </span>
+            </div>
+            <small className="text-secondary" style={{ fontSize: "0.74rem" }}>
+              Track revenue progression and order volume across selected horizon
+            </small>
+          </div>
         </div>
 
         {/* Chart View Toggles & A11y Table Button */}
         <div className="d-flex align-items-center gap-2">
-          <div className="btn-group btn-group-sm bg-body-tertiary rounded-3 border p-1" role="group" aria-label="Metric toggle">
+          <div
+            className="btn-group btn-group-sm bg-body-tertiary rounded-3 border p-1"
+            style={{ boxShadow: "var(--az-shadow-inset)" }}
+            role="group"
+            aria-label="Metric toggle"
+          >
             <button
               type="button"
               onClick={() => setMetricMode("revenue")}
-              className={`btn btn-sm px-2 py-1 border-0 ${
+              className={`btn btn-sm px-2-5 py-1 border-0 rounded-2 ${
                 metricMode === "revenue"
-                  ? "btn-primary shadow-sm text-white fw-medium"
-                  : "btn-light text-secondary"
+                  ? "btn-primary text-white fw-semibold"
+                  : "bg-transparent text-secondary"
               }`}
-              style={{ fontSize: "0.75rem" }}
+              style={{ fontSize: "0.74rem" }}
             >
-              <i className="bi bi-currency-dollar me-1"></i>
+              <i className="bi bi-currency-exchange me-1"></i>
               Revenue ({currency})
             </button>
             <button
               type="button"
               onClick={() => setMetricMode("orders")}
-              className={`btn btn-sm px-2 py-1 border-0 ${
+              className={`btn btn-sm px-2-5 py-1 border-0 rounded-2 ${
                 metricMode === "orders"
-                  ? "btn-primary shadow-sm text-white fw-medium"
-                  : "btn-light text-secondary"
+                  ? "btn-success text-white fw-semibold"
+                  : "bg-transparent text-secondary"
               }`}
-              style={{ fontSize: "0.75rem" }}
+              style={{ fontSize: "0.74rem" }}
             >
               <i className="bi bi-cart3 me-1"></i>
-              Order Volume
+              Orders
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => setShowDataTable(!showDataTable)}
-            className="btn btn-outline-secondary btn-sm px-2 py-1"
+            className="btn tile-3d btn-sm px-2-5 py-1 text-body"
             title="Toggle Accessible Data Table"
+            aria-label="Toggle Accessible Data Table"
             aria-expanded={showDataTable}
-            style={{ fontSize: "0.75rem" }}
+            style={{ height: "32px", fontSize: "0.75rem" }}
           >
             <i className={`bi ${showDataTable ? "bi-graph-up" : "bi-table"}`}></i>
           </button>

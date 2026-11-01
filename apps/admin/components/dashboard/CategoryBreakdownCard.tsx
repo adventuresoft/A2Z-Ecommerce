@@ -45,29 +45,42 @@ export function CategoryBreakdownCard({
   }, []);
 
   return (
-    <div className="card shadow-sm border-0 h-100 bg-body">
-      <div className="card-header bg-body border-bottom py-3 px-3 px-md-4 d-flex align-items-center justify-content-between">
-        <div>
-          <h5 className="card-title mb-0 fw-semibold text-body" style={{ fontSize: "0.95rem" }}>
-            Revenue Breakdown
-          </h5>
-          <small className="text-secondary" style={{ fontSize: "0.75rem" }}>
-            Channel & category contribution
-          </small>
+    <div className="card card-3d border-0 h-100">
+      <div className="card-header py-3 px-3 px-md-4 d-flex align-items-center justify-content-between">
+        <div className="d-flex align-items-center gap-2">
+          <div
+            className="tile-3d d-inline-flex align-items-center justify-content-center text-info me-1"
+            style={{ width: "34px", height: "34px", borderRadius: "0.55rem" }}
+          >
+            <i className="bi bi-pie-chart-fill fs-6" aria-hidden="true"></i>
+          </div>
+          <div>
+            <h5 className="card-title mb-0 fw-bold text-body" style={{ fontSize: "0.95rem" }}>
+              Revenue Breakdown
+            </h5>
+            <small className="text-secondary" style={{ fontSize: "0.74rem" }}>
+              Channel & category share
+            </small>
+          </div>
         </div>
 
         {/* Tab switchers */}
-        <div className="btn-group btn-group-sm bg-body-tertiary rounded-3 border p-1" role="group" aria-label="Breakdown view">
+        <div
+          className="btn-group btn-group-sm bg-body-tertiary rounded-3 border p-1"
+          style={{ boxShadow: "var(--az-shadow-inset)" }}
+          role="group"
+          aria-label="Breakdown view"
+        >
           <button
             type="button"
             onClick={() => {
               setActiveTab("category");
               setHoveredIdx(null);
             }}
-            className={`btn btn-sm px-2 py-1 border-0 ${
+            className={`btn btn-sm px-2 py-1 border-0 rounded-2 ${
               activeTab === "category"
-                ? "btn-primary shadow-sm text-white fw-medium"
-                : "btn-light text-secondary"
+                ? "btn-primary text-white fw-semibold"
+                : "bg-transparent text-secondary"
             }`}
             style={{ fontSize: "0.72rem" }}
           >
@@ -79,10 +92,10 @@ export function CategoryBreakdownCard({
               setActiveTab("payment");
               setHoveredIdx(null);
             }}
-            className={`btn btn-sm px-2 py-1 border-0 ${
+            className={`btn btn-sm px-2 py-1 border-0 rounded-2 ${
               activeTab === "payment"
-                ? "btn-primary shadow-sm text-white fw-medium"
-                : "btn-light text-secondary"
+                ? "btn-primary text-white fw-semibold"
+                : "bg-transparent text-secondary"
             }`}
             style={{ fontSize: "0.72rem" }}
           >

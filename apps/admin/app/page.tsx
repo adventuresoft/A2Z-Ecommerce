@@ -276,7 +276,7 @@ export default function DashboardPage() {
       <DashboardKpiCards data={kpiData} isLoading={isLoading} />
 
       {/* 3. Primary Visual Analytics: Revenue Timeline + Category Distribution */}
-      <div className="row g-3 mb-1">
+      <div className="row g-3 mb-1 animate-stagger-3">
         <div className="col-12 col-xl-8">
           <RevenueTrendChart
             data={timeline}
@@ -295,7 +295,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 4. Operations & Alerts Grid: Recent Transactions + Inventory Alerts */}
-      <div className="row g-3 mb-1">
+      <div className="row g-3 mb-1 animate-stagger-4">
         <div className="col-12 col-xl-8">
           <RecentOrdersTable
             orders={recentOrders}
@@ -312,7 +312,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 5. Merchandising & Quick Actions: Top Products + Fast Admin Shortcuts */}
-      <div className="row g-3 mb-2">
+      <div className="row g-3 mb-2 animate-stagger-5">
         <div className="col-12 col-xl-8">
           <TopProductsLeaderboard
             products={topProducts}

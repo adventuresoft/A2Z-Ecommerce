@@ -3,6 +3,7 @@
 import React, { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 
 function LoginForm() {
@@ -44,19 +45,33 @@ function LoginForm() {
   };
 
   return (
-    <div className="login-box" style={{ maxWidth: '420px', width: '100%' }}>
-      <div className="card card-outline card-primary shadow-sm border-0">
-        <div className="card-header text-center py-4 bg-white border-bottom-0">
-          <Link href="/" className="text-decoration-none">
-            <h3 className="mb-0 fw-bold text-dark">
-              <span className="text-primary me-2">
-                <i className="bi bi-cart4"></i>
-              </span>
-              A2Z <span className="fw-normal text-secondary">Admin</span>
+    <div className="login-box animate-stagger-1" style={{ maxWidth: '440px', width: '100%' }}>
+      <div className="card card-3d border-0">
+        <div className="card-header text-center py-4 border-bottom-0">
+          <Link href="/" className="text-decoration-none d-inline-flex flex-column align-items-center gap-2">
+            <div
+              className="bg-white rounded-4 d-inline-flex align-items-center justify-content-center p-2 shadow-sm border"
+              style={{
+                width: '110px',
+                height: '92px',
+                boxShadow: '0 8px 20px -4px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 1)',
+              }}
+            >
+              <Image
+                src="/Logo.png"
+                alt="A to Z E-Commerce"
+                width={94}
+                height={78}
+                className="img-fluid object-fit-contain"
+                priority
+              />
+            </div>
+            <h3 className="mb-0 fw-bold text-body mt-1" style={{ fontSize: '1.25rem' }}>
+              A to Z <span className="fw-semibold text-primary">Admin Console</span>
             </h3>
           </Link>
-          <p className="login-box-msg text-muted mt-2 mb-0 small">
-            Sign in to start your management session
+          <p className="login-box-msg text-secondary mt-1 mb-0 small">
+            Sign in to start your administrative management session
           </p>
         </div>
 
@@ -70,7 +85,7 @@ function LoginForm() {
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="mb-3">
-              <label className="form-label small fw-semibold text-secondary">Email Address</label>
+              <label className="form-label small fw-semibold text-body">Email Address</label>
               <div className="input-group">
                 <input
                   type="email"
@@ -81,7 +96,7 @@ function LoginForm() {
                   disabled={isSubmitting}
                   required
                 />
-                <span className="input-group-text text-muted bg-white border-start-0">
+                <span className="input-group-text text-secondary bg-transparent border-start-0">
                   <i className="bi bi-envelope"></i>
                 </span>
               </div>
@@ -89,8 +104,8 @@ function LoginForm() {
 
             <div className="mb-3">
               <div className="d-flex justify-content-between align-items-center mb-1">
-                <label className="form-label small fw-semibold text-secondary mb-0">Password</label>
-                <Link href="/forgot-password" className="small text-decoration-none text-primary">
+                <label className="form-label small fw-semibold text-body mb-0">Password</label>
+                <Link href="/forgot-password" className="small text-decoration-none text-primary fw-medium">
                   Forgot password?
                 </Link>
               </div>
@@ -106,9 +121,9 @@ function LoginForm() {
                 />
                 <button
                   type="button"
-                  className="btn btn-outline-secondary bg-white border-start-0"
+                  className="btn btn-outline-secondary border-start-0"
                   onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
                 </button>
@@ -118,61 +133,61 @@ function LoginForm() {
             <div className="d-grid mt-4">
               <button
                 type="submit"
-                className="btn btn-primary d-flex align-items-center justify-content-center py-2 fw-semibold"
+                className="btn btn-primary d-flex align-items-center justify-content-center py-2-5 fw-semibold"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <>
                     <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Signing In...
+                    Authenticating...
                   </>
                 ) : (
                   <>
                     <i className="bi bi-box-arrow-in-right me-2"></i>
-                    Sign In
+                    Sign In to Console
                   </>
                 )}
               </button>
             </div>
           </form>
 
-          <hr className="my-4 text-muted opacity-25" />
+          <hr className="my-4 text-secondary opacity-25" />
 
           {/* Demo Credentials Quick-Fill Pill Bar */}
           <div>
-            <div className="small fw-semibold text-muted text-uppercase mb-2 text-center" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-              Quick Demo Logins
+            <div className="small fw-bold text-secondary text-uppercase mb-2 text-center" style={{ fontSize: '0.7rem', letterSpacing: '0.06em' }}>
+              1-Click Role Sandboxes
             </div>
             <div className="d-flex flex-column gap-2">
               <button
                 type="button"
-                className="btn btn-outline-primary btn-sm text-start d-flex justify-content-between align-items-center"
+                className="btn tile-3d btn-sm text-start d-flex justify-content-between align-items-center py-2 px-3 text-body"
                 onClick={() => handleQuickFill('superadmin@az-ecommerce.local')}
               >
-                <span>
-                  <i className="bi bi-shield-lock-fill me-1"></i> Super Admin
+                <span className="fw-medium">
+                  <i className="bi bi-shield-lock-fill text-primary me-2"></i> Super Admin
                 </span>
                 <span className="badge bg-primary-subtle text-primary border border-primary-subtle">All Actions</span>
               </button>
 
               <button
                 type="button"
-                className="btn btn-outline-secondary btn-sm text-start d-flex justify-content-between align-items-center"
+                className="btn tile-3d btn-sm text-start d-flex justify-content-between align-items-center py-2 px-3 text-body"
                 onClick={() => handleQuickFill('admin@az-ecommerce.local')}
               >
-                <span>
-                  <i className="bi bi-person-fill-gear me-1"></i> Admin
+                <span className="fw-medium">
+                  <i className="bi bi-person-fill-gear text-warning me-2"></i> Admin
                 </span>
                 <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">No Delete</span>
               </button>
 
               <button
                 type="button"
-                className="btn btn-outline-success btn-sm text-start d-flex justify-content-between align-items-center"
+                className="btn tile-3d btn-sm text-start d-flex justify-content-between align-items-center py-2 px-3 text-body"
                 onClick={() => handleQuickFill('shopmanager@az-ecommerce.local')}
               >
-                <span>
-                  <i className="bi bi-shop me-1"></i> Shop Manager
+                <span className="fw-medium">
+                  <i className="bi bi-shop text-success me-2"></i> Shop Manager
                 </span>
                 <span className="badge bg-success-subtle text-success border border-success-subtle">Catalog Only</span>
               </button>

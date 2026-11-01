@@ -14,28 +14,28 @@ export function InventoryAlertsCard({
   isLoading = false,
 }: InventoryAlertsCardProps) {
   return (
-    <div className="card shadow-sm border-0 h-100 bg-body">
-      <div className="card-header bg-body border-bottom py-3 px-3 px-md-4 d-flex align-items-center justify-content-between">
+    <div className="card card-3d border-0 h-100">
+      <div className="card-header py-3 px-3 px-md-4 d-flex align-items-center justify-content-between">
         <div className="d-flex align-items-center gap-2">
           <div
-            className="bg-warning-subtle text-warning rounded-2 d-flex align-items-center justify-content-center"
-            style={{ width: "30px", height: "30px" }}
+            className="tile-3d d-inline-flex align-items-center justify-content-center text-warning me-1"
+            style={{ width: "34px", height: "34px", borderRadius: "0.55rem" }}
           >
-            <i className="bi bi-shield-exclamation fs-6"></i>
+            <i className="bi bi-shield-exclamation fs-6" aria-hidden="true"></i>
           </div>
           <div>
-            <h5 className="card-title mb-0 fw-semibold text-body" style={{ fontSize: "0.95rem" }}>
+            <h5 className="card-title mb-0 fw-bold text-body" style={{ fontSize: "0.95rem" }}>
               Critical Inventory Watchlist
             </h5>
-            <small className="text-secondary" style={{ fontSize: "0.75rem" }}>
-              Items requiring replenishment or attention
+            <small className="text-secondary" style={{ fontSize: "0.74rem" }}>
+              Items requiring replenishment
             </small>
           </div>
         </div>
 
         <Link
           href="/inventory"
-          className="btn btn-outline-warning btn-sm d-flex align-items-center gap-1"
+          className="btn tile-3d btn-sm d-flex align-items-center gap-1 text-warning-emphasis fw-semibold"
           style={{ fontSize: "0.75rem" }}
         >
           <span>Inventory hub</span>
