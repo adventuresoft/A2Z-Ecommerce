@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Ban,
   Tag,
+  Printer,
+  X,
 } from 'lucide-react';
 import { apiClient } from '../../../../lib/api-client';
 import { OrderStatusBadge, PaymentStatusBadge } from '../../../../components/UI/OrderStatusBadge';
@@ -151,6 +153,17 @@ export default function OrderDetailPage({
     };
   }, [id]);
 
+  // Handle Escape key for Cancel Modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isCancelModalOpen) {
+        setIsCancelModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCancelModalOpen]);
+
   const handleCancelOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!order) return;
@@ -177,17 +190,17 @@ export default function OrderDetailPage({
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center shadow-xs">
-        <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-xs font-medium text-slate-500">Loading order invoice details...</p>
+      <div className="surface-3d rounded-3xl border border-slate-200/90 p-12 text-center shadow-xs">
+        <div className="w-12 h-12 border-3 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-xs font-semibold text-slate-500">Loading order invoice details…</p>
       </div>
     );
   }
 
   if (errorMsg || !order) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center shadow-xs">
-        <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4">
+      <div className="surface-3d rounded-3xl border border-slate-200/90 p-12 text-center shadow-xs">
+        <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4 border border-rose-100">
           <AlertTriangle className="w-7 h-7" />
         </div>
         <h2 className="text-base font-bold text-slate-900">Unable to Display Order</h2>
@@ -196,15 +209,14 @@ export default function OrderDetailPage({
         </p>
         <Link
           href="/account/orders"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-blue-600 text-white font-medium text-xs rounded-xl shadow-xs transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-blue-600 text-white font-semibold text-xs rounded-xl shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
         >
-          <ChevronLeft className="w-4 h-4" /> Back to My Orders
+          <ChevronLeft className="w-4 h-4" /> <span>Back to My Orders</span>
         </Link>
       </div>
     );
   }
 
-  // Calculate current timeline progression
   const isCancelled = order.orderStatus === 'CANCELLED';
   const isReturned = order.orderStatus === 'RETURNED';
 
@@ -244,24 +256,28 @@ export default function OrderDetailPage({
       <div className="flex items-center justify-between">
         <Link
           href="/account/orders"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-sm"
         >
-          <ChevronLeft className="w-4 h-4" /> Back to Order History
+          <ChevronLeft className="w-4 h-4" /> <span>Back to Order History</span>
         </Link>
-        <span className="text-[11px] font-mono text-slate-400">Order Ref: {order.id.slice(0, 8)}</span>
+        <span className="text-[11px] font-mono text-slate-400">Order ID: {order.id.slice(0, 8)}</span>
       </div>
 
       {/* Success alert on cancellation */}
       {cancelSuccessMsg && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between">
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between"
+        >
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{cancelSuccessMsg}</span>
+            <span className="font-medium">{cancelSuccessMsg}</span>
           </div>
           <button
             type="button"
             onClick={() => setCancelSuccessMsg(null)}
-            className="text-emerald-600 hover:text-emerald-800 text-xs font-bold cursor-pointer"
+            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold cursor-pointer"
           >
             Dismiss
           </button>
@@ -269,17 +285,17 @@ export default function OrderDetailPage({
       )}
 
       {/* Main Order Header Card */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
+      <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-mono tracking-wide">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-wide">
                 {order.orderNumber}
               </h1>
               <OrderStatusBadge status={order.orderStatus} size="md" />
               <PaymentStatusBadge status={order.paymentStatus} size="md" />
             </div>
-            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5 font-medium">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
               Placed on {formattedPlacedDate}
             </p>
@@ -291,9 +307,9 @@ export default function OrderDetailPage({
               <button
                 type="button"
                 onClick={() => setIsCancelModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 border border-rose-200 bg-rose-50/50 hover:bg-rose-100/70 text-rose-700 font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
               >
-                <Ban className="w-3.5 h-3.5" /> Cancel Order
+                <Ban className="w-3.5 h-3.5" /> <span>Cancel Order</span>
               </button>
             )}
 
@@ -302,26 +318,34 @@ export default function OrderDetailPage({
                 href={latestShipment.trackingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl shadow-xs transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-md shadow-blue-600/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
-                <Truck className="w-3.5 h-3.5" /> Track Courier
+                <Truck className="w-3.5 h-3.5" /> <span>Track Courier</span>
                 <ExternalLink className="w-3 h-3 ml-0.5" />
               </a>
             )}
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-500" /> <span>Print Invoice</span>
+            </button>
           </div>
         </div>
 
         {/* Fulfillment Timeline Stepper */}
         {isCancelled ? (
-          <div className="mt-6 p-4 rounded-xl bg-rose-50/80 border border-rose-200/80 text-rose-800 text-xs flex items-start gap-3">
+          <div className="mt-6 p-4 rounded-2xl bg-rose-50/90 border border-rose-200 text-rose-800 text-xs flex items-start gap-3">
             <XCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-bold text-sm">Order Cancelled</p>
               <p className="mt-0.5 text-rose-700">
-                This order was cancelled. Reserved items have been returned to warehouse inventory.
+                This order was cancelled. Reserved items have been released back into warehouse inventory.
               </p>
               {order.statusHistory?.find((h) => h.toStatus === 'CANCELLED')?.notes && (
-                <p className="text-[11px] text-rose-600/90 mt-1">
+                <p className="text-[11px] text-rose-600 font-medium mt-1">
                   Reason: {order.statusHistory.find((h) => h.toStatus === 'CANCELLED')?.notes}
                 </p>
               )}
@@ -339,22 +363,22 @@ export default function OrderDetailPage({
                 return (
                   <div key={step.key} className="flex flex-col items-center text-center">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 transition-all ${
+                      className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-xs mb-2 transition-all duration-300 ${
                         status === 'completed'
-                          ? 'bg-emerald-600 text-white ring-4 ring-emerald-50'
+                          ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-4 ring-emerald-50'
                           : status === 'current'
-                          ? 'bg-blue-600 text-white ring-4 ring-blue-50 shadow-sm animate-pulse'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-4 ring-blue-50 animate-pulse'
                           : 'bg-slate-100 text-slate-400'
                       }`}
                     >
                       {status === 'completed' ? (
                         <CheckCircle2 className="w-4 h-4" />
                       ) : (
-                        idx + 1
+                        <span className="font-mono">{idx + 1}</span>
                       )}
                     </div>
                     <span
-                      className={`text-[11px] leading-tight font-medium ${
+                      className={`text-[11px] leading-tight font-semibold ${
                         status === 'completed' || status === 'current'
                           ? 'text-slate-900 font-bold'
                           : 'text-slate-400'
@@ -375,10 +399,10 @@ export default function OrderDetailPage({
         {/* Left Column (8 cols): Ordered Items & Audit History */}
         <div className="lg:col-span-8 space-y-6">
           {/* Order Items Table Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                   <Package className="w-4 h-4" />
                 </div>
                 <div>
@@ -393,7 +417,7 @@ export default function OrderDetailPage({
             <div className="divide-y divide-slate-100">
               {order.items.map((item) => (
                 <div key={item.id} className="p-6 flex items-start gap-4 hover:bg-slate-50/50 transition-colors">
-                  <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200/80 overflow-hidden relative shrink-0">
+                  <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200/80 overflow-hidden relative shrink-0 shadow-xs">
                     {item.thumbnailUrl ? (
                       <Image
                         src={item.thumbnailUrl}
@@ -420,7 +444,7 @@ export default function OrderDetailPage({
                       </p>
                     )}
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mt-1.5 font-mono">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mt-1.5 font-mono tabular-nums">
                       <span>SKU: {item.sku}</span>
                       <span>Qty: {item.quantity}</span>
                       {item.taxAmount > 0 && (
@@ -430,10 +454,10 @@ export default function OrderDetailPage({
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-slate-900 font-mono">
+                    <p className="text-sm font-black text-slate-900 font-mono tabular-nums">
                       ৳{item.totalPrice.toLocaleString()}
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-mono tabular-nums">
                       ৳{item.unitPrice.toLocaleString()} each
                     </p>
                   </div>
@@ -444,16 +468,14 @@ export default function OrderDetailPage({
 
           {/* Status Timeline History Card */}
           {order.statusHistory && order.statusHistory.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
+            <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6">
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
                 <FileText className="w-4 h-4 text-blue-600" />
-                <h2 className="text-sm font-bold text-slate-900">
-                  Status Transition Audit History
-                </h2>
+                <h2 className="text-sm font-bold text-slate-900">Lifecycle Activity Audit Log</h2>
               </div>
 
               <div className="space-y-4">
-                {order.statusHistory.map((history, idx) => {
+                {order.statusHistory.map((history) => {
                   const historyDate = new Date(history.createdAt).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -463,19 +485,18 @@ export default function OrderDetailPage({
                   });
 
                   return (
-                    <div key={history.id || idx} className="flex items-start gap-3 text-xs">
-                      <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-500" />
-                      </div>
+                    <div key={history.id} className="flex items-start gap-3 text-xs">
+                      <div className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <OrderStatusBadge status={history.toStatus} size="sm" />
-                          <span className="text-slate-400 text-[11px] font-mono">{historyDate}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900">{history.toStatus}</span>
+                          <span className="text-[11px] text-slate-400 font-mono">{historyDate}</span>
                         </div>
                         {history.notes && (
-                          <p className="text-slate-600 text-xs mt-1 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                            {history.notes}
-                          </p>
+                          <p className="text-slate-600 mt-0.5">{history.notes}</p>
+                        )}
+                        {history.changedByUserName && (
+                          <p className="text-[10px] text-slate-400">By: {history.changedByUserName}</p>
                         )}
                       </div>
                     </div>
@@ -486,119 +507,98 @@ export default function OrderDetailPage({
           )}
         </div>
 
-        {/* Right Column (4 cols): Financial Breakdown & Courier Details */}
+        {/* Right Column (4 cols): Financial Totals, Address, Courier */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Financial Summary Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
-            <h2 className="text-sm font-bold text-slate-900 pb-3 border-b border-slate-100">
+          {/* Itemized Price Breakdown */}
+          <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-4">
+            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider pb-3 border-b border-slate-100">
               Payment Summary
             </h2>
 
-            <div className="space-y-2.5 py-4 text-xs border-b border-slate-100 text-slate-600">
+            <div className="space-y-2 text-xs text-slate-600">
               <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span className="font-mono text-slate-900 font-semibold">
+                <span>Items Subtotal</span>
+                <span className="font-mono tabular-nums font-semibold text-slate-900">
                   ৳{order.subtotal.toLocaleString()}
                 </span>
               </div>
 
+              {order.discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span className="flex items-center gap-1">
+                    <Tag className="w-3.5 h-3.5" /> Discount
+                    {order.couponCode ? ` (${order.couponCode})` : ''}
+                  </span>
+                  <span className="font-mono tabular-nums font-semibold">
+                    -৳{order.discountAmount.toLocaleString()}
+                  </span>
+                </div>
+              )}
+
               <div className="flex justify-between">
-                <span>Shipping Fee</span>
-                <span className="font-mono text-slate-900 font-semibold">
-                  {order.shippingFee === 0 ? 'FREE' : `৳${order.shippingFee.toLocaleString()}`}
+                <span>Delivery Courier Fee</span>
+                <span className="font-mono tabular-nums font-semibold text-slate-900">
+                  ৳{order.shippingFee.toLocaleString()}
                 </span>
               </div>
 
-              {order.discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-700 font-medium">
-                  <span className="flex items-center gap-1">
-                    <Tag className="w-3.5 h-3.5 text-emerald-600" />
-                    Coupon Discount {order.couponCode ? `(${order.couponCode})` : ''}
-                  </span>
-                  <span className="font-mono font-bold">-৳{order.discountAmount.toLocaleString()}</span>
-                </div>
-              )}
-
               {order.totalTaxAmount > 0 && (
-                <div className="flex justify-between text-slate-400 text-[11px]">
-                  <span>Estimated VAT (Inclusive)</span>
-                  <span className="font-mono">৳{order.totalTaxAmount.toLocaleString()}</span>
+                <div className="flex justify-between text-slate-500">
+                  <span>Included VAT/Taxes</span>
+                  <span className="font-mono tabular-nums">৳{order.totalTaxAmount.toLocaleString()}</span>
                 </div>
               )}
             </div>
 
-            <div className="pt-4 flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-900">Grand Total</span>
-              <span className="text-xl font-extrabold text-slate-900 font-mono">
+            <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+              <span className="text-sm font-bold text-slate-900">Total Payable</span>
+              <span className="text-xl font-black text-slate-900 font-mono tabular-nums">
                 ৳{order.grandTotal.toLocaleString()}
               </span>
             </div>
+
+            {latestPayment && (
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Method</span>
+                  <span className="font-semibold text-slate-800">
+                    {latestPayment.method.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                {latestPayment.transactionRef && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">TrxID</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {latestPayment.transactionRef}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Delivery Destination Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-3">
+          {/* Shipping Address Snapshot */}
+          <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-3">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
               <MapPin className="w-4 h-4 text-blue-600" />
               <h2 className="text-sm font-bold text-slate-900">Delivery Destination</h2>
             </div>
 
-            <div className="text-xs text-slate-600 space-y-1">
+            <div className="text-xs text-slate-600 space-y-1.5">
               <p className="font-bold text-slate-900 text-sm">{order.recipientName}</p>
               <p className="font-mono text-slate-500">{order.recipientPhone}</p>
-              <p className="leading-relaxed text-slate-700 mt-1">{order.shippingStreet}</p>
-              <p className="text-slate-700">
+              <p className="text-slate-700 leading-relaxed font-medium">{order.shippingStreet}</p>
+              <p className="text-slate-700 font-medium">
                 {order.shippingCity}
                 {order.shippingState ? `, ${order.shippingState}` : ''} -{' '}
                 <span className="font-mono">{order.shippingPostalCode}</span>
               </p>
             </div>
-
-            {order.customerNotes && (
-              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-                <span className="font-semibold block text-slate-700">Customer Delivery Instructions:</span>
-                <p className="italic mt-0.5">{order.customerNotes}</p>
-              </div>
-            )}
           </div>
 
-          {/* Payment Method Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-3">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-              <CreditCard className="w-4 h-4 text-blue-600" />
-              <h2 className="text-sm font-bold text-slate-900">Payment Information</h2>
-            </div>
-
-            <div className="text-xs text-slate-600 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Method</span>
-                <span className="font-bold text-slate-900">
-                  {latestPayment?.method === 'MOBILE_BANKING'
-                    ? 'Mobile Banking (bKash/Nagad)'
-                    : latestPayment?.method === 'CREDIT_CARD'
-                    ? 'Credit/Debit Card'
-                    : 'Cash on Delivery'}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Payment Status</span>
-                <PaymentStatusBadge status={order.paymentStatus} size="sm" />
-              </div>
-
-              {latestPayment?.transactionRef && (
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Transaction ID</span>
-                  <span className="font-mono font-bold text-slate-800">
-                    {latestPayment.transactionRef}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Courier Details Card if Available */}
+          {/* Courier Shipment Details */}
           {latestShipment && (
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-3">
+            <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-3">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
                 <Truck className="w-4 h-4 text-blue-600" />
                 <h2 className="text-sm font-bold text-slate-900">Shipment Details</h2>
@@ -622,9 +622,9 @@ export default function OrderDetailPage({
                     href={latestShipment.trackingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-semibold text-xs transition-colors"
+                    className="mt-2 w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-semibold text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                   >
-                    Open Live Tracking <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Live Tracking</span> <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}
               </div>
@@ -635,46 +635,63 @@ export default function OrderDetailPage({
 
       {/* Cancellation Modal Dialog */}
       {isCancelModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5" />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-dialog-title"
+          aria-describedby="cancel-dialog-desc"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overscroll-contain"
+        >
+          <div className="surface-3d rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 id="cancel-dialog-title" className="text-base font-bold text-slate-900">
+                    Cancel Order {order.orderNumber}?
+                  </h3>
+                  <p id="cancel-dialog-desc" className="text-xs text-slate-500">
+                    Please confirm if you want to cancel this order
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Cancel Order {order.orderNumber}?
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Are you sure you want to cancel this order?
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-600 mb-4 border border-slate-100">
-              <p>
-                Cancelling will immediately release reserved items back into available stock.
-                This action is permanent and cannot be reversed.
-              </p>
+            <div className="p-3.5 bg-slate-50 rounded-2xl text-xs text-slate-600 mb-4 border border-slate-100 leading-relaxed">
+              Cancelling will immediately release reserved items back into available stock. This action cannot be reversed.
             </div>
 
             {cancelError && (
-              <div className="p-3 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+              <div
+                role="alert"
+                className="p-3 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs"
+              >
                 {cancelError}
               </div>
             )}
 
             <form onSubmit={handleCancelOrder} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                <label htmlFor="cancel-reason-input" className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Reason for Cancellation (Optional)
                 </label>
                 <textarea
+                  id="cancel-reason-input"
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="e.g. Changed my mind, found another product, incorrect address..."
+                  placeholder="e.g. Changed my mind, found another product, incorrect address…"
                   rows={3}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-slate-900 placeholder:text-slate-400"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-slate-900 placeholder:text-slate-400"
                 />
               </div>
 
@@ -683,22 +700,22 @@ export default function OrderDetailPage({
                   type="button"
                   onClick={() => setIsCancelModalOpen(false)}
                   disabled={isCancelling}
-                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                 >
                   Keep Order
                 </button>
                 <button
                   type="submit"
                   disabled={isCancelling}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-rose-600/25 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                 >
                   {isCancelling ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Cancelling...
+                      <span>Cancelling…</span>
                     </>
                   ) : (
-                    'Confirm Cancellation'
+                    <span>Confirm Cancellation</span>
                   )}
                 </button>
               </div>

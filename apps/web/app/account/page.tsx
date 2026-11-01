@@ -15,11 +15,15 @@ import {
   ChevronRight,
   Truck,
   Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
 import { apiClient } from '../../lib/api-client';
 import { OrderStatusBadge, PaymentStatusBadge } from '../../components/UI/OrderStatusBadge';
+import { Tilt3DCard } from '../../components/UI/Tilt3DCard';
 
 interface RecentOrderItemPreview {
   productTitle: string;
@@ -89,146 +93,224 @@ export default function AccountDashboardPage() {
     };
   }, []);
 
-  const totalOrders = overview?.counts.totalOrders ?? 0;
-  const pendingOrders = overview?.counts.pendingOrders ?? 0;
+  const counts = overview?.counts ?? {
+    totalOrders: 0,
+    pendingOrders: 0,
+    processingOrders: 0,
+    deliveredOrders: 0,
+    cancelledOrders: 0,
+  };
   const defaultAddress = overview?.defaultShippingAddress ?? null;
   const recentOrders = overview?.recentOrders ?? [];
 
   return (
     <div className="space-y-8">
-      {/* Welcome Banner */}
-      <div className="relative overflow-hidden bg-slate-900 rounded-3xl p-8 sm:p-10 text-white shadow-xl shadow-slate-900/10 border border-slate-800">
+      {/* 3D Spatial Welcome Banner */}
+      <div className="relative overflow-hidden bg-tech-grid rounded-3xl p-6 sm:p-8 md:p-10 text-white shadow-2xl shadow-slate-950/20 border border-slate-800">
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold tracking-wide mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold tracking-wide mb-4 backdrop-blur-xs">
             <ShieldCheck className="w-4 h-4 text-blue-400" />
-            Verified Customer Center
+            <span>Verified Customer Control Center</span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            Welcome back, {user?.name || 'Customer'}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
+            Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300">{user?.name || 'Customer'}</span>
           </h1>
-          <p className="mt-2 text-sm sm:text-base text-slate-300 leading-relaxed">
-            Monitor current shipments, inspect itemized invoices, or update your saved
-            delivery destinations from your personal overview.
+          <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
+            Track real-time shipment dispatches, review authenticated payment receipts, or manage saved delivery destinations seamlessly.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href="/account/orders"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs rounded-xl shadow-sm transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-[background-color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               <Package className="w-4 h-4" />
-              View All Orders ({totalOrders})
+              <span>View All Orders ({counts.totalOrders})</span>
             </Link>
             <Link
               href="/shop"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs rounded-xl border border-slate-700 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800/90 hover:bg-slate-700 active:scale-95 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition-[background-color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               <ShoppingBag className="w-4 h-4 text-slate-400" />
-              Explore Catalog
+              <span>Explore Products</span>
             </Link>
           </div>
         </div>
 
-        {/* Ambient atmospheric glow */}
-        <div className="absolute right-0 top-0 -mt-8 -mr-8 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
+        {/* Ambient 3D Tech Glows */}
+        <div className="absolute right-0 top-0 -mt-10 -mr-10 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute left-1/2 bottom-0 w-64 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
       </div>
 
-      {/* Metric Stat Cards */}
+      {/* 3D KPI Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Orders */}
-        <Link
-          href="/account/orders"
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Orders
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Package className="w-4 h-4" />
+        <Tilt3DCard maxTiltDeg={7} glareOpacity={0.12}>
+          <Link
+            href="/account/orders"
+            className="block surface-3d p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:border-blue-300 hover:shadow-md transition-[border-color,box-shadow] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Total Orders
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                <Package className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-2 font-mono">
-            {isLoading ? '...' : totalOrders}
-          </p>
-          <span className="text-[11px] text-blue-600 font-medium mt-1 inline-flex items-center gap-1">
-            Order history <ChevronRight className="w-3 h-3" />
-          </span>
-        </Link>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 font-mono tabular-nums">
+              {isLoading ? '…' : counts.totalOrders}
+            </p>
+            <span className="text-[11px] text-blue-600 font-semibold mt-1 inline-flex items-center gap-1 group-hover:underline">
+              Order history <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        </Tilt3DCard>
 
         {/* Pending Orders */}
-        <Link
-          href="/account/orders?status=PENDING"
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Pending Orders
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Clock className="w-4 h-4" />
+        <Tilt3DCard maxTiltDeg={7} glareOpacity={0.12}>
+          <Link
+            href="/account/orders?status=PENDING"
+            className="block surface-3d p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:border-amber-300 hover:shadow-md transition-[border-color,box-shadow] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Pending Orders
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                <Clock className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-2 font-mono">
-            {isLoading ? '...' : pendingOrders}
-          </p>
-          <span className="text-[11px] text-amber-600 font-medium mt-1 inline-flex items-center gap-1">
-            {pendingOrders > 0 ? 'Awaiting fulfillment' : 'All clear'} <ChevronRight className="w-3 h-3" />
-          </span>
-        </Link>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 font-mono tabular-nums">
+              {isLoading ? '…' : counts.pendingOrders}
+            </p>
+            <span className="text-[11px] text-amber-600 font-semibold mt-1 inline-flex items-center gap-1 group-hover:underline">
+              {counts.pendingOrders > 0 ? 'Awaiting dispatch' : 'All clear'} <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        </Tilt3DCard>
 
         {/* Cart Items */}
-        <Link
-          href="/cart"
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Cart Items
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <ShoppingBag className="w-4 h-4" />
+        <Tilt3DCard maxTiltDeg={7} glareOpacity={0.12}>
+          <Link
+            href="/cart"
+            className="block surface-3d p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:border-indigo-300 hover:shadow-md transition-[border-color,box-shadow] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Cart Items
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                <ShoppingBag className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-2 font-mono">
-            {cart.length}
-          </p>
-          <span className="text-[11px] text-indigo-600 font-medium mt-1 inline-flex items-center gap-1">
-            View shopping cart <ChevronRight className="w-3 h-3" />
-          </span>
-        </Link>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 font-mono tabular-nums">
+              {cart.length}
+            </p>
+            <span className="text-[11px] text-indigo-600 font-semibold mt-1 inline-flex items-center gap-1 group-hover:underline">
+              View shopping cart <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        </Tilt3DCard>
 
         {/* Saved Wishlist */}
-        <Link
-          href="/account/wishlist"
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Saved Wishlist
+        <Tilt3DCard maxTiltDeg={7} glareOpacity={0.12}>
+          <Link
+            href="/account/wishlist"
+            className="block surface-3d p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:border-rose-300 hover:shadow-md transition-[border-color,box-shadow] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Saved Wishlist
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                <Heart className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 font-mono tabular-nums">
+              {wishlistCount}
+            </p>
+            <span className="text-[11px] text-rose-600 font-semibold mt-1 inline-flex items-center gap-1 group-hover:underline">
+              Saved items <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
             </span>
-            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Heart className="w-4 h-4" />
+          </Link>
+        </Tilt3DCard>
+      </div>
+
+      {/* Fulfillment Pipeline Telemetry */}
+      {counts.totalOrders > 0 && (
+        <div className="surface-3d rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Truck className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Fulfillment Status Breakdown
+                </h2>
+                <p className="text-[11px] text-slate-500">Live lifecycle distribution of your orders</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-xs font-semibold">
+              <span className="inline-flex items-center gap-1.5 text-amber-700">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                Pending: {counts.pendingOrders}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-blue-700">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                Processing: {counts.processingOrders}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-emerald-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Delivered: {counts.deliveredOrders}
+              </span>
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-2 font-mono">
-            {wishlistCount}
-          </p>
-          <span className="text-[11px] text-rose-600 font-medium mt-1 inline-flex items-center gap-1">
-            Saved items <ChevronRight className="w-3 h-3" />
-          </span>
-        </Link>
-      </div>
+
+          {/* Segmented bar */}
+          <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden flex gap-0.5">
+            {counts.pendingOrders > 0 && (
+              <div
+                style={{ width: `${(counts.pendingOrders / counts.totalOrders) * 100}%` }}
+                className="bg-amber-500 h-full transition-[width] duration-500"
+                title={`Pending: ${counts.pendingOrders}`}
+              />
+            )}
+            {counts.processingOrders > 0 && (
+              <div
+                style={{ width: `${(counts.processingOrders / counts.totalOrders) * 100}%` }}
+                className="bg-blue-600 h-full transition-[width] duration-500"
+                title={`Processing: ${counts.processingOrders}`}
+              />
+            )}
+            {counts.deliveredOrders > 0 && (
+              <div
+                style={{ width: `${(counts.deliveredOrders / counts.totalOrders) * 100}%` }}
+                className="bg-emerald-500 h-full transition-[width] duration-500"
+                title={`Delivered: ${counts.deliveredOrders}`}
+              />
+            )}
+            {counts.cancelledOrders > 0 && (
+              <div
+                style={{ width: `${(counts.cancelledOrders / counts.totalOrders) * 100}%` }}
+                className="bg-slate-300 h-full transition-[width] duration-500"
+                title={`Cancelled: ${counts.cancelledOrders}`}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Grid: Primary Address & Security Profile */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Default Shipping Address Snapshot */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between">
+        <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <h2 className="text-sm font-bold text-slate-900">
@@ -237,9 +319,9 @@ export default function AccountDashboardPage() {
               </div>
               <Link
                 href="/account/addresses"
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-sm"
               >
-                Manage <ArrowRight className="w-3.5 h-3.5" />
+                <span>Manage</span> <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
@@ -248,23 +330,23 @@ export default function AccountDashboardPage() {
                 Loading address information...
               </div>
             ) : defaultAddress ? (
-              <div className="space-y-1.5 text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div className="space-y-2 text-xs text-slate-600 bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-slate-900">
+                  <span className="font-bold text-slate-900 text-sm">
                     {defaultAddress.recipientName}
                   </span>
-                  <span className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                     Default Destination
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 font-mono">{defaultAddress.phone}</p>
-                <p className="text-slate-700 text-xs leading-relaxed">{defaultAddress.streetAddress}</p>
-                <p className="text-slate-700 text-xs">
+                <p className="text-slate-500 font-mono text-xs">{defaultAddress.phone}</p>
+                <p className="text-slate-700 leading-relaxed font-medium">{defaultAddress.streetAddress}</p>
+                <p className="text-slate-700 font-medium">
                   {defaultAddress.city}
                   {defaultAddress.state ? `, ${defaultAddress.state}` : ''} -{' '}
                   <span className="font-mono">{defaultAddress.postalCode}</span>
                 </p>
-                <p className="text-[11px] text-slate-400">{defaultAddress.country}</p>
+                <p className="text-[11px] text-slate-400 font-semibold">{defaultAddress.country}</p>
               </div>
             ) : (
               <div className="text-center py-6">
@@ -273,9 +355,9 @@ export default function AccountDashboardPage() {
                 </p>
                 <Link
                   href="/account/addresses"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 text-blue-600 rounded-xl font-semibold text-xs hover:bg-blue-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 text-blue-600 rounded-xl font-semibold text-xs hover:bg-blue-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add Shipping Destination
+                  <Plus className="w-3.5 h-3.5" /> <span>Add Shipping Destination</span>
                 </Link>
               </div>
             )}
@@ -283,11 +365,11 @@ export default function AccountDashboardPage() {
         </div>
 
         {/* Profile Snapshot & Security */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between">
+        <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <h2 className="text-sm font-bold text-slate-900">
@@ -296,30 +378,32 @@ export default function AccountDashboardPage() {
               </div>
               <Link
                 href="/account/profile"
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-sm"
               >
-                Update <ArrowRight className="w-3.5 h-3.5" />
+                <span>Update</span> <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="space-y-2.5 text-xs text-slate-600">
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
+            <div className="space-y-2 text-xs text-slate-600">
+              <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-slate-400">Full Name</span>
                 <span className="font-semibold text-slate-900">{user?.name}</span>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-slate-400">Email Address</span>
                 <span className="font-semibold text-slate-900 font-mono">{user?.email}</span>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-slate-400">Phone Number</span>
                 <span className="font-semibold text-slate-900 font-mono">
                   {user?.phone || 'Not provided'}
                 </span>
               </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-slate-400">Password Status</span>
-                <span className="font-mono text-slate-500">•••••••••••• (Encrypted)</span>
+              <div className="flex justify-between py-2">
+                <span className="text-slate-400">Password Security</span>
+                <span className="font-mono text-emerald-600 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Encrypted & Active
+                </span>
               </div>
             </div>
           </div>
@@ -327,10 +411,10 @@ export default function AccountDashboardPage() {
       </div>
 
       {/* Recent Orders Section */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
-        <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+      <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-7">
+        <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <Package className="w-4 h-4" />
             </div>
             <div>
@@ -340,9 +424,9 @@ export default function AccountDashboardPage() {
           </div>
           <Link
             href="/account/orders"
-            className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-sm"
           >
-            All Orders ({totalOrders}) <ArrowRight className="w-3.5 h-3.5" />
+            <span>All Orders ({counts.totalOrders})</span> <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
@@ -362,15 +446,15 @@ export default function AccountDashboardPage() {
               return (
                 <div
                   key={order.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-200/70 hover:border-blue-200 hover:bg-slate-50/60 transition-all gap-4"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-slate-200/80 hover:border-blue-300 hover:bg-slate-50/70 transition-[border-color,background-color] gap-4"
                 >
-                  <div className="flex items-start sm:items-center gap-3 min-w-0">
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                     {/* Items Thumbnails Strip */}
                     <div className="flex items-center -space-x-2 shrink-0">
                       {order.itemsPreview.slice(0, 3).map((item, idx) => (
                         <div
                           key={idx}
-                          className="w-10 h-10 rounded-lg border-2 border-white bg-slate-100 overflow-hidden relative shadow-xs"
+                          className="w-11 h-11 rounded-xl border-2 border-white bg-slate-100 overflow-hidden relative shadow-xs"
                           title={item.productTitle}
                         >
                           {item.thumbnailUrl ? (
@@ -378,7 +462,7 @@ export default function AccountDashboardPage() {
                               src={item.thumbnailUrl}
                               alt={item.productTitle}
                               fill
-                              sizes="40px"
+                              sizes="44px"
                               className="object-cover"
                             />
                           ) : (
@@ -389,7 +473,7 @@ export default function AccountDashboardPage() {
                         </div>
                       ))}
                       {order.itemsPreview.length > 3 && (
-                        <div className="w-10 h-10 rounded-lg border-2 border-white bg-slate-200 text-slate-600 text-[10px] font-bold flex items-center justify-center shadow-xs">
+                        <div className="w-11 h-11 rounded-xl border-2 border-white bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center shadow-xs">
                           +{order.itemsPreview.length - 3}
                         </div>
                       )}
@@ -401,26 +485,27 @@ export default function AccountDashboardPage() {
                           {order.orderNumber}
                         </span>
                         <OrderStatusBadge status={order.orderStatus} size="sm" />
+                        <PaymentStatusBadge status={order.paymentStatus} size="sm" />
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 mt-1">
                         Placed on {formattedDate} • {order.itemCount} {order.itemCount === 1 ? 'item' : 'items'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                     <div className="text-left sm:text-right">
                       <span className="text-[11px] text-slate-400 block sm:inline mr-1">Total:</span>
-                      <span className="text-sm font-bold text-slate-900 font-mono">
+                      <span className="text-sm font-bold text-slate-900 font-mono tabular-nums">
                         ৳{order.grandTotal.toLocaleString()}
                       </span>
                     </div>
 
                     <Link
                       href={`/account/orders/${order.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 font-medium text-xs rounded-lg transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 font-semibold text-xs rounded-xl transition-[background-color,color] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     >
-                      Details <ChevronRight className="w-3.5 h-3.5" />
+                      <span>Details</span> <ChevronRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>
                 </div>
@@ -428,8 +513,8 @@ export default function AccountDashboardPage() {
             })}
           </div>
         ) : (
-          <div className="text-center py-10 px-4">
-            <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3 border border-slate-100">
+          <div className="text-center py-12 px-4">
+            <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3 border border-slate-200">
               <ShoppingBag className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-bold text-slate-900">No Orders Placed Yet</h3>
@@ -439,9 +524,9 @@ export default function AccountDashboardPage() {
             </p>
             <Link
               href="/shop"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl shadow-xs transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-md shadow-blue-600/25 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             >
-              Browse Catalog <ArrowRight className="w-3.5 h-3.5" />
+              <span>Browse Catalog</span> <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         )}

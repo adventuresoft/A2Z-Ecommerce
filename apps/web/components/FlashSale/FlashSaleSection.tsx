@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Zap, ArrowRight } from "lucide-react";
+import { Zap, ArrowRight, Flame } from "lucide-react";
 import { ProductCard } from "../UI/ProductCard";
 import { FLASH_SALE_PRODUCTS, Product } from "../../data/mock-catalog";
 import { mapSummaryToProduct } from "../../lib/curated";
@@ -20,7 +20,6 @@ export function FlashSaleSection({
   wishlistIds = new Set(),
   products,
 }: FlashSaleSectionProps) {
-  // Live ticking countdown timer
   const [timeLeft, setTimeLeft] = useState({
     days: 2,
     hours: 15,
@@ -34,7 +33,7 @@ export function FlashSaleSection({
         if (prev.seconds > 0) {
           return { ...prev, seconds: prev.seconds - 1 };
         } else if (prev.minutes > 0) {
-          return { ...prev, minutes: 59, seconds: 59 };
+          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
         } else if (prev.hours > 0) {
           return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
         } else if (prev.days > 0) {
@@ -46,7 +45,6 @@ export function FlashSaleSection({
     return () => clearInterval(timer);
   }, []);
 
-  // If products is explicitly an empty array, hide section cleanly
   if (products !== undefined && products.length === 0) {
     return null;
   }
@@ -63,59 +61,91 @@ export function FlashSaleSection({
   const format2Digits = (num: number) => num.toString().padStart(2, "0");
 
   return (
-    <section id="flash-sale" className="py-10 bg-slate-50 border-b border-slate-200 scroll-mt-24">
+    <section
+      id="flash-sale"
+      className="py-12 bg-[#F8FAFC] border-b border-slate-200/80 scroll-mt-24"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header with Live Countdown */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200/80">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20">
-                <Zap className="w-5 h-5 fill-current" aria-hidden="true" />
+        {/* 3D Spatial Countdown Header Banner */}
+        <div className="surface-3d-dark bg-tech-grid rounded-3xl p-5 sm:p-6 mb-7 text-white flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-12 -top-12 w-56 h-56 rounded-full bg-orange-500/20 blur-3xl"
+          />
+
+          <div className="relative z-10 flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 text-white flex items-center justify-center shadow-lg shadow-orange-600/30">
+                <Zap className="w-6 h-6 fill-current" aria-hidden="true" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
-                FLASH SALE
-              </h2>
+              <div>
+                <div className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                  <Flame className="w-3 h-3 fill-current" aria-hidden="true" />
+                  <span>Limited Allocation</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  Flash Tech Drops
+                </h2>
+              </div>
             </div>
 
-            {/* Live Countdown Timer Boxes */}
-            <div className="flex items-center space-x-1.5 text-slate-800" aria-label={`Flash sale ends in ${timeLeft.days} days, ${timeLeft.hours} hours, ${timeLeft.minutes} minutes, ${timeLeft.seconds} seconds`}>
-              <span className="text-xs font-bold text-slate-500 mr-1 hidden sm:inline">Ends in:</span>
-              
-              <div className="flex flex-col items-center justify-center bg-slate-900 text-white px-2 py-1 rounded-md min-w-[34px] shadow-xs">
-                <span className="text-xs font-black leading-none tabular-nums font-mono">{format2Digits(timeLeft.days)}</span>
-                <span className="text-[8px] text-slate-400 font-medium">Days</span>
-              </div>
-              <span className="font-bold text-slate-400" aria-hidden="true">:</span>
+            {/* Live Countdown Telemetry Boxes */}
+            <div
+              className="flex items-center gap-1.5"
+              aria-label={`Flash sale ends in ${timeLeft.days} days, ${timeLeft.hours} hours, ${timeLeft.minutes} minutes, ${timeLeft.seconds} seconds`}
+            >
+              <span className="text-xs font-bold text-slate-400 mr-1.5 hidden sm:inline">
+                Ends in:
+              </span>
 
-              <div className="flex flex-col items-center justify-center bg-slate-900 text-white px-2 py-1 rounded-md min-w-[34px] shadow-xs">
-                <span className="text-xs font-black leading-none tabular-nums font-mono">{format2Digits(timeLeft.hours)}</span>
-                <span className="text-[8px] text-slate-400 font-medium">Hours</span>
-              </div>
-              <span className="font-bold text-slate-400" aria-hidden="true">:</span>
-
-              <div className="flex flex-col items-center justify-center bg-slate-900 text-white px-2 py-1 rounded-md min-w-[34px] shadow-xs">
-                <span className="text-xs font-black leading-none tabular-nums font-mono">{format2Digits(timeLeft.minutes)}</span>
-                <span className="text-[8px] text-slate-400 font-medium">Mins</span>
-              </div>
-              <span className="font-bold text-slate-400" aria-hidden="true">:</span>
-
-              <div className="flex flex-col items-center justify-center bg-orange-600 text-white px-2 py-1 rounded-md min-w-[34px] shadow-xs animate-pulse">
-                <span className="text-xs font-black leading-none tabular-nums font-mono">{format2Digits(timeLeft.seconds)}</span>
-                <span className="text-[8px] text-orange-200 font-medium">Secs</span>
-              </div>
+              {[
+                { val: timeLeft.days, label: "Days", highlight: false },
+                { val: timeLeft.hours, label: "Hrs", highlight: false },
+                { val: timeLeft.minutes, label: "Min", highlight: false },
+                { val: timeLeft.seconds, label: "Sec", highlight: true },
+              ].map((unit, idx) => (
+                <React.Fragment key={unit.label}>
+                  <div
+                    className={`flex flex-col items-center justify-center px-2.5 py-1.5 rounded-xl min-w-[44px] border ${
+                      unit.highlight
+                        ? "bg-orange-600 border-orange-400/50 text-white shadow-md shadow-orange-600/30"
+                        : "bg-white/8 border-white/15 text-white"
+                    }`}
+                  >
+                    <span className="text-sm font-black leading-none tabular-nums font-mono">
+                      {format2Digits(unit.val)}
+                    </span>
+                    <span
+                      className={`text-[9px] font-bold mt-0.5 uppercase ${
+                        unit.highlight ? "text-orange-100" : "text-slate-400"
+                      }`}
+                    >
+                      {unit.label}
+                    </span>
+                  </div>
+                  {idx < 3 && (
+                    <span className="font-black text-slate-500" aria-hidden="true">
+                      :
+                    </span>
+                  )}
+                </React.Fragment>
+              ))}
             </div>
           </div>
 
           <Link
             href="/flash-sale"
-            className="text-xs sm:text-sm font-bold text-blue-700 hover:text-blue-800 flex items-center space-x-1 group self-start md:self-auto focus-visible:outline-hidden focus-visible:underline"
+            className="relative z-10 inline-flex items-center gap-1.5 text-xs font-black text-white bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2.5 rounded-xl transition-colors group self-start md:self-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           >
-            <span>View All Deals</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+            <span>All Flash Deals</span>
+            <ArrowRight
+              className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
+              aria-hidden="true"
+            />
           </Link>
         </div>
 
-        {/* Product Cards Grid with Unified ProductCard (5 columns on desktop) */}
+        {/* 5-Column Responsive 3D Product Cards Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
           {items.slice(0, items.length >= 10 ? 10 : 5).map((product, idx) => (
             <ProductCard

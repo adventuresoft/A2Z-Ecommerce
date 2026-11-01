@@ -15,6 +15,8 @@ import {
   CreditCard,
   Truck,
   ExternalLink,
+  ShieldCheck,
+  CheckCircle2,
 } from 'lucide-react';
 import { apiClient } from '../../../lib/api-client';
 import { OrderStatusBadge, PaymentStatusBadge } from '../../../components/UI/OrderStatusBadge';
@@ -131,31 +133,31 @@ function OrderHistoryContent() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* 3D Header */}
+      <div className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Package className="w-4 h-4" />
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Package className="w-5 h-5" />
             </div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Order History
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Order History & Tracking
             </h1>
           </div>
           <p className="text-xs text-slate-500">
-            Track fulfillment, view invoices, and inspect shipment progress for all your orders
+            Real-time fulfillment stages, digital invoice slips, and delivery tracking
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
-            {totalCount} {totalCount === 1 ? 'Total Order' : 'Total Orders'}
+          <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200/80 px-3.5 py-1.5 rounded-full font-mono tabular-nums">
+            {totalCount} {totalCount === 1 ? 'Total Record' : 'Total Records'}
           </span>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-2 overflow-x-auto">
+      <div className="surface-3d rounded-2xl border border-slate-200/90 shadow-xs p-1.5 overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-1 min-w-max">
           {STATUS_TABS.map((tab) => {
             const isActive = currentStatus === tab.key;
@@ -164,10 +166,10 @@ function OrderHistoryContent() {
                 key={tab.key}
                 type="button"
                 onClick={() => handleTabChange(tab.key)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                   isActive
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
                 }`}
               >
                 {tab.label}
@@ -183,7 +185,7 @@ function OrderHistoryContent() {
           {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="bg-white rounded-2xl border border-slate-200/80 p-6 animate-pulse space-y-4"
+              className="surface-3d rounded-3xl border border-slate-200/80 p-6 animate-pulse space-y-4"
             >
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
                 <div className="h-5 bg-slate-200 rounded-md w-36" />
@@ -206,33 +208,33 @@ function OrderHistoryContent() {
             return (
               <div
                 key={order.id}
-                className="bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-blue-200 hover:shadow-sm transition-all overflow-hidden"
+                className="surface-3d rounded-3xl border border-slate-200/90 shadow-sm hover:border-blue-300 hover:shadow-md transition-[border-color,box-shadow] overflow-hidden"
               >
                 {/* Order Top Bar */}
-                <div className="px-6 py-4 bg-slate-50/70 border-b border-slate-200/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-200/70 flex flex-wrap items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-slate-900 tracking-wide">
+                    <span className="font-mono font-black text-slate-900 tracking-wide">
                       {order.orderNumber}
                     </span>
                     <span className="text-slate-300">•</span>
-                    <span className="text-slate-500 inline-flex items-center gap-1.5">
+                    <span className="text-slate-500 inline-flex items-center gap-1.5 font-medium">
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
                       {formattedDate}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <OrderStatusBadge status={order.orderStatus} size="sm" />
                     <PaymentStatusBadge status={order.paymentStatus} size="sm" />
                     {order.paymentMethod && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white text-slate-700 border border-slate-200 shadow-xs">
                         <CreditCard className="w-3 h-3 text-slate-400" />
                         <span>
-                          {order.paymentMethod === "PAYSTATION"
-                            ? "PayStation"
-                            : order.paymentMethod === "CASH_ON_DELIVERY"
-                            ? "Cash on Delivery"
-                            : order.paymentMethod.replace(/_/g, " ")}
+                          {order.paymentMethod === 'PAYSTATION'
+                            ? 'PayStation'
+                            : order.paymentMethod === 'CASH_ON_DELIVERY'
+                            ? 'Cash on Delivery'
+                            : order.paymentMethod.replace(/_/g, ' ')}
                         </span>
                       </span>
                     )}
@@ -243,13 +245,13 @@ function OrderHistoryContent() {
                 <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
                   {/* Items Preview */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                    <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
                       {order.items.slice(0, 4).map((item, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 shrink-0 max-w-xs"
+                          className="flex items-center gap-2.5 p-2 rounded-2xl bg-white border border-slate-200/80 shadow-xs shrink-0 max-w-xs"
                         >
-                          <div className="w-12 h-12 rounded-lg bg-white overflow-hidden relative shrink-0 border border-slate-200/70">
+                          <div className="w-12 h-12 rounded-xl bg-slate-50 overflow-hidden relative shrink-0 border border-slate-100">
                             {item.thumbnailUrl ? (
                               <Image
                                 src={item.thumbnailUrl}
@@ -265,41 +267,41 @@ function OrderHistoryContent() {
                             )}
                           </div>
                           <div className="min-w-0 text-xs">
-                            <p className="font-medium text-slate-800 truncate" title={item.productTitle}>
+                            <p className="font-semibold text-slate-800 truncate" title={item.productTitle}>
                               {item.productTitle}
                             </p>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
+                            <p className="text-[11px] text-slate-500 mt-0.5 font-mono tabular-nums">
                               Qty: {item.quantity} × ৳{item.unitPrice.toLocaleString()}
                             </p>
                           </div>
                         </div>
                       ))}
                       {order.items.length > 4 && (
-                        <div className="px-3 py-4 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs shrink-0 flex items-center justify-center">
+                        <div className="px-3.5 py-4 rounded-2xl bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs shrink-0 flex items-center justify-center">
                           +{order.items.length - 4} more
                         </div>
                       )}
                     </div>
 
-                    <p className="text-[11px] text-slate-400 mt-2">
-                      Delivering to: <span className="text-slate-600 font-medium">{order.recipientName}</span> ({order.shippingCity})
+                    <p className="text-[11px] text-slate-400 mt-3 font-medium">
+                      Destination: <span className="text-slate-800 font-semibold">{order.recipientName}</span> ({order.shippingCity})
                     </p>
                   </div>
 
                   {/* Financial & Action CTA */}
                   <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 gap-3">
                     <div className="text-left md:text-right">
-                      <span className="text-[11px] text-slate-400 block">Total Amount</span>
-                      <span className="text-lg font-bold text-slate-900 font-mono">
+                      <span className="text-[11px] text-slate-400 block font-medium">Total Amount</span>
+                      <span className="text-lg font-black text-slate-900 font-mono tabular-nums">
                         ৳{order.grandTotal.toLocaleString()}
                       </span>
                     </div>
 
                     <Link
                       href={`/account/orders/${order.id}`}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-blue-600 text-white font-medium text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-blue-600 text-white font-semibold text-xs rounded-xl shadow-md shadow-slate-900/10 hover:shadow-blue-600/25 transition-[background-color,box-shadow] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     >
-                      View Details <ChevronRight className="w-3.5 h-3.5" />
+                      <span>View Details</span> <ChevronRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>
                 </div>
@@ -309,17 +311,17 @@ function OrderHistoryContent() {
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-200/80 p-4 shadow-xs">
+            <div className="flex items-center justify-between surface-3d rounded-2xl border border-slate-200/90 p-4 shadow-xs">
               <button
                 type="button"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage <= 1}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
-                <ChevronLeft className="w-4 h-4" /> Previous
+                <ChevronLeft className="w-4 h-4" /> <span>Previous</span>
               </button>
 
-              <span className="text-xs text-slate-500 font-medium font-mono">
+              <span className="text-xs font-semibold text-slate-600 font-mono">
                 Page {currentPage} of {totalPages}
               </span>
 
@@ -327,56 +329,43 @@ function OrderHistoryContent() {
                 type="button"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage >= totalPages}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
-                Next <ChevronRight className="w-4 h-4" />
+                <span>Next</span> <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-12 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-4 border border-slate-100">
-            <ShoppingBag className="w-8 h-8" />
+        <div className="surface-3d rounded-3xl border border-slate-200/90 p-12 text-center shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-4 border border-slate-200">
+            <Package className="w-7 h-7" />
           </div>
-          <h2 className="text-base font-bold text-slate-900">
+          <h3 className="text-base font-bold text-slate-900">
             {currentStatus === 'ALL'
-              ? 'No orders found'
-              : `No ${currentStatus.toLowerCase()} orders`}
-          </h2>
+              ? 'No Orders Placed Yet'
+              : `No ${currentStatus.toLowerCase()} orders found`}
+          </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-6">
-            {currentStatus === 'ALL'
-              ? "You haven't placed any orders yet. Discover our premium products and shop with total peace of mind."
-              : `You have no orders currently categorized under '${currentStatus.toLowerCase()}'.`}
+            Explore our curated inventory across gadgets, electronics, and lifestyle accessories.
           </p>
-          <div className="flex justify-center gap-3">
-            {currentStatus !== 'ALL' && (
-              <button
-                type="button"
-                onClick={() => handleTabChange('ALL')}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer"
-              >
-                Clear Filter
-              </button>
-            )}
-            <Link
-              href="/shop"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl shadow-xs transition-all"
-            >
-              Browse Catalog <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+          <Link
+            href="/shop"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-600/25 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+          >
+            <span>Browse Catalog</span> <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       )}
     </div>
   );
 }
 
-export default function OrderHistoryPage() {
+export default function AccountOrdersPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-slate-400 text-xs animate-pulse">
+        <div className="surface-3d rounded-3xl border border-slate-200/80 p-12 text-center text-slate-400 animate-pulse text-xs">
           Loading order history...
         </div>
       }

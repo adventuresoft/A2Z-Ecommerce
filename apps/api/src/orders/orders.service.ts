@@ -410,8 +410,10 @@ export class OrdersService {
           shippingFee = Number(method.cost);
         }
       } else {
+        const normalizedCity = dto.shippingCity?.trim().toLowerCase() || '';
         const isDhaka =
-          !dto.shippingCity || dto.shippingCity.trim().toLowerCase().includes('dhaka');
+          !normalizedCity ||
+          (normalizedCity.includes('dhaka') && !normalizedCity.includes('outside'));
         shippingFee = isDhaka ? 60.0 : 120.0;
       }
 

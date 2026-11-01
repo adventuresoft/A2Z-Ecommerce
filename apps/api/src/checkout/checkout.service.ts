@@ -143,8 +143,10 @@ export class CheckoutService {
         };
       }
     } else {
+      const normalizedCity = dto.shippingCity?.trim().toLowerCase() || '';
       const isDhaka =
-        !dto.shippingCity || dto.shippingCity.trim().toLowerCase().includes('dhaka');
+        !normalizedCity ||
+        (normalizedCity.includes('dhaka') && !normalizedCity.includes('outside'));
       shippingFee = isDhaka ? 60.0 : 120.0;
       shippingMethod = {
         id: isDhaka ? 'std-dhaka' : 'std-outside',

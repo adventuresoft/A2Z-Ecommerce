@@ -5,9 +5,9 @@
   --color-primary-hover: #1E40AF;
   --color-primary-soft: #EFF6FF;
   --color-navy: #0F172A;
-  --color-navy-dark: #0A1120;
-  --color-accent: #F97316;
-  --color-accent-hover: #EA580C;
+  --color-navy-dark: #070D19;
+  --color-accent: #EA580C;
+  --color-accent-hover: #C2410C;
   --color-accent-soft: #FFF7ED;
   --color-page: #F8FAFC;
   --color-surface: #FFFFFF;
@@ -23,6 +23,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
   font-family: var(--font-inter), var(--font-hind-siliguri), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -30,9 +31,74 @@ html, body {
   box-sizing: border-box;
 }
 
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation;
+}
+
 /* Accessible heading text-wrap */
-h1, h2, h3 {
+h1, h2, h3, h4 {
   text-wrap: balance;
+}
+
+/* 3D Spatial Perspective & Depth Utilities */
+.perspective-stage {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.depth-layer-sm {
+  transform: translateZ(16px);
+}
+
+.depth-layer-md {
+  transform: translateZ(28px);
+}
+
+.depth-layer-lg {
+  transform: translateZ(44px);
+}
+
+/* Subtle architectural grid backdrop for 3D hero & dashboard headers */
+.bg-tech-grid {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.bg-tech-grid-light {
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Tactile 3D surface elevation */
+.surface-3d {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px -6px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.surface-3d-dark {
+  background: linear-gradient(145deg, #0F172A 0%, #090F1D 100%);
+  box-shadow:
+    0 20px 50px -12px rgba(7, 13, 25, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Hide scrollbars cleanly for horizontal pill rails */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Reduced motion preference honoring */
@@ -42,6 +108,11 @@ h1, h2, h3 {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  .depth-layer-sm,
+  .depth-layer-md,
+  .depth-layer-lg {
+    transform: none !important;
   }
 }
 
@@ -69,4 +140,3 @@ h1, h2, h3 {
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
-

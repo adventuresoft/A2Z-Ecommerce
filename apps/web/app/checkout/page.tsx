@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,27 +9,34 @@ import {
   Truck,
   CheckCircle2,
   Lock,
-  ArrowRight,
   ShoppingBag,
-  CreditCard,
   Banknote,
   Smartphone,
-  Calendar,
-  PackageCheck,
   ArrowLeft,
   Loader2,
   Plus,
   MapPin,
   Tag,
   AlertCircle,
-  Check,
   Zap,
+  Check,
+  Landmark,
+  FileCheck2,
+  CreditCard,
 } from "lucide-react";
 import { StorefrontShell } from "../../components/Shell/StorefrontShell";
+import { CheckoutStepHeader } from "../../components/Checkout/CheckoutStepHeader";
+import {
+  OrderThankYouView,
+  ThankYouOrderData,
+} from "../../components/Checkout/OrderThankYouView";
+import { Tilt3DCard } from "../../components/UI/Tilt3DCard";
 import { useStore } from "../../context/StoreContext";
 import { useAuth } from "../../context/AuthContext";
 import { formatBDT } from "../../data/mock-catalog";
 import { apiClient, ApiError } from "../../lib/api-client";
+
+const FREE_SHIPPING_THRESHOLD = 100000;
 
 const BANGLADESH_DIVISIONS = [
   "Dhaka",
@@ -43,8 +50,22 @@ const BANGLADESH_DIVISIONS = [
 ];
 
 const DISTRICT_SUGGESTIONS: Record<string, string[]> = {
-  Dhaka: ["Dhaka City (North)", "Dhaka City (South)", "Gazipur", "Narayanganj", "Tangail", "Narsingdi"],
-  Chittagong: ["Chittagong City", "Cox's Bazar", "Comilla", "Feni", "Brahmanbaria", "Noakhali"],
+  Dhaka: [
+    "Dhaka City (North)",
+    "Dhaka City (South)",
+    "Gazipur",
+    "Narayanganj",
+    "Tangail",
+    "Narsingdi",
+  ],
+  Chittagong: [
+    "Chittagong City",
+    "Cox's Bazar",
+    "Comilla",
+    "Feni",
+    "Brahmanbaria",
+    "Noakhali",
+  ],
   Rajshahi: ["Rajshahi City", "Bogra", "Pabna", "Naogaon", "Sirajganj"],
   Sylhet: ["Sylhet City", "Moulvibazar", "Habiganj", "Sunamganj"],
   Khulna: ["Khulna City", "Jessore", "Kushtia", "Satkhira"],
@@ -67,14 +88,80 @@ interface UserAddress {
   isDefaultBilling: boolean;
 }
 
-interface ShippingMethodItem {
+export interface ShippingZoneItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  methodsCount?: number;
+}
+
+export interface ShippingMethodItem {
   id: string;
   zoneId: string;
   name: string;
   cost: number;
   estimatedDays: number;
   isActive: boolean;
+  sortOrder?: number;
 }
+
+const FALLBACK_SHIPPING_ZONES: ShippingZoneItem[] = [
+  {
+    id: "zone-dhaka",
+    name: "Inside Dhaka",
+    description: "Dhaka city metropolitan area",
+    isActive: true,
+    sortOrder: 1,
+  },
+  {
+    id: "zone-outside",
+    name: "Outside Dhaka",
+    description: "Nationwide delivery across all divisions",
+    isActive: true,
+    sortOrder: 2,
+  },
+];
+
+const FALLBACK_SHIPPING_METHODS: ShippingMethodItem[] = [
+  {
+    id: "method-std-dhaka",
+    zoneId: "zone-dhaka",
+    name: "Standard Delivery",
+    cost: 60,
+    estimatedDays: 2,
+    isActive: true,
+    sortOrder: 1,
+  },
+  {
+    id: "method-exp-dhaka",
+    zoneId: "zone-dhaka",
+    name: "Express Next-Day Delivery",
+    cost: 150,
+    estimatedDays: 1,
+    isActive: true,
+    sortOrder: 2,
+  },
+  {
+    id: "method-std-outside",
+    zoneId: "zone-outside",
+    name: "Standard Delivery (Outside Dhaka)",
+    cost: 120,
+    estimatedDays: 3,
+    isActive: true,
+    sortOrder: 1,
+  },
+  {
+    id: "method-exp-outside",
+    zoneId: "zone-outside",
+    name: "Express Priority (Outside Dhaka)",
+    cost: 210,
+    estimatedDays: 2,
+    isActive: true,
+    sortOrder: 2,
+  },
+];
 
 interface CalculationState {
   subtotal: number;
@@ -104,33 +191,47 @@ interface CalculationState {
   isEligibleForCheckout: boolean;
 }
 
-interface PlacedOrderItem {
-  id: string;
-  productTitle: string;
-  sku: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
+interface SyncedCheckoutCalculation extends CalculationState {
+  syncKey: string;
 }
 
-interface PlacedOrderResult {
-  id: string;
-  orderNumber: string;
-  grandTotal: number;
-  subtotal: number;
-  shippingFee: number;
-  discountAmount: number;
-  recipientName: string;
-  recipientPhone: string;
-  shippingStreet: string;
-  shippingCity: string;
-  shippingState?: string | null;
-  shippingPostalCode: string;
-  paymentMethod?: string;
-  paymentReference?: string | null;
-  items: PlacedOrderItem[];
-  createdAt: string;
+export interface ActivePaymentMethod {
+  code: string;
+  name: string;
+  description?: string | null;
+  instructions?: string | null;
+  sortOrder?: number;
 }
+
+const FALLBACK_PAYMENT_METHODS: ActivePaymentMethod[] = [
+  {
+    code: "PAYSTATION",
+    name: "PayStation Online Gateway",
+    description:
+      "Pay securely via Visa, Mastercard, bKash, Nagad, Rocket, or Internet Banking with 256-bit bank-grade encryption.",
+    instructions:
+      "You will be redirected to PayStation's official SSL portal to complete payment with automated verification.",
+    sortOrder: 1,
+  },
+  {
+    code: "CASH_ON_DELIVERY",
+    name: "Cash on Delivery (COD)",
+    description:
+      "Pay cash directly to our courier rider after inspecting the factory-sealed parcel at your doorstep.",
+    instructions:
+      "Please have the exact cash ready when the delivery rider arrives at your doorstep.",
+    sortOrder: 2,
+  },
+  {
+    code: "MOBILE_BANKING",
+    name: "Manual Mobile Banking (bKash / Nagad)",
+    description:
+      "Send money directly to our merchant wallet and submit your Transaction ID (TrxID) below.",
+    instructions:
+      "Please send payment to Merchant bKash/Nagad Number: 01700000000 (Counter: 1). Enter your Order Number in the reference field.",
+    sortOrder: 3,
+  },
+];
 
 function generateIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -144,12 +245,10 @@ export default function CheckoutPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { cart, totalCartPrice, clearCart } = useStore();
 
-  // Session idempotency key
   const [idempotencyKey] = useState<string>(() => generateIdempotencyKey());
 
   // Saved Addresses State
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
-  const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
 
   // Address Form Fields
@@ -162,31 +261,37 @@ export default function CheckoutPage() {
   const [orderNotes, setOrderNotes] = useState("");
   const [saveAddressToBook, setSaveAddressToBook] = useState(false);
 
-  // Available Shipping Methods from backend
+  // Available Shipping Zones and Methods from backend
+  const [shippingZones, setShippingZones] = useState<ShippingZoneItem[]>([]);
   const [shippingMethods, setShippingMethods] = useState<ShippingMethodItem[]>([]);
-  const [selectedSpeed, setSelectedSpeed] = useState<"standard" | "express">("standard");
+  const [selectedZoneId, setSelectedZoneId] = useState<string>("");
+  const [selectedMethodId, setSelectedMethodId] = useState<string>("");
+  const [isLoadingShipping, setIsLoadingShipping] = useState<boolean>(true);
 
-  // Payment Selection
-  const [paymentMethod, setPaymentMethod] = useState<"PAYSTATION" | "CASH_ON_DELIVERY" | "MOBILE_BANKING">(
-    "PAYSTATION"
-  );
+  // Payment Selection (Dynamic from backend)
+  const [paymentMethods, setPaymentMethods] = useState<ActivePaymentMethod[]>([]);
+  const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState<boolean>(true);
+  const [paymentMethod, setPaymentMethod] = useState<string>("PAYSTATION");
   const [mfsSenderPhone, setMfsSenderPhone] = useState("");
   const [mfsTrxId, setMfsTrxId] = useState("");
+  const [bankTransferRef, setBankTransferRef] = useState("");
 
   // Coupon handling in Checkout
   const [couponCodeInput, setCouponCodeInput] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(
+    null
+  );
   const [couponError, setCouponError] = useState("");
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   // Authoritative Calculation from backend
-  const [calculation, setCalculation] = useState<CalculationState | null>(null);
+  const [calculation, setCalculation] = useState<SyncedCheckoutCalculation | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
   // Submission & Result States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [placedOrder, setPlacedOrder] = useState<PlacedOrderResult | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<ThankYouOrderData | null>(null);
 
   // 1. Enforce Authentication Guard
   useEffect(() => {
@@ -195,19 +300,23 @@ export default function CheckoutPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // 2. Fetch Customer Addresses and Shipping Methods on mount
+  // 2. Fetch Customer Addresses, Shipping Zones & Methods on mount
   useEffect(() => {
     if (!isAuthenticated) return;
     let isMounted = true;
-    setLoadingAddresses(true);
 
     Promise.allSettled([
       apiClient.get<UserAddress[]>("/account/addresses"),
+      apiClient.get<ShippingZoneItem[]>("/shipping/zones"),
       apiClient.get<ShippingMethodItem[]>("/shipping/methods"),
-    ]).then(([addrRes, methodsRes]) => {
+    ]).then(([addrRes, zonesRes, methodsRes]) => {
       if (!isMounted) return;
 
-      if (addrRes.status === "fulfilled" && Array.isArray(addrRes.value) && addrRes.value.length > 0) {
+      if (
+        addrRes.status === "fulfilled" &&
+        Array.isArray(addrRes.value) &&
+        addrRes.value.length > 0
+      ) {
         setAddresses(addrRes.value);
         const defaultShipping =
           addrRes.value.find((a) => a.isDefaultShipping) || addrRes.value[0];
@@ -217,7 +326,10 @@ export default function CheckoutPage() {
           setPhoneNumber(defaultShipping.phone.replace(/^\+880/, ""));
           setStreetAddress(defaultShipping.streetAddress);
           setSelectedDistrict(defaultShipping.city || "Dhaka City (North)");
-          if (defaultShipping.state && BANGLADESH_DIVISIONS.includes(defaultShipping.state)) {
+          if (
+            defaultShipping.state &&
+            BANGLADESH_DIVISIONS.includes(defaultShipping.state)
+          ) {
             setSelectedDivision(defaultShipping.state);
           }
           setPostalCode(defaultShipping.postalCode || "1212");
@@ -229,19 +341,119 @@ export default function CheckoutPage() {
         }
       }
 
-      if (methodsRes.status === "fulfilled" && Array.isArray(methodsRes.value)) {
-        setShippingMethods(methodsRes.value);
-      }
+      const loadedZones =
+        zonesRes.status === "fulfilled" && Array.isArray(zonesRes.value) && zonesRes.value.length > 0
+          ? zonesRes.value.sort((a, b) => a.sortOrder - b.sortOrder)
+          : FALLBACK_SHIPPING_ZONES;
 
-      setLoadingAddresses(false);
+      const loadedMethods =
+        methodsRes.status === "fulfilled" && Array.isArray(methodsRes.value) && methodsRes.value.length > 0
+          ? methodsRes.value.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+          : FALLBACK_SHIPPING_METHODS;
+
+      setShippingZones(loadedZones);
+      setShippingMethods(loadedMethods);
+
+      // Hydrate from localStorage if set from Cart
+      const savedZoneId = window.localStorage.getItem("az_shipping_zone_id");
+      const savedMethodId = window.localStorage.getItem("az_shipping_method_id");
+
+      let initialZone = loadedZones.find((z) => z.id === savedZoneId);
+      if (!initialZone) {
+        initialZone = loadedZones[0];
+      }
+      const initialZoneId = initialZone ? initialZone.id : "";
+      setSelectedZoneId(initialZoneId);
+
+      const zoneMethods = loadedMethods.filter((m) => m.zoneId === initialZoneId);
+      const initialMethod = zoneMethods.find((m) => m.id === savedMethodId) || zoneMethods[0];
+      setSelectedMethodId(initialMethod ? initialMethod.id : "");
+      setIsLoadingShipping(false);
     });
+
+    try {
+      const savedCoupon = window.sessionStorage.getItem("az_applied_coupon");
+      if (savedCoupon) {
+        const parsed = JSON.parse(savedCoupon) as { code: string; discount: number };
+        if (parsed?.code) {
+          setAppliedCoupon(parsed);
+        }
+      }
+    } catch {
+      // Ignore
+    }
 
     return () => {
       isMounted = false;
     };
   }, [isAuthenticated, user]);
 
-  // Handle switching between saved address cards
+  const handleZoneChange = (zoneId: string) => {
+    setSelectedZoneId(zoneId);
+    try {
+      window.localStorage.setItem("az_shipping_zone_id", zoneId);
+    } catch {
+      // Ignore
+    }
+    const zoneMethods = shippingMethods.filter((m) => m.zoneId === zoneId);
+    const firstMethod = zoneMethods[0];
+    if (firstMethod) {
+      setSelectedMethodId(firstMethod.id);
+      try {
+        window.localStorage.setItem("az_shipping_method_id", firstMethod.id);
+      } catch {
+        // Ignore
+      }
+    }
+  };
+
+  const handleMethodChange = (methodId: string) => {
+    setSelectedMethodId(methodId);
+    try {
+      window.localStorage.setItem("az_shipping_method_id", methodId);
+    } catch {
+      // Ignore
+    }
+  };
+
+  // Fetch active payment methods from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchActivePaymentMethods() {
+      try {
+        setIsLoadingPaymentMethods(true);
+        const data = await apiClient.get<ActivePaymentMethod[]>("/payments/methods/active");
+        if (isMounted) {
+          if (Array.isArray(data) && data.length > 0) {
+            const sorted = [...data].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+            setPaymentMethods(sorted);
+            setPaymentMethod((prev) => {
+              const exists = sorted.some((m) => m.code === prev);
+              const firstCode = sorted[0]?.code;
+              return exists ? prev : firstCode || "PAYSTATION";
+            });
+          } else {
+            setPaymentMethods(FALLBACK_PAYMENT_METHODS);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch active payment methods, using fallback list:", err);
+        if (isMounted) {
+          setPaymentMethods(FALLBACK_PAYMENT_METHODS);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingPaymentMethods(false);
+        }
+      }
+    }
+
+    fetchActivePaymentMethods();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleSelectAddressCard = (addr: UserAddress) => {
     setSelectedAddressId(addr.id);
     setFullName(addr.recipientName);
@@ -269,18 +481,18 @@ export default function CheckoutPage() {
     setPostalCode("1212");
   };
 
-  // 3. Resolve active shipping method matching zone and speed
-  const isDhaka =
-    selectedDivision.toLowerCase().includes("dhaka") ||
-    selectedDistrict.toLowerCase().includes("dhaka");
+  // 3. Resolve active shipping method matching selected zone
+  const selectedZone = shippingZones.find((z) => z.id === selectedZoneId);
+  const isDhaka = selectedZone
+    ? selectedZone.name.toLowerCase().includes("dhaka") &&
+    !selectedZone.name.toLowerCase().includes("outside")
+    : selectedDivision.toLowerCase().includes("dhaka");
 
-  const matchingShippingMethod = shippingMethods.find((m) => {
-    const name = m.name.toLowerCase();
-    if (selectedSpeed === "express") {
-      return name.includes("express") && (isDhaka ? name.includes("inside") || name.includes("dhaka") : name.includes("outside"));
-    }
-    return isDhaka ? name.includes("inside") || name.includes("dhaka") : name.includes("outside");
-  });
+  const methodsForSelectedZone = shippingMethods.filter((m) => m.zoneId === selectedZoneId);
+  const matchingShippingMethod =
+    methodsForSelectedZone.find((m) => m.id === selectedMethodId) || methodsForSelectedZone[0];
+
+  const currentSyncKey = `${selectedZoneId}:${matchingShippingMethod?.id || "fallback"}`;
 
   // 4. Server-Authoritative Pre-Checkout Calculation
   useEffect(() => {
@@ -290,6 +502,7 @@ export default function CheckoutPage() {
     }
 
     let isMounted = true;
+    const requestedSyncKey = currentSyncKey;
     setIsCalculating(true);
 
     const calculateCheckout = async () => {
@@ -299,22 +512,31 @@ export default function CheckoutPage() {
             variantId: item.variantId || item.id,
             quantity: item.quantity,
           })),
-          shippingCity: selectedDistrict || (isDhaka ? "Dhaka" : "Outside Dhaka"),
+          shippingCity: selectedDistrict || (isDhaka ? "Dhaka" : "Chittagong"),
           shippingMethodId: matchingShippingMethod?.id || undefined,
           couponCode: appliedCoupon?.code || undefined,
         };
 
         const res = await apiClient.post<CalculationState>("/checkout/calculate", payload);
         if (isMounted) {
-          setCalculation(res);
+          setCalculation({ ...res, syncKey: requestedSyncKey });
           if (res.coupon && appliedCoupon) {
             setAppliedCoupon({ code: res.coupon.code, discount: res.discountAmount });
           }
         }
-      } catch (err: any) {
-        if (appliedCoupon && err?.status === 400 && isMounted) {
+      } catch (err: unknown) {
+        const status = (err as { status?: number })?.status;
+        const message = err instanceof Error ? err.message : "Applied coupon is no longer eligible.";
+        if (appliedCoupon && status === 400 && isMounted) {
           setAppliedCoupon(null);
-          setCouponError(err.message || "Applied coupon is no longer eligible.");
+          setCouponError(message);
+          try {
+            window.sessionStorage.removeItem("az_applied_coupon");
+          } catch {
+            // Ignore
+          }
+        } else if (isMounted) {
+          setCalculation(null);
         }
       } finally {
         if (isMounted) {
@@ -323,7 +545,7 @@ export default function CheckoutPage() {
       }
     };
 
-    const timer = setTimeout(calculateCheckout, 250);
+    const timer = setTimeout(calculateCheckout, 200);
     return () => {
       isMounted = false;
       clearTimeout(timer);
@@ -332,27 +554,22 @@ export default function CheckoutPage() {
     cart,
     selectedDivision,
     selectedDistrict,
-    selectedSpeed,
-    appliedCoupon?.code,
+    selectedZoneId,
     matchingShippingMethod?.id,
+    appliedCoupon?.code,
     isDhaka,
+    currentSyncKey,
   ]);
 
-  // Fallback financial totals
+  // Deterministic financial totals with 0ms reactivity on zone/method switches
+  const isCalcSynced = calculation !== null && calculation.syncKey === currentSyncKey;
   const subtotal = calculation ? calculation.subtotal : totalCartPrice;
-  const shippingFee = calculation
-    ? calculation.shippingFee
-    : totalCartPrice >= 100000
-    ? 0
-    : selectedSpeed === "express"
-    ? isDhaka
-      ? 150
-      : 210
-    : isDhaka
-    ? 60
-    : 120;
-  const discountAmount = calculation ? calculation.discountAmount : (appliedCoupon?.discount || 0);
-  const grandTotal = calculation
+  const isFreeShippingEligible = subtotal >= FREE_SHIPPING_THRESHOLD;
+  const baseCost = matchingShippingMethod ? Number(matchingShippingMethod.cost) : isDhaka ? 60 : 120;
+  const deterministicShippingFee = isFreeShippingEligible ? 0 : baseCost;
+  const shippingFee = isCalcSynced ? calculation.shippingFee : deterministicShippingFee;
+  const discountAmount = calculation ? calculation.discountAmount : appliedCoupon?.discount || 0;
+  const grandTotal = isCalcSynced
     ? calculation.grandTotal
     : Math.max(0, subtotal + shippingFee - discountAmount);
 
@@ -373,18 +590,29 @@ export default function CheckoutPage() {
           variantId: item.variantId || item.id,
           quantity: item.quantity,
         })),
-        shippingCity: selectedDistrict || (isDhaka ? "Dhaka" : "Outside Dhaka"),
+        shippingCity: selectedDistrict || (isDhaka ? "Dhaka" : "Chittagong"),
         shippingMethodId: matchingShippingMethod?.id || undefined,
         couponCode: code,
       };
 
       const res = await apiClient.post<CalculationState>("/checkout/calculate", payload);
-      setCalculation(res);
-      setAppliedCoupon({ code, discount: res.discountAmount });
+      setCalculation({ ...res, syncKey: currentSyncKey });
+      const nextCoupon = { code, discount: res.discountAmount };
+      setAppliedCoupon(nextCoupon);
+      try {
+        window.sessionStorage.setItem("az_applied_coupon", JSON.stringify(nextCoupon));
+      } catch {
+        // Ignore
+      }
       setCouponCodeInput("");
       setCouponError("");
-    } catch (err: any) {
-      const msg = err instanceof ApiError ? err.message : err?.message || "Invalid coupon code.";
+    } catch (err: unknown) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Invalid coupon code.";
       setCouponError(msg);
     } finally {
       setIsApplyingCoupon(false);
@@ -394,6 +622,20 @@ export default function CheckoutPage() {
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponError("");
+    try {
+      window.sessionStorage.removeItem("az_applied_coupon");
+    } catch {
+      // Ignore
+    }
+  };
+
+  const persistCompletedOrder = (order: ThankYouOrderData) => {
+    try {
+      window.sessionStorage.setItem("az_last_order", JSON.stringify(order));
+      window.sessionStorage.removeItem("az_applied_coupon");
+    } catch {
+      // Ignore
+    }
   };
 
   // 5. Final Order Submission Handler
@@ -408,20 +650,23 @@ export default function CheckoutPage() {
 
     if (paymentMethod === "MOBILE_BANKING") {
       if (!mfsSenderPhone.trim() || !mfsTrxId.trim()) {
-        setSubmitError("Please enter your bKash/Nagad sender phone number and Transaction ID (TrxID).");
+        setSubmitError(
+          "Please enter your bKash/Nagad sender phone number and Transaction ID (TrxID)."
+        );
         return;
       }
     }
 
     if (calculation && !calculation.isEligibleForCheckout) {
-      setSubmitError("Some items in your cart exceed available stock. Please adjust quantities.");
+      setSubmitError(
+        "Some items in your cart exceed available stock. Please adjust quantities."
+      );
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // If user opted to save this address to address book
       if (saveAddressToBook && selectedAddressId === "new") {
         try {
           const rawPhone = phoneNumber.trim();
@@ -438,7 +683,7 @@ export default function CheckoutPage() {
             label: "Home",
           });
         } catch {
-          // Address book saving failure is non-blocking for order placement
+          // Non-blocking
         }
       }
 
@@ -457,22 +702,35 @@ export default function CheckoutPage() {
         customerNotes: orderNotes.trim() || undefined,
         shippingMethodId: matchingShippingMethod?.id || undefined,
         couponCode: appliedCoupon?.code || undefined,
-        paymentMethod: paymentMethod,
+        paymentMethod,
         paymentReference:
           paymentMethod === "MOBILE_BANKING"
             ? `bKash/Nagad TrxID: ${mfsTrxId.trim()} (Sender: ${mfsSenderPhone.trim()})`
-            : undefined,
+            : paymentMethod === "BANK_TRANSFER" || paymentMethod === "CHECK_PAYMENT"
+              ? bankTransferRef.trim() || undefined
+              : undefined,
         items: cart.map((item) => ({
           variantId: item.variantId || item.id,
           quantity: item.quantity,
         })),
       };
 
-      const res = await apiClient.post<PlacedOrderResult>("/orders", orderPayload, {
+      const res = await apiClient.post<ThankYouOrderData>("/orders", orderPayload, {
         headers: {
           "idempotency-key": idempotencyKey,
         },
       });
+
+      const enrichedOrder: ThankYouOrderData = {
+        ...res,
+        estimatedDeliveryLabel: matchingShippingMethod
+          ? `${matchingShippingMethod.name} (${matchingShippingMethod.estimatedDays} ${matchingShippingMethod.estimatedDays === 1 ? "Working Day" : "Working Days"})`
+          : isDhaka
+            ? "24–48 Hours (Dhaka Metro)"
+            : "3–5 Working Days (Nationwide)",
+      };
+
+      persistCompletedOrder(enrichedOrder);
 
       if (paymentMethod === "PAYSTATION") {
         try {
@@ -492,14 +750,14 @@ export default function CheckoutPage() {
             return;
           }
         } catch (initErr: unknown) {
-          setPlacedOrder(res);
+          setPlacedOrder(enrichedOrder);
           clearCart();
           const initMsg =
             initErr instanceof ApiError
               ? initErr.message
               : initErr instanceof Error
-              ? initErr.message
-              : "Could not reach PayStation gateway.";
+                ? initErr.message
+                : "Could not reach PayStation gateway.";
           setSubmitError(
             `Your order ${res.orderNumber} was saved, but redirect to PayStation failed (${initMsg}). You can complete payment from your account dashboard.`
           );
@@ -508,149 +766,70 @@ export default function CheckoutPage() {
         }
       }
 
-      setPlacedOrder(res);
+      setPlacedOrder(enrichedOrder);
       clearCart();
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       const msg =
         err instanceof ApiError
           ? err.message
-          : err?.message || "Failed to place your order. Please review your details and try again.";
+          : err instanceof Error
+            ? err.message
+            : "Failed to place your order. Please review your details and try again.";
       setSubmitError(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Rendering: Auth Loading Screen
+  // Auth Loading Screen
   if (authLoading) {
     return (
       <StorefrontShell>
         <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" aria-hidden="true" />
-          <p className="text-sm font-semibold text-slate-500">Checking your customer session…</p>
+          <p className="text-sm font-semibold text-slate-500">
+            Checking your customer session…
+          </p>
         </div>
       </StorefrontShell>
     );
   }
 
-  // Rendering: Order Confirmed Screen
+  // Order Confirmed / Thank You Screen
   if (placedOrder) {
     return (
       <StorefrontShell hideFooter={false}>
-        <div className="max-w-3xl mx-auto px-4 py-12 sm:py-16 text-center">
-          <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-xl space-y-6">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-100 shadow-sm animate-bounce duration-1000">
-              <PackageCheck className="w-10 h-10" aria-hidden="true" />
-            </div>
-
-            <div>
-              <span className="text-xs font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                Order Confirmed
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-3">
-                Thank You for Your Order!
-              </h1>
-              <p className="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mt-1">
-                We have received your order and our fulfillment team in Dhaka is preparing your shipment.
-              </p>
-            </div>
-
-            {/* Order Details Card */}
-            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/80 text-left space-y-3.5 text-xs">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <span className="text-slate-500 font-semibold">Order Number</span>
-                <span className="font-mono font-black text-sm text-blue-700">
-                  {placedOrder.orderNumber}
-                </span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <span className="text-slate-500 font-semibold">Total Payable</span>
-                <span className="font-black text-sm text-slate-900 tabular-nums">
-                  {formatBDT(placedOrder.grandTotal)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <span className="text-slate-500 font-semibold">Payment Method</span>
-                <span className="font-bold text-slate-800">
-                  {placedOrder.paymentMethod === "PAYSTATION"
-                    ? "PayStation Online Payment Gateway"
-                    : placedOrder.paymentMethod === "MOBILE_BANKING"
-                    ? "bKash / Nagad Mobile Banking (Pending Verification)"
-                    : "Cash on Delivery (COD)"}
-                </span>
-              </div>
-              {placedOrder.paymentReference && (
-                <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                  <span className="text-slate-500 font-semibold">Payment Reference</span>
-                  <span className="font-mono font-bold text-slate-800">
-                    {placedOrder.paymentReference}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <span className="text-slate-500 font-semibold">Estimated Delivery</span>
-                <span className="font-bold text-emerald-700 flex items-center">
-                  <Calendar className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
-                  {selectedSpeed === "express"
-                    ? "Within 24 Hours (Express Priority)"
-                    : isDhaka
-                    ? "24–48 Hours (Dhaka Metro)"
-                    : "3–5 Working Days (Nationwide)"}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 font-semibold block mb-1">Shipping Address</span>
-                <span className="font-bold text-slate-800 leading-relaxed">
-                  {placedOrder.recipientName} ({placedOrder.recipientPhone})
-                  <br />
-                  {placedOrder.shippingStreet}, {placedOrder.shippingCity}, {placedOrder.shippingState} -{" "}
-                  {placedOrder.shippingPostalCode}
-                </span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <Link
-                href="/account"
-                className="w-full sm:w-auto px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-              >
-                <span>View Orders in Dashboard</span>
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </Link>
-              <Link
-                href="/shop"
-                className="w-full sm:w-auto px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-              >
-                Continue Shopping
-              </Link>
-            </div>
-          </div>
-        </div>
+        <OrderThankYouView order={placedOrder} warningMessage={submitError} />
       </StorefrontShell>
     );
   }
 
-  // Rendering: Empty Cart Guard
+  // Empty Cart Guard
   if (cart.length === 0) {
     return (
       <StorefrontShell>
-        <div className="max-w-xl mx-auto px-4 py-20 text-center">
-          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-200">
-            <ShoppingBag className="w-8 h-8" aria-hidden="true" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-2">No Items in Checkout</h2>
-          <p className="text-slate-500 text-xs sm:text-sm mb-6">
-            Please add at least one product to your cart before proceeding to checkout.
-          </p>
-          <Link
-            href="/shop"
-            className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-          >
-            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            <span>Go to Shop Catalog</span>
-          </Link>
+        <div className="max-w-xl mx-auto px-4 py-20">
+          <Tilt3DCard maxTilt={5} scale={1.01}>
+            <div className="surface-3d rounded-3xl p-10 text-center">
+              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-200">
+                <ShoppingBag className="w-8 h-8" aria-hidden="true" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">
+                No Items in Checkout
+              </h2>
+              <p className="text-slate-500 text-xs sm:text-sm mb-6">
+                Please add at least one product to your cart before proceeding to checkout.
+              </p>
+              <Link
+                href="/shop"
+                className="inline-flex items-center gap-2 px-6 py-3.5 bg-blue-700 hover:bg-blue-800 text-white font-black text-xs rounded-2xl shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+              >
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                <span>Go to Shop Catalog</span>
+              </Link>
+            </div>
+          </Tilt3DCard>
         </div>
       </StorefrontShell>
     );
@@ -660,35 +839,53 @@ export default function CheckoutPage() {
     <StorefrontShell>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         {/* Breadcrumb Header */}
-        <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-xs font-semibold text-slate-500 mb-6">
-          <Link href="/" className="hover:text-blue-700 focus-visible:outline-hidden focus-visible:underline">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex items-center space-x-2 text-xs font-semibold text-slate-500 mb-5"
+        >
+          <Link
+            href="/"
+            className="hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:underline"
+          >
             Home
           </Link>
           <span aria-hidden="true">/</span>
-          <Link href="/cart" className="hover:text-blue-700 focus-visible:outline-hidden focus-visible:underline">
+          <Link
+            href="/cart"
+            className="hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:underline"
+          >
             Cart
           </Link>
           <span aria-hidden="true">/</span>
-          <span className="text-slate-900 font-bold" aria-current="page">Secure Checkout</span>
+          <span className="text-slate-900 font-bold" aria-current="page">
+            Secure Checkout
+          </span>
         </nav>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-8">
+        {/* 3-Step Spatial Checkout Progress */}
+        <CheckoutStepHeader currentStep={2} />
+
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-7 pb-4 border-b border-slate-200/90">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Express Checkout
+              Express Secure Checkout
             </h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Signed in as <strong className="text-slate-800">{user?.email}</strong>. Complete your delivery & payment.
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Signed in as <strong className="text-slate-800">{user?.email}</strong>. Verify delivery destination &amp; settlement method.
             </p>
           </div>
-          <div className="flex items-center space-x-1.5 text-xs text-slate-500 font-semibold bg-slate-100 px-3 py-1.5 rounded-full self-start sm:self-auto">
+          <div className="inline-flex items-center gap-1.5 text-xs text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/80 px-3.5 py-2 rounded-full self-start sm:self-auto">
             <Lock className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-            <span>256-Bit SSL Encrypted</span>
+            <span>256-Bit SSL Protected</span>
           </div>
         </div>
 
         {submitError && (
-          <div role="alert" className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center space-x-3 text-rose-700 text-xs font-bold">
+          <div
+            role="alert"
+            className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-700 text-xs font-bold"
+          >
             <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{submitError}</span>
           </div>
@@ -699,24 +896,32 @@ export default function CheckoutPage() {
             {/* Left 8 Cols: Delivery Information & Payment Method */}
             <div className="lg:col-span-8 space-y-6">
               {/* Step 1: Contact & Delivery Address */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-5">
+              <div className="surface-3d rounded-3xl p-6 sm:p-8 space-y-5">
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center" aria-hidden="true">
-                      1
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-xs tabular-nums"
+                      aria-hidden="true"
+                    >
+                      01
                     </div>
-                    <h2 className="text-base font-black text-slate-900">
-                      Contact & Delivery Address
-                    </h2>
+                    <div>
+                      <h2 className="text-base font-black text-slate-900">
+                        Contact &amp; Delivery Destination
+                      </h2>
+                      <p className="text-[11px] text-slate-500">
+                        Where our verified courier will deliver your order
+                      </p>
+                    </div>
                   </div>
                   {addresses.length > 0 && selectedAddressId !== "new" && (
                     <button
                       type="button"
                       onClick={handleSelectNewAddress}
-                      className="text-xs font-bold text-blue-700 hover:text-blue-800 hover:underline flex items-center space-x-1 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 rounded"
+                      className="text-xs font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100/70 px-3 py-1.5 rounded-xl flex items-center gap-1 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     >
                       <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Use New Address</span>
+                      <span>New Address</span>
                     </button>
                   )}
                 </div>
@@ -724,35 +929,30 @@ export default function CheckoutPage() {
                 {/* Saved Address Cards */}
                 {addresses.length > 0 && (
                   <div className="space-y-3">
-                    <label className="text-xs font-bold text-slate-600 block">
-                      Choose from your saved addresses:
-                    </label>
+                    <span className="text-xs font-bold text-slate-600 block">
+                      Saved address book:
+                    </span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {addresses.map((addr) => {
                         const isSelected = selectedAddressId === addr.id;
                         return (
-                          <div
+                          <button
                             key={addr.id}
-                            role="button"
-                            tabIndex={0}
+                            type="button"
                             aria-pressed={isSelected}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                handleSelectAddressCard(addr);
-                              }
-                            }}
                             onClick={() => handleSelectAddressCard(addr)}
-                            className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all relative focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                              isSelected
-                                ? "border-blue-600 bg-blue-50/40 shadow-xs"
-                                : "border-slate-200 hover:border-slate-300 bg-slate-50/50"
-                            }`}
+                            className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-[border-color,background-color,box-shadow] relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isSelected
+                              ? "border-blue-600 bg-blue-50/50 shadow-xs"
+                              : "border-slate-200 hover:border-slate-300 bg-slate-50/50"
+                              }`}
                           >
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="font-black text-xs text-slate-900 flex items-center space-x-1">
-                                <MapPin className="w-3.5 h-3.5 text-blue-600 mr-1" aria-hidden="true" />
-                                {addr.label || "Saved Address"}
+                              <span className="font-black text-xs text-slate-900 flex items-center gap-1.5">
+                                <MapPin
+                                  className="w-3.5 h-3.5 text-blue-600"
+                                  aria-hidden="true"
+                                />
+                                <span>{addr.label || "Saved Address"}</span>
                               </span>
                               {addr.isDefaultShipping && (
                                 <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
@@ -769,7 +969,7 @@ export default function CheckoutPage() {
                             <div className="text-[11px] text-slate-600 mt-1 line-clamp-2">
                               {addr.streetAddress}, {addr.city}
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -777,26 +977,28 @@ export default function CheckoutPage() {
                 )}
 
                 {/* Address Form */}
-                <div className="pt-2">
+                <div className="pt-1">
                   {addresses.length > 0 && (
                     <div className="text-xs font-bold text-slate-800 mb-3 flex items-center justify-between">
                       <span>
                         {selectedAddressId === "new"
-                          ? "Enter delivery location details:"
-                          : "Delivery details for selected address:"}
+                          ? "Enter new delivery details:"
+                          : "Confirm details for this shipment:"}
                       </span>
                       {selectedAddressId !== "new" && (
                         <span className="text-[11px] text-slate-500 font-normal">
-                          (Editable for this order)
+                          Editable for this order
                         </span>
                       )}
                     </div>
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    {/* Full Name */}
-                    <div className="space-y-1 sm:col-span-1">
-                      <label htmlFor="checkout-full-name" className="font-bold text-slate-700 block">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="checkout-full-name"
+                        className="font-bold text-slate-700 block"
+                      >
                         Recipient Name <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -808,17 +1010,22 @@ export default function CheckoutPage() {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="e.g. Tariqul Islam"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-medium text-slate-900 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       />
                     </div>
 
-                    {/* Phone Number */}
-                    <div className="space-y-1 sm:col-span-1">
-                      <label htmlFor="checkout-phone" className="font-bold text-slate-700 block">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="checkout-phone"
+                        className="font-bold text-slate-700 block"
+                      >
                         Mobile Number (+880) <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <span className="absolute left-3 top-2.5 font-bold text-slate-400" aria-hidden="true">
+                        <span
+                          className="absolute left-3.5 top-2.5 font-bold text-slate-400"
+                          aria-hidden="true"
+                        >
                           +880
                         </span>
                         <input
@@ -831,14 +1038,16 @@ export default function CheckoutPage() {
                           value={phoneNumber}
                           onChange={(e) => setPhoneNumber(e.target.value)}
                           placeholder="1712345678"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-14 pr-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-14 pr-3.5 py-2.5 font-medium text-slate-900 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
                         />
                       </div>
                     </div>
 
-                    {/* Division */}
-                    <div className="space-y-1 sm:col-span-1">
-                      <label htmlFor="checkout-division" className="font-bold text-slate-700 block">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="checkout-division"
+                        className="font-bold text-slate-700 block"
+                      >
                         Division <span className="text-rose-500">*</span>
                       </label>
                       <select
@@ -851,8 +1060,16 @@ export default function CheckoutPage() {
                           if (DISTRICT_SUGGESTIONS[div]?.[0]) {
                             setSelectedDistrict(DISTRICT_SUGGESTIONS[div][0]);
                           }
+                          try {
+                            window.localStorage.setItem(
+                              "az_shipping_zone",
+                              div.toLowerCase().includes("dhaka") ? "inside" : "outside"
+                            );
+                          } catch {
+                            // Ignore
+                          }
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-blue-600 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-900 focus:border-blue-600 focus:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         {BANGLADESH_DIVISIONS.map((div) => (
                           <option key={div} value={div}>
@@ -862,9 +1079,11 @@ export default function CheckoutPage() {
                       </select>
                     </div>
 
-                    {/* District / City */}
-                    <div className="space-y-1 sm:col-span-1">
-                      <label htmlFor="checkout-district" className="font-bold text-slate-700 block">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="checkout-district"
+                        className="font-bold text-slate-700 block"
+                      >
                         City / District <span className="text-rose-500">*</span>
                       </label>
                       <select
@@ -872,7 +1091,7 @@ export default function CheckoutPage() {
                         name="district"
                         value={selectedDistrict}
                         onChange={(e) => setSelectedDistrict(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-slate-800 focus:outline-none focus:border-blue-600 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-900 focus:border-blue-600 focus:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         {(DISTRICT_SUGGESTIONS[selectedDivision] || ["District Center"]).map(
                           (dist) => (
@@ -884,10 +1103,12 @@ export default function CheckoutPage() {
                       </select>
                     </div>
 
-                    {/* Street Address */}
-                    <div className="space-y-1 sm:col-span-2">
-                      <label htmlFor="checkout-street-address" className="font-bold text-slate-700 block">
-                        Street Address, House & Road <span className="text-rose-500">*</span>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label
+                        htmlFor="checkout-street-address"
+                        className="font-bold text-slate-700 block"
+                      >
+                        Street Address, House &amp; Road <span className="text-rose-500">*</span>
                       </label>
                       <textarea
                         id="checkout-street-address"
@@ -898,13 +1119,15 @@ export default function CheckoutPage() {
                         value={streetAddress}
                         onChange={(e) => setStreetAddress(e.target.value)}
                         placeholder="e.g. House 42, Road 11, Sector 4, Banani, Dhaka"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white resize-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-medium text-slate-900 focus:border-blue-600 focus:bg-white resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       />
                     </div>
 
-                    {/* Postal Code & Order Notes */}
-                    <div className="space-y-1 sm:col-span-1">
-                      <label htmlFor="checkout-postal-code" className="font-bold text-slate-700 block">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="checkout-postal-code"
+                        className="font-bold text-slate-700 block"
+                      >
                         Postal / ZIP Code
                       </label>
                       <input
@@ -916,37 +1139,44 @@ export default function CheckoutPage() {
                         value={postalCode}
                         onChange={(e) => setPostalCode(e.target.value)}
                         placeholder="1212"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
                       />
                     </div>
 
-                    <div className="space-y-1 sm:col-span-1">
-                      <label htmlFor="checkout-order-notes" className="font-bold text-slate-700 block">
-                        Delivery Notes (Optional)
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="checkout-order-notes"
+                        className="font-bold text-slate-700 block"
+                      >
+                        Courier Instructions (Optional)
                       </label>
                       <input
                         id="checkout-order-notes"
                         name="order-notes"
                         type="text"
+                        autoComplete="off"
                         value={orderNotes}
                         onChange={(e) => setOrderNotes(e.target.value)}
-                        placeholder="e.g. Call before delivery"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600"
+                        placeholder="e.g. Call before arriving…"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       />
                     </div>
 
-                    {/* Save to address book toggle if new */}
                     {selectedAddressId === "new" && (
                       <div className="sm:col-span-2 pt-1">
-                        <label className="flex items-center space-x-2 cursor-pointer text-xs font-semibold text-slate-700">
+                        <label
+                          htmlFor="checkout-save-address"
+                          className="inline-flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-700"
+                        >
                           <input
+                            id="checkout-save-address"
                             type="checkbox"
                             name="save-address"
                             checked={saveAddressToBook}
                             onChange={(e) => setSaveAddressToBook(e.target.checked)}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                            className="rounded border-slate-300 text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 h-4 w-4"
                           />
-                          <span>Save this delivery address to my address book</span>
+                          <span>Save this delivery address to my account address book</span>
                         </label>
                       </div>
                     )}
@@ -954,320 +1184,469 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Step 2: Delivery Speed & Method */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-4">
-                <div className="flex items-center space-x-2.5 pb-4 border-b border-slate-200">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center" aria-hidden="true">
-                    2
+              {/* Step 2: Delivery Zone & Shipping Method */}
+              <div className="surface-3d rounded-3xl p-6 sm:p-8 space-y-5">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+                  <div
+                    className="w-8 h-8 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-xs tabular-nums"
+                    aria-hidden="true"
+                  >
+                    02
                   </div>
-                  <h2 className="text-base font-black text-slate-900">
-                    Delivery Speed & Method
-                  </h2>
+                  <div>
+                    <h2 className="text-base font-black text-slate-900">
+                      Delivery Zone &amp; Shipping Method
+                    </h2>
+                    <p className="text-[11px] text-slate-500">
+                      Select your destination zone and preferred courier transit speed
+                    </p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  {/* Standard */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={selectedSpeed === "standard"}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setSelectedSpeed("standard");
-                      }
-                    }}
-                    onClick={() => setSelectedSpeed("standard")}
-                    className={`p-4 rounded-2xl border-2 flex items-start justify-between cursor-pointer transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                      selectedSpeed === "standard"
-                        ? "border-blue-600 bg-blue-50/50 shadow-2xs"
-                        : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      <div className="font-extrabold text-slate-900">
-                        Standard Courier Delivery
-                      </div>
-                      <div className="text-slate-500 text-[11px]">
-                        {isDhaka ? "24–48 Hours within Dhaka" : "3–5 Days nationwide"}
-                      </div>
+                {/* Delivery Zone Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                    <span>Select Delivery Zone</span>
+                  </label>
+                  {isLoadingShipping ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="h-16 bg-slate-100 rounded-2xl animate-pulse" />
+                      <div className="h-16 bg-slate-100 rounded-2xl animate-pulse" />
                     </div>
-                    <span className="font-black text-blue-700 tabular-nums">
-                      {subtotal >= 100000 ? "FREE" : isDhaka ? "৳60" : "৳120"}
-                    </span>
-                  </div>
-
-                  {/* Express */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={selectedSpeed === "express"}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setSelectedSpeed("express");
-                      }
-                    }}
-                    onClick={() => setSelectedSpeed("express")}
-                    className={`p-4 rounded-2xl border-2 flex items-start justify-between cursor-pointer transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                      selectedSpeed === "express"
-                        ? "border-blue-600 bg-blue-50/50 shadow-2xs"
-                        : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      <div className="font-extrabold text-slate-900 flex items-center space-x-1">
-                        <span>Express Priority Delivery</span>
-                        <span className="text-[9px] font-black bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
-                          FAST
-                        </span>
-                      </div>
-                      <div className="text-slate-500 text-[11px]">
-                        Same-day / Next-day priority courier
-                      </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {shippingZones.map((zone) => {
+                        const isZoneSelected = zone.id === selectedZoneId;
+                        return (
+                          <button
+                            key={zone.id}
+                            type="button"
+                            aria-pressed={isZoneSelected}
+                            onClick={() => handleZoneChange(zone.id)}
+                            className={`p-4 rounded-2xl border-2 text-left transition-[border-color,background-color,box-shadow] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isZoneSelected
+                                ? "border-blue-600 bg-blue-50/60 shadow-xs"
+                                : "border-slate-200 hover:border-slate-300 bg-white"
+                              }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-black text-sm text-slate-900">
+                                {zone.name}
+                              </span>
+                              {isZoneSelected && (
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0">
+                                  <Check className="w-3 h-3 stroke-[3]" aria-hidden="true" />
+                                </span>
+                              )}
+                            </div>
+                            {zone.description && (
+                              <p className="text-xs text-slate-500 line-clamp-1">
+                                {zone.description}
+                              </p>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <span className="font-black text-blue-700 tabular-nums">
-                      {isDhaka ? "৳150" : "৳210"}
-                    </span>
-                  </div>
+                  )}
                 </div>
+
+                {/* Shipping Methods Selection */}
+                {methodsForSelectedZone.length > 0 && (
+                  <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                    <label className="text-xs font-black text-slate-700 block">
+                      Available Shipping Methods ({selectedZone?.name || "Selected Zone"})
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {methodsForSelectedZone.map((method) => {
+                        const isMethodSelected = method.id === selectedMethodId;
+                        const effectiveCost = isFreeShippingEligible ? 0 : Number(method.cost);
+
+                        return (
+                          <button
+                            key={method.id}
+                            type="button"
+                            aria-pressed={isMethodSelected}
+                            onClick={() => handleMethodChange(method.id)}
+                            className={`p-4 rounded-2xl border-2 flex items-start justify-between text-left cursor-pointer transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isMethodSelected
+                                ? "border-blue-600 bg-blue-50/50 shadow-xs"
+                                : "border-slate-200 hover:border-slate-300 bg-white"
+                              }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${isMethodSelected ? "border-blue-600" : "border-slate-300"
+                                  }`}
+                              >
+                                {isMethodSelected && (
+                                  <div className="w-2 h-2 rounded-full bg-blue-600" />
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                                  <span>{method.name}</span>
+                                </div>
+                                <div className="text-slate-500 text-[11px]">
+                                  Est. {method.estimatedDays} {method.estimatedDays === 1 ? "Working Day" : "Working Days"}
+                                </div>
+                              </div>
+                            </div>
+                            <span
+                              className={`font-black text-sm tabular-nums shrink-0 ml-2 ${effectiveCost === 0 ? "text-emerald-700" : "text-blue-700"
+                                }`}
+                            >
+                              {effectiveCost === 0 ? "FREE" : formatBDT(effectiveCost)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Step 3: Payment Method Selection */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-4">
-                <div className="flex items-center space-x-2.5 pb-4 border-b border-slate-200">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center" aria-hidden="true">
-                    3
+              <div className="surface-3d rounded-3xl p-6 sm:p-8 space-y-4">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+                  <div
+                    className="w-8 h-8 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-xs tabular-nums"
+                    aria-hidden="true"
+                  >
+                    03
                   </div>
-                  <h2 className="text-base font-black text-slate-900">
-                    Payment Method
-                  </h2>
+                  <div>
+                    <h2 className="text-base font-black text-slate-900">
+                      Payment Settlement Method
+                    </h2>
+                    <p className="text-[11px] text-slate-500">
+                      Zero hidden gateway surcharges on any payment channel
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  {/* PayStation Online Payment Gateway */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={paymentMethod === "PAYSTATION"}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setPaymentMethod("PAYSTATION");
-                      }
-                    }}
-                    onClick={() => setPaymentMethod("PAYSTATION")}
-                    className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                      paymentMethod === "PAYSTATION"
-                        ? "border-blue-600 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white shadow-xs"
-                        : "border-slate-200 hover:border-slate-300 bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start space-x-3.5">
-                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                        {paymentMethod === "PAYSTATION" && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                        )}
-                      </div>
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="flex items-center space-x-1.5">
-                            <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" aria-hidden="true" />
-                            <span className="font-black text-sm text-slate-900 tracking-tight">
-                              PayStation Online Gateway
-                            </span>
-                          </div>
-                          <span className="inline-flex items-center space-x-1 text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
-                            <Zap className="w-3 h-3 fill-amber-300 text-amber-300" aria-hidden="true" />
-                            <span>Instant Confirmation</span>
-                          </span>
-                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                            Zero Fee
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          Pay instantly via Visa, Mastercard, bKash, Nagad, Rocket, or Internet Banking with 256-bit bank-grade encryption.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Supported Channels Strip */}
-                    <div className="mt-3.5 pt-3.5 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5 text-[11px]">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mr-1">
-                        Accepted:
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-pink-50 text-[#D12053] border border-pink-200/80">
-                        bKash
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-orange-50 text-[#EA580C] border border-orange-200/80">
-                        Nagad
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-purple-50 text-[#8C3494] border border-purple-200/80">
-                        Rocket
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-blue-50 text-[#1A1F71] border border-blue-200/80">
-                        Visa
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-amber-50 text-[#B45309] border border-amber-200/80">
-                        Mastercard
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
-                        Internet Banking
-                      </span>
-                    </div>
-
-                    {paymentMethod === "PAYSTATION" && (
-                      <div className="mt-3 p-3 bg-blue-50/70 rounded-xl border border-blue-200/70 text-xs text-blue-900 flex items-start space-x-2">
-                        <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
-                        <p className="leading-relaxed">
-                          You will be seamlessly transferred to PayStation&apos;s SSL portal to finalize payment with instant automated confirmation upon redirect.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* COD */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={paymentMethod === "CASH_ON_DELIVERY"}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setPaymentMethod("CASH_ON_DELIVERY");
-                      }
-                    }}
-                    onClick={() => setPaymentMethod("CASH_ON_DELIVERY")}
-                    className={`p-4 rounded-2xl border-2 flex items-start space-x-3 cursor-pointer transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                      paymentMethod === "CASH_ON_DELIVERY"
-                        ? "border-blue-600 bg-blue-50/40 shadow-xs"
-                        : "border-slate-200 hover:border-slate-300 bg-white"
-                    }`}
-                  >
-                    <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                      {paymentMethod === "CASH_ON_DELIVERY" && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                      )}
-                    </div>
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center space-x-2">
-                        <Banknote className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-                        <span className="font-black text-sm text-slate-900">
-                          Cash on Delivery (COD)
-                        </span>
-                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                          Doorstep Cash
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500">
-                        Pay cash directly to our delivery courier after receiving and inspecting the package at your doorstep.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* bKash / Nagad Mobile Banking */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={paymentMethod === "MOBILE_BANKING"}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setPaymentMethod("MOBILE_BANKING");
-                      }
-                    }}
-                    onClick={() => setPaymentMethod("MOBILE_BANKING")}
-                    className={`p-4 rounded-2xl border-2 transition-all cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                      paymentMethod === "MOBILE_BANKING"
-                        ? "border-blue-600 bg-blue-50/40 shadow-xs"
-                        : "border-slate-200 hover:border-slate-300 bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start space-x-3">
-                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                        {paymentMethod === "MOBILE_BANKING" && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                        )}
-                      </div>
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center space-x-2">
-                          <Smartphone className="w-4 h-4 text-pink-600" aria-hidden="true" />
-                          <span className="font-black text-sm text-slate-900">
-                            Manual Mobile Banking (bKash / Nagad)
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          Manually send money to our merchant account and enter your TrxID below for manual verification.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* MFS Input Panel */}
-                    {paymentMethod === "MOBILE_BANKING" && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-4 pt-4 border-t border-slate-200/80 space-y-3"
-                      >
-                        <div className="p-3 bg-pink-50 border border-pink-200 rounded-xl text-xs text-pink-900">
-                          <p className="font-bold">Payment Instructions:</p>
-                          <p className="mt-0.5">
-                            Please make payment of <strong className="tabular-nums">{formatBDT(grandTotal)}</strong> to Merchant Account:{" "}
-                            <span className="font-mono font-black text-pink-800 tabular-nums">01700-000000</span> (bKash/Nagad).
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <label htmlFor="checkout-mfs-phone" className="font-bold text-slate-700 block mb-1">
-                              Sender Mobile Number <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                              id="checkout-mfs-phone"
-                              name="mfs-phone"
-                              type="tel"
-                              autoComplete="tel"
-                              inputMode="tel"
-                              value={mfsSenderPhone}
-                              onChange={(e) => setMfsSenderPhone(e.target.value)}
-                              placeholder="01712345678"
-                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="checkout-mfs-trxid" className="font-bold text-slate-700 block mb-1">
-                              Transaction ID (TrxID) <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                              id="checkout-mfs-trxid"
-                              name="mfs-trxid"
-                              type="text"
-                              autoComplete="off"
-                              spellCheck={false}
-                              value={mfsTrxId}
-                              onChange={(e) => setMfsTrxId(e.target.value.toUpperCase())}
-                              placeholder="e.g. 9X7B2144A9"
-                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-mono font-bold text-slate-800 uppercase focus:outline-none focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600"
-                            />
+                <div className="space-y-3.5">
+                  {isLoadingPaymentMethods ? (
+                    <div className="space-y-3" role="status" aria-label="Loading payment methods">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="w-full p-4 sm:p-5 rounded-2xl border-2 border-slate-100 bg-slate-50/70 animate-pulse flex items-start gap-3.5"
+                        >
+                          <div className="w-5 h-5 rounded-full bg-slate-200 shrink-0 mt-0.5" />
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 bg-slate-200 rounded w-1/3" />
+                            <div className="h-3 bg-slate-200 rounded w-3/4" />
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  ) : paymentMethods.length === 0 ? (
+                    <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50 text-xs text-amber-900 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
+                      <span>No payment methods currently active. Please contact customer support.</span>
+                    </div>
+                  ) : (
+                    paymentMethods.map((method) => {
+                      const isSelected = paymentMethod === method.code;
+                      const isPaystation = method.code === "PAYSTATION";
+                      const isCod = method.code === "CASH_ON_DELIVERY";
+                      const isMfs = method.code === "MOBILE_BANKING";
+                      const isBankOrCheck =
+                        method.code === "BANK_TRANSFER" || method.code === "CHECK_PAYMENT";
+
+                      return (
+                        <div
+                          key={method.code}
+                          className={`rounded-2xl border-2 transition-[border-color,background-color,box-shadow] overflow-hidden ${isSelected
+                            ? isPaystation
+                              ? "border-blue-600 bg-gradient-to-br from-blue-50/70 via-indigo-50/30 to-white shadow-xs"
+                              : isCod
+                                ? "border-blue-600 bg-blue-50/40 shadow-xs"
+                                : isMfs
+                                  ? "border-blue-600 bg-pink-50/30 shadow-xs"
+                                  : isBankOrCheck
+                                    ? "border-blue-600 bg-indigo-50/30 shadow-xs"
+                                    : "border-blue-600 bg-blue-50/40 shadow-xs"
+                            : "border-slate-200 hover:border-slate-300 bg-white"
+                            }`}
+                        >
+                          <button
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => setPaymentMethod(method.code)}
+                            className="w-full p-4 sm:p-5 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                          >
+                            <div className="flex items-start gap-3.5">
+                              <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                                {isSelected && (
+                                  <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                                )}
+                              </div>
+                              <div className="space-y-1.5 flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="flex items-center gap-1.5">
+                                    {isPaystation ? (
+                                      <ShieldCheck
+                                        className="w-4 h-4 text-blue-600 shrink-0"
+                                        aria-hidden="true"
+                                      />
+                                    ) : isCod ? (
+                                      <Banknote
+                                        className="w-4 h-4 text-emerald-600 shrink-0"
+                                        aria-hidden="true"
+                                      />
+                                    ) : isMfs ? (
+                                      <Smartphone
+                                        className="w-4 h-4 text-pink-600 shrink-0"
+                                        aria-hidden="true"
+                                      />
+                                    ) : method.code === "BANK_TRANSFER" ? (
+                                      <Landmark
+                                        className="w-4 h-4 text-indigo-600 shrink-0"
+                                        aria-hidden="true"
+                                      />
+                                    ) : method.code === "CHECK_PAYMENT" ? (
+                                      <FileCheck2
+                                        className="w-4 h-4 text-amber-600 shrink-0"
+                                        aria-hidden="true"
+                                      />
+                                    ) : (
+                                      <CreditCard
+                                        className="w-4 h-4 text-blue-600 shrink-0"
+                                        aria-hidden="true"
+                                      />
+                                    )}
+                                    <span className="font-black text-sm text-slate-900 tracking-tight">
+                                      {method.name}
+                                    </span>
+                                  </div>
+
+                                  {/* Visual badges */}
+                                  {isPaystation && (
+                                    <>
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                                        <Zap
+                                          className="w-3 h-3 fill-amber-300 text-amber-300"
+                                          aria-hidden="true"
+                                        />
+                                        <span>Instant Confirmation</span>
+                                      </span>
+                                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                                        Zero Fee
+                                      </span>
+                                    </>
+                                  )}
+                                  {isCod && (
+                                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                                      Doorstep Cash
+                                    </span>
+                                  )}
+                                  {isMfs && (
+                                    <span className="text-[10px] font-bold bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full">
+                                      Direct Wallet
+                                    </span>
+                                  )}
+                                  {method.code === "BANK_TRANSFER" && (
+                                    <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                                      Corporate Wire
+                                    </span>
+                                  )}
+                                  {method.code === "CHECK_PAYMENT" && (
+                                    <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                                      Cheque / Slip
+                                    </span>
+                                  )}
+                                </div>
+
+                                {method.description && (
+                                  <p className="text-xs text-slate-500 leading-relaxed">
+                                    {method.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Accepted payment channel badges */}
+                            {isPaystation && (
+                              <div className="mt-3.5 pt-3.5 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mr-1">
+                                  Accepted:
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-pink-50 text-[#D12053] border border-pink-200/80">
+                                  bKash
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-orange-50 text-[#EA580C] border border-orange-200/80">
+                                  Nagad
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-purple-50 text-[#8C3494] border border-purple-200/80">
+                                  Rocket
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-blue-50 text-[#1A1F71] border border-blue-200/80">
+                                  Visa
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-amber-50 text-[#B45309] border border-amber-200/80">
+                                  Mastercard
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
+                                  Net Banking
+                                </span>
+                              </div>
+                            )}
+
+                            {isMfs && !isSelected && (
+                              <div className="mt-3 pt-3 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mr-1">
+                                  Channels:
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-pink-50 text-[#D12053] border border-pink-200/80">
+                                  bKash
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-orange-50 text-[#EA580C] border border-orange-200/80">
+                                  Nagad
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-purple-50 text-[#8C3494] border border-purple-200/80">
+                                  Rocket
+                                </span>
+                              </div>
+                            )}
+                          </button>
+
+                          {/* Expanded instruction & input section */}
+                          {isSelected && isPaystation && (
+                            <div className="mx-4 sm:mx-5 mb-4 p-3 bg-blue-50/80 rounded-xl border border-blue-200/70 text-xs text-blue-900 flex items-start gap-2">
+                              <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
+                              <p className="leading-relaxed">
+                                {method.instructions ||
+                                  "You will be redirected to PayStation's official SSL portal to complete payment with automated verification."}
+                              </p>
+                            </div>
+                          )}
+
+                          {isSelected && isCod && method.instructions && (
+                            <div className="mx-4 sm:mx-5 mb-4 p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/70 text-xs text-emerald-900 flex items-start gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                              <p className="leading-relaxed">
+                                {method.instructions}
+                              </p>
+                            </div>
+                          )}
+
+                          {isSelected && isMfs && (
+                            <div className="px-4 sm:px-5 pb-5 pt-3 border-t border-slate-200/80 space-y-3">
+                              {method.instructions && (
+                                <div className="p-3 bg-pink-50 border border-pink-200 rounded-xl text-xs text-pink-900 whitespace-pre-line leading-relaxed font-medium">
+                                  {method.instructions}
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <label
+                                    htmlFor="checkout-mfs-phone"
+                                    className="font-bold text-slate-700 block mb-1"
+                                  >
+                                    Sender Mobile Number <span className="text-rose-500">*</span>
+                                  </label>
+                                  <input
+                                    id="checkout-mfs-phone"
+                                    name="mfs-phone"
+                                    type="tel"
+                                    autoComplete="tel"
+                                    inputMode="tel"
+                                    value={mfsSenderPhone}
+                                    onChange={(e) => setMfsSenderPhone(e.target.value)}
+                                    placeholder="01712345678"
+                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 font-medium text-slate-900 focus:border-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
+                                  />
+                                </div>
+                                <div>
+                                  <label
+                                    htmlFor="checkout-mfs-trxid"
+                                    className="font-bold text-slate-700 block mb-1"
+                                  >
+                                    Transaction ID (TrxID) <span className="text-rose-500">*</span>
+                                  </label>
+                                  <input
+                                    id="checkout-mfs-trxid"
+                                    name="mfs-trxid"
+                                    type="text"
+                                    autoComplete="off"
+                                    spellCheck={false}
+                                    value={mfsTrxId}
+                                    onChange={(e) => setMfsTrxId(e.target.value.toUpperCase())}
+                                    placeholder="e.g. 9X7B2144A9"
+                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 font-mono font-bold text-slate-900 uppercase focus:border-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {isSelected && isBankOrCheck && (
+                            <div className="px-4 sm:px-5 pb-5 pt-3 border-t border-slate-200/80 space-y-3">
+                              {method.instructions && (
+                                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 whitespace-pre-line leading-relaxed font-medium">
+                                  {method.instructions}
+                                </div>
+                              )}
+
+                              <div>
+                                <label
+                                  htmlFor={`checkout-ref-${method.code}`}
+                                  className="font-bold text-slate-700 block mb-1 text-xs"
+                                >
+                                  Reference / Cheque No. / Slip <span className="text-slate-400 font-normal">(Optional)</span>
+                                </label>
+                                <input
+                                  id={`checkout-ref-${method.code}`}
+                                  name="payment-reference"
+                                  type="text"
+                                  autoComplete="off"
+                                  value={bankTransferRef}
+                                  onChange={(e) => setBankTransferRef(e.target.value)}
+                                  placeholder="e.g. Bank wire ref, Cheque number, or deposit slip note"
+                                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-900 focus:border-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {isSelected && !isPaystation && !isCod && !isMfs && !isBankOrCheck && method.instructions && (
+                            <div className="mx-4 sm:mx-5 mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 leading-relaxed font-medium whitespace-pre-line">
+                              {method.instructions}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Right 4 Cols: Order Summary & Placement */}
-            <div className="lg:col-span-4 sticky top-28 space-y-6">
-              <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-5">
-                <h3 className="text-base font-black text-slate-900 pb-3 border-b border-slate-200">
-                  Review Your Order (<span className="tabular-nums">{cart.reduce((a, b) => a + b.quantity, 0)}</span> items)
-                </h3>
+            {/* Right 4 Cols: Sticky 3D Order Review & Submit */}
+            <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-5">
+              <div className="surface-3d rounded-3xl p-6 space-y-5">
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-200">
+                  <h3 className="text-base font-black text-slate-900">
+                    Order Review (
+                    <span className="tabular-nums">
+                      {cart.reduce((a, b) => a + b.quantity, 0)}
+                    </span>
+                    )
+                  </h3>
+                  {isCalculating && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600">
+                      <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                      <span>Syncing…</span>
+                    </span>
+                  )}
+                </div>
 
-                {/* Items Thumbnails list */}
-                <div className="space-y-3 max-h-56 overflow-y-auto pr-1 divide-y divide-slate-100">
+                {/* Items Thumbnails List */}
+                <div className="space-y-3 max-h-56 overflow-y-auto overscroll-contain pr-1 divide-y divide-slate-100">
                   {cart.map((item) => (
-                    <div key={item.id} className="pt-2.5 first:pt-0 flex items-center space-x-3">
+                    <div key={item.id} className="pt-2.5 first:pt-0 flex items-center gap-3">
                       <div className="relative w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-1">
                         <Image
                           src={item.product.image}
@@ -1281,7 +1660,7 @@ export default function CheckoutPage() {
                         <h4 className="text-xs font-bold text-slate-900 truncate">
                           {item.product.title}
                         </h4>
-                        <div className="text-[11px] text-slate-500 font-medium flex justify-between">
+                        <div className="text-[11px] text-slate-500 font-medium flex justify-between mt-0.5">
                           <span className="tabular-nums">Qty: {item.quantity}</span>
                           <span className="font-bold text-slate-800 tabular-nums">
                             {formatBDT(item.price * item.quantity)}
@@ -1294,29 +1673,32 @@ export default function CheckoutPage() {
 
                 {/* Coupon Code Section */}
                 <div className="pt-3 border-t border-slate-100">
-                  <label htmlFor="checkout-coupon-code" className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center space-x-1">
+                  <label
+                    htmlFor="checkout-coupon-code"
+                    className="text-xs font-extrabold text-slate-700 mb-1.5 flex items-center gap-1.5"
+                  >
                     <Tag className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
-                    <span>Coupon Promotion</span>
+                    <span>Promo / Coupon Code</span>
                   </label>
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
+                    <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs">
                       <div>
-                        <span className="font-black text-emerald-700">{appliedCoupon.code}</span>
-                        <span className="text-[10px] text-emerald-600 block tabular-nums">
-                          Savings: {formatBDT(appliedCoupon.discount)}
+                        <span className="font-black text-emerald-800">{appliedCoupon.code}</span>
+                        <span className="text-[11px] text-emerald-700 block font-semibold tabular-nums">
+                          Savings: {formatBDT(discountAmount)}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={handleRemoveCoupon}
-                        className="text-[10px] font-black text-rose-600 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
+                        className="text-[11px] font-black text-rose-600 hover:underline px-2 py-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 cursor-pointer"
                       >
                         Remove
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-1.5">
-                      <div className="flex space-x-2">
+                      <div className="flex gap-2">
                         <input
                           id="checkout-coupon-code"
                           name="coupon"
@@ -1326,21 +1708,24 @@ export default function CheckoutPage() {
                           value={couponCodeInput}
                           onChange={(e) => setCouponCodeInput(e.target.value)}
                           placeholder="e.g. AZDEAL…"
-                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 uppercase focus-visible:ring-2 focus-visible:ring-blue-600"
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 placeholder-slate-400 focus:border-blue-600 focus:bg-white uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                         />
                         <button
                           type="button"
                           onClick={handleApplyCoupon}
                           disabled={isApplyingCoupon}
-                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
                         >
                           {isApplyingCoupon ? "Applying…" : "Apply"}
                         </button>
                       </div>
                       {couponError && (
-                        <p role="alert" className="text-[11px] text-rose-600 font-semibold flex items-center">
-                          <AlertCircle className="w-3 h-3 mr-1 shrink-0" aria-hidden="true" />
-                          {couponError}
+                        <p
+                          role="alert"
+                          className="text-[11px] text-rose-600 font-semibold flex items-center gap-1"
+                        >
+                          <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
+                          <span>{couponError}</span>
                         </p>
                       )}
                     </div>
@@ -1348,21 +1733,26 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Cost Breakdown */}
-                <div className="space-y-2 pt-3 border-t border-slate-200 text-xs">
-                  <div className="flex justify-between text-slate-600">
+                <div className="space-y-2.5 pt-3 border-t border-slate-200 text-xs">
+                  <div className="flex justify-between text-slate-600 font-medium">
                     <span>Subtotal</span>
-                    <span className="font-bold text-slate-900 tabular-nums">{formatBDT(subtotal)}</span>
+                    <span className="font-bold text-slate-900 tabular-nums">
+                      {formatBDT(subtotal)}
+                    </span>
                   </div>
 
-                  <div className="flex justify-between text-slate-600">
-                    <span>Delivery Fee ({selectedDivision})</span>
+                  <div className="flex justify-between text-slate-600 font-medium">
+                    <span>
+                      Courier ({selectedZone?.name || selectedDivision} •{" "}
+                      {matchingShippingMethod?.name || "Standard"})
+                    </span>
                     <span className="font-bold text-slate-900 tabular-nums">
                       {shippingFee === 0 ? "FREE" : formatBDT(shippingFee)}
                     </span>
                   </div>
 
                   {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-600 font-bold">
+                    <div className="flex justify-between text-emerald-700 font-bold">
                       <span>Coupon Discount</span>
                       <span className="tabular-nums">-{formatBDT(discountAmount)}</span>
                     </div>
@@ -1374,25 +1764,35 @@ export default function CheckoutPage() {
                       <span className="tabular-nums">{formatBDT(calculation.totalTaxAmount)}</span>
                     </div>
                   ) : null}
+                </div>
 
-                  <div className="flex justify-between items-baseline text-sm font-black text-slate-900 pt-3 border-t border-slate-100">
+                {/* Dark Obsidian 3D Total Payable Pod */}
+                <div
+                  aria-live="polite"
+                  className="rounded-2xl surface-3d-dark bg-tech-grid p-4 text-white"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
                     <div>
-                      <span>Total Payable</span>
-                      <span className="text-[10px] text-slate-400 font-normal block">
-                        VAT & Courier Included
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-blue-300 block">
+                        Total Payable
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        VAT &amp; insured courier included
                       </span>
                     </div>
-                    <span className="text-xl font-black text-blue-700 tabular-nums">
+                    <span className="text-2xl font-black text-white tabular-nums tracking-tight">
                       {formatBDT(grandTotal)}
                     </span>
                   </div>
                 </div>
 
-                {/* Stock Warning if ineligible */}
                 {calculation && !calculation.isEligibleForCheckout && (
-                  <p role="alert" className="text-[11px] text-rose-600 font-semibold text-center mt-2 flex items-center justify-center">
-                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" aria-hidden="true" />
-                    Some items exceed current warehouse stock. Please return to cart.
+                  <p
+                    role="alert"
+                    className="text-[11px] text-rose-600 font-semibold text-center flex items-center justify-center gap-1"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>Some items exceed warehouse stock. Please return to cart.</span>
                   </p>
                 )}
 
@@ -1401,57 +1801,48 @@ export default function CheckoutPage() {
                   type="submit"
                   disabled={
                     isSubmitting ||
-                    isCalculating ||
                     (calculation !== null && !calculation.isEligibleForCheckout)
                   }
-                  className="w-full py-4 px-4 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 disabled:opacity-60 text-white font-extrabold text-sm rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  className="w-full py-4 px-5 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 disabled:opacity-60 text-white font-black text-sm rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-[background-color,box-shadow,opacity] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
                 >
                   {isSubmitting ? (
-                    <span className="flex items-center space-x-2">
+                    <span className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      <span>
-                        {paymentMethod === "PAYSTATION"
-                          ? "Connecting to PayStation Gateway…"
-                          : "Confirming Order…"}
-                      </span>
+                      <span>Confirming Order…</span>
                     </span>
                   ) : (
-                    <>
-                      {paymentMethod === "PAYSTATION" ? (
-                        <>
-                          <Zap className="w-4 h-4 fill-amber-300 text-amber-300" aria-hidden="true" />
-                          <span>Pay with PayStation • <span className="tabular-nums">{formatBDT(grandTotal)}</span></span>
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="w-4 h-4" aria-hidden="true" />
-                          <span>Confirm Order • <span className="tabular-nums">{formatBDT(grandTotal)}</span></span>
-                        </>
-                      )}
-                    </>
+                    <span className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" aria-hidden="true" />
+                      <span>Confirm Order</span>
+                    </span>
                   )}
                 </button>
 
                 <p className="text-[11px] text-center text-slate-400 font-medium leading-relaxed">
-                  By clicking Confirm Order, you agree to our genuine warranty guarantee and official return policy.
+                  Protected by official manufacturer warranty &amp; 7-day replacement guarantee.
                 </p>
               </div>
 
-              {/* Trust Box */}
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2.5 text-xs text-slate-600">
-                <div className="flex items-center space-x-2 font-semibold">
-                  <ShieldCheck className="w-4 h-4 text-blue-600" aria-hidden="true" />
-                  <span>Official Authorized Warranty</span>
+              {/* 3D Tilt Trust Box */}
+              <Tilt3DCard maxTilt={4} scale={1.01}>
+                <div className="surface-3d rounded-2xl p-4 space-y-2.5 text-xs text-slate-700">
+                  <div className="flex items-center gap-2.5 font-bold">
+                    <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" aria-hidden="true" />
+                    <span>Official Authorized Warranty</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 font-bold">
+                    <CheckCircle2
+                      className="w-4 h-4 text-emerald-600 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span>Inspect parcel seal before COD payment</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 font-bold">
+                    <Truck className="w-4 h-4 text-indigo-600 shrink-0" aria-hidden="true" />
+                    <span>Express Coverage Across 64 Districts</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2 font-semibold">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-                  <span>Inspect package before COD payment</span>
-                </div>
-                <div className="flex items-center space-x-2 font-semibold">
-                  <Truck className="w-4 h-4 text-indigo-600" aria-hidden="true" />
-                  <span>Fast Delivery Across 64 Districts</span>
-                </div>
-              </div>
+              </Tilt3DCard>
             </div>
           </div>
         </form>

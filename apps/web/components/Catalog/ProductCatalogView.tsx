@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   SlidersHorizontal,
-  ChevronDown,
   ChevronRight,
   ChevronLeft,
   X,
@@ -18,7 +17,10 @@ import {
   RotateCcw,
   Sparkles,
   Filter,
-  Loader2,
+  ShieldCheck,
+  Truck,
+  ShoppingCart,
+  Heart,
 } from "lucide-react";
 import {
   Product,
@@ -28,6 +30,7 @@ import {
   getAllBrands,
 } from "../../data/mock-catalog";
 import { ProductCard } from "../UI/ProductCard";
+import { Tilt3DCard } from "../UI/Tilt3DCard";
 import { useStore } from "../../context/StoreContext";
 import { apiClient } from "../../lib/api-client";
 
@@ -86,14 +89,21 @@ function ProductCatalogViewInner({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { addToCart, toggleWishlist, wishlistIds } = useStore();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   // Read initial states from URL query parameters
   const urlPage = parseInt(searchParams.get("page") || "1", 10);
-  const urlCategory = searchParams.get("categorySlug") || searchParams.get("category") || (categoryScope ? "" : "All");
+  const urlCategory =
+    searchParams.get("categorySlug") ||
+    searchParams.get("category") ||
+    (categoryScope ? "" : "All");
   const urlBrands = searchParams.get("brand") ? searchParams.get("brand")!.split(",") : [];
   const urlAttributes = searchParams.get("attributeValues")
-    ? searchParams.get("attributeValues")!.split(",").map((v) => v.trim()).filter(Boolean)
+    ? searchParams
+        .get("attributeValues")!
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean)
     : [];
   const urlMinPrice = parseInt(searchParams.get("minPrice") || "0", 10);
   const urlMaxPrice = parseInt(searchParams.get("maxPrice") || "500000", 10);
@@ -102,7 +112,9 @@ function ProductCatalogViewInner({
   const urlQ = searchParams.get("q") || "";
 
   // Filter States
-  const [selectedCategory, setSelectedCategory] = useState<string>(categoryScope || urlCategory || "All");
+  const [selectedCategory, setSelectedCategory] = useState<string>(
+    categoryScope || urlCategory || "All"
+  );
   const [selectedBrands, setSelectedBrands] = useState<string[]>(urlBrands);
   const [selectedAttributeValues, setSelectedAttributeValues] = useState<string[]>(urlAttributes);
   const [minPrice, setMinPrice] = useState<number>(urlMinPrice);
@@ -122,6 +134,18 @@ function ProductCatalogViewInner({
   const [availableCategories, setAvailableCategories] = useState<CategoryOption[]>([]);
   const [availableBrands, setAvailableBrands] = useState<BrandOption[]>([]);
   const [availableAttributes, setAvailableAttributes] = useState<FacetAttribute[]>([]);
+
+  // Close mobile filter drawer on Escape key
+  useEffect(() => {
+    if (!isMobileFiltersOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsMobileFiltersOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isMobileFiltersOpen]);
 
   // Fetch Category Tree and Brands for Filter Facets
   useEffect(() => {
@@ -187,7 +211,6 @@ function ProductCatalogViewInner({
           setAvailableAttributes((prev) => (prev.length > 0 ? prev : mappedAttrs));
         }
       } catch {
-        // Fallback to fixture categories/brands
         setAvailableCategories(
           getAllCategories().map((c) => ({
             id: c.toLowerCase().replace(/\s+/g, "-"),
@@ -205,10 +228,9 @@ function ProductCatalogViewInner({
       }
     }
 
-    fetchFacets();
+    void fetchFacets();
   }, []);
 
-  // Update URL Query params
   const updateUrlParams = useCallback(
     (updates: Record<string, string | null>) => {
       const current = new URLSearchParams(searchParams.toString());
@@ -238,9 +260,14 @@ function ProductCatalogViewInner({
         params.set("categorySlug", categoryScope);
       } else if (selectedCategory && selectedCategory !== "All") {
         const found = availableCategories.find(
-          (c) => c.name.toLowerCase() === selectedCategory.toLowerCase() || c.slug === selectedCategory
+          (c) =>
+            c.name.toLowerCase() === selectedCategory.toLowerCase() ||
+            c.slug === selectedCategory
         );
-        params.set("categorySlug", found ? found.slug : selectedCategory.toLowerCase().replace(/\s+/g, "-"));
+        params.set(
+          "categorySlug",
+          found ? found.slug : selectedCategory.toLowerCase().replace(/\s+/g, "-")
+        );
       }
 
       if (selectedBrands.length > 0) {
@@ -267,7 +294,6 @@ function ProductCatalogViewInner({
         params.set("q", searchQuery.trim());
       }
 
-      // Map frontend sort values to backend sortBy
       if (sortBy === "price-low") params.set("sortBy", "price_asc");
       else if (sortBy === "price-high") params.set("sortBy", "price_desc");
       else if (sortBy === "rating") params.set("sortBy", "rating");
@@ -308,17 +334,42 @@ function ProductCatalogViewInner({
         }
       }
     } catch {
-      // Fallback to local mock products if API is unreachable
-      let fallback = ALL_PRODUCTS.filter((p) => {
-        if (categoryScope && p.category.toLowerCase() !== categoryScope.toLowerCase()) return false;
-        if (!categoryScope && selectedCategory !== "All" && p.category.toLowerCase() !== selectedCategory.toLowerCase()) return false;
-        if (selectedBrands.length > 0 && (!p.brand || !selectedBrands.includes(p.brand))) return false;
+      const fallback = ALL_PRODUCTS.filter((p) => {
+        if (
+          categoryScope &&
+          p.category.toLowerCase().replace(/\s+/g, "-") !== categoryScope.toLowerCase() &&
+          p.category.toLowerCase() !== categoryScope.toLowerCase()
+        ) {
+          return false;
+        }
+        if (
+          !categoryScope &&
+          selectedCategory !== "All" &&
+          p.category.toLowerCase().replace(/\s+/g, "-") !== selectedCategory.toLowerCase() &&
+          p.category.toLowerCase() !== selectedCategory.toLowerCase()
+        ) {
+          return false;
+        }
+        if (
+          selectedBrands.length > 0 &&
+          (!p.brand ||
+            !selectedBrands.some(
+              (b) => b.toLowerCase() === p.brand!.toLowerCase()
+            ))
+        ) {
+          return false;
+        }
         if (p.price < minPrice || p.price > maxPrice) return false;
         if (inStockOnly && p.inStock === false) return false;
         if (hasDiscount && (!p.discountPercent || p.discountPercent <= 0)) return false;
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
-          if (!p.title.toLowerCase().includes(q) && !p.category.toLowerCase().includes(q)) return false;
+          if (
+            !p.title.toLowerCase().includes(q) &&
+            !p.category.toLowerCase().includes(q)
+          ) {
+            return false;
+          }
         }
         return true;
       });
@@ -349,10 +400,9 @@ function ProductCatalogViewInner({
   ]);
 
   useEffect(() => {
-    fetchProducts();
+    void fetchProducts();
   }, [fetchProducts]);
 
-  // Toggle brand checkbox
   const handleToggleBrand = (brandSlug: string) => {
     const updated = selectedBrands.includes(brandSlug)
       ? selectedBrands.filter((b) => b !== brandSlug)
@@ -362,7 +412,6 @@ function ProductCatalogViewInner({
     updateUrlParams({ brand: updated.length > 0 ? updated.join(",") : null, page: "1" });
   };
 
-  // Toggle attribute value checkbox/swatch/pill
   const handleToggleAttributeValue = (val: string) => {
     const updated = selectedAttributeValues.includes(val)
       ? selectedAttributeValues.filter((v) => v !== val)
@@ -375,7 +424,6 @@ function ProductCatalogViewInner({
     });
   };
 
-  // Clear single attribute group
   const handleClearAttribute = (attributeValuesInThisAttr: string[]) => {
     const updated = selectedAttributeValues.filter(
       (v) => !attributeValuesInThisAttr.includes(v)
@@ -388,21 +436,18 @@ function ProductCatalogViewInner({
     });
   };
 
-  // Change Category
   const handleSelectCategory = (catName: string) => {
     setSelectedCategory(catName);
     setCurrentPage(1);
     updateUrlParams({ categorySlug: catName === "All" ? null : catName, page: "1" });
   };
 
-  // Change Sort
   const handleSortChange = (newSort: string) => {
     setSortBy(newSort);
     setCurrentPage(1);
     updateUrlParams({ sort: newSort, page: "1" });
   };
 
-  // Reset all filters
   const handleResetFilters = () => {
     setSelectedCategory(categoryScope || "All");
     setSelectedBrands([]);
@@ -426,7 +471,6 @@ function ProductCatalogViewInner({
     });
   };
 
-  // Active filters count
   const activeFiltersCount =
     (selectedCategory !== "All" && !categoryScope ? 1 : 0) +
     selectedBrands.length +
@@ -437,56 +481,159 @@ function ProductCatalogViewInner({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-      {/* 1. Header Banner */}
-      <div
-        className={`bg-gradient-to-r ${
-          bannerGradient || "from-blue-900 via-slate-900 to-indigo-950"
-        } rounded-3xl p-6 sm:p-10 text-white mb-8 shadow-md relative overflow-hidden flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6`}
+      {/* Breadcrumb Bar */}
+      <nav
+        aria-label="Breadcrumb"
+        className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-5"
       >
-        <div className="relative z-10 max-w-2xl">
-          {archiveBadge && (
-            <span className="inline-flex items-center space-x-1.5 bg-white/10 text-white text-xs font-black uppercase px-3 py-1 rounded-full border border-white/20 mb-3 backdrop-blur-xs shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{archiveBadge}</span>
+        <Link
+          href="/"
+          className="hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:underline"
+        >
+          Home
+        </Link>
+        <span aria-hidden="true">/</span>
+        {categoryScope ? (
+          <>
+            <Link
+              href="/shop"
+              className="hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:underline"
+            >
+              Shop
+            </Link>
+            <span aria-hidden="true">/</span>
+            <span className="text-slate-900 font-bold" aria-current="page">
+              {title}
             </span>
-          )}
-          <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight mb-2">
+          </>
+        ) : (
+          <span className="text-slate-900 font-bold" aria-current="page">
+            {title}
+          </span>
+        )}
+      </nav>
+
+      {/* 1. 3D Spatial Catalog Hero Banner */}
+      <div
+        className={`${
+          bannerGradient
+            ? `bg-gradient-to-r ${bannerGradient} shadow-xl border border-white/10`
+            : "surface-3d-dark"
+        } bg-tech-grid rounded-3xl p-6 sm:p-9 lg:p-10 text-white mb-6 relative overflow-hidden flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6`}
+      >
+        <div
+          aria-hidden="true"
+          className="absolute -right-12 -top-12 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute -left-12 -bottom-16 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"
+        />
+
+        <div className="relative z-10 max-w-2xl space-y-2.5">
+          <span className="inline-flex items-center gap-1.5 bg-white/10 text-blue-200 text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-white/15 backdrop-blur-xs">
+            <Sparkles className="w-3.5 h-3.5 text-orange-400" aria-hidden="true" />
+            <span>
+              {archiveBadge ||
+                (categoryScope ? "Authorized Department" : "Official Storefront Catalog")}
+            </span>
+          </span>
+          <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight text-white">
             {title}
           </h1>
-          <p className="text-slate-300 text-xs sm:text-sm font-medium leading-relaxed">
+          <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl">
             {subtitle ||
               "Explore genuine tech gadgets, computer components, laptops, and electronics with official warranty and instant doorstep delivery across Bangladesh."}
           </p>
         </div>
 
-        {headerExtra && (
-          <div className="relative z-10 shrink-0 w-full lg:w-auto">
-            {headerExtra}
+        {headerExtra ? (
+          <div className="relative z-10 shrink-0 w-full lg:w-auto">{headerExtra}</div>
+        ) : (
+          <div className="relative z-10 shrink-0 w-full sm:w-auto">
+            <Tilt3DCard maxTilt={6} scale={1.015}>
+              <div className="bg-white/8 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:p-5 flex sm:flex-col justify-between gap-4 min-w-[230px]">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-300 block">
+                    Live Inventory
+                  </span>
+                  <div className="text-2xl sm:text-3xl font-black text-white tabular-nums mt-0.5">
+                    {isLoading ? "…" : totalProducts}
+                    <span className="text-xs font-bold text-slate-300 ml-1.5">Items</span>
+                  </div>
+                </div>
+                <div className="space-y-1 text-[11px] text-slate-300">
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                    <span>Official Brand Warranty</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <Truck className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" />
+                    <span>Express 64-District Dispatch</span>
+                  </div>
+                </div>
+              </div>
+            </Tilt3DCard>
           </div>
         )}
-
-        {/* Decorative background glow */}
-        <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      {/* 2. Main Content Grid (Left Sticky Filter Sidebar + Right Products Grid) */}
+      {/* Quick Department Pill Strip (Unscoped Shop View) */}
+      {!categoryScope && availableCategories.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-7 no-scrollbar">
+          <button
+            type="button"
+            onClick={() => handleSelectCategory("All")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-[background-color,color,border-color,box-shadow] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+              selectedCategory === "All"
+                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                : "bg-white text-slate-600 border-slate-200/90 hover:border-blue-300 hover:text-slate-900"
+            }`}
+          >
+            All Departments
+          </button>
+          {availableCategories.slice(0, 10).map((cat) => {
+            const isSelected =
+              selectedCategory.toLowerCase() === cat.name.toLowerCase() ||
+              selectedCategory.toLowerCase() === cat.slug.toLowerCase();
+            return (
+              <button
+                key={`pill-${cat.id || cat.slug}`}
+                type="button"
+                onClick={() => handleSelectCategory(cat.slug)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-[background-color,color,border-color,box-shadow] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                  isSelected
+                    ? "bg-blue-700 text-white border-blue-700 shadow-xs"
+                    : "bg-white text-slate-600 border-slate-200/90 hover:border-blue-300 hover:text-slate-900"
+                }`}
+              >
+                {cat.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 2. Main Content Grid (Left Sticky 3D Filter Sidebar + Right Products Area) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Desktop Filter Sidebar (Left Column) */}
-        <aside className="hidden lg:block lg:col-span-3 sticky top-28 bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-6">
+        {/* Desktop Filter Sidebar */}
+        <aside className="hidden lg:block lg:col-span-3 sticky top-28 surface-3d rounded-3xl p-6 space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-            <div className="flex items-center space-x-2">
-              <SlidersHorizontal className="w-4 h-4 text-blue-700" />
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center">
+                <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
+              </div>
               <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                Filters
+                Refine Catalog
               </h2>
             </div>
             {activeFiltersCount > 0 && (
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center space-x-1 cursor-pointer"
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded px-1"
               >
-                <RotateCcw className="w-3 h-3" />
+                <RotateCcw className="w-3 h-3" aria-hidden="true" />
                 <span>Reset</span>
               </button>
             )}
@@ -494,8 +641,11 @@ function ProductCatalogViewInner({
 
           {/* Search within results */}
           <div>
-            <label htmlFor="catalog-search-input" className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
-              Search Products
+            <label
+              htmlFor="catalog-search-input"
+              className="text-xs font-extrabold uppercase text-slate-700 block mb-2"
+            >
+              Keyword Filter
             </label>
             <div className="relative">
               <input
@@ -512,24 +662,27 @@ function ProductCatalogViewInner({
                     updateUrlParams({ q: searchQuery.trim() || null, page: "1" });
                   }
                 }}
-                placeholder="e.g. Model, keyword, specs…"
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus:bg-white"
+                placeholder="Model, chip, spec…"
+                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" aria-hidden="true" />
+              <Search
+                className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3 pointer-events-none"
+                aria-hidden="true"
+              />
             </div>
           </div>
 
           {/* Category Tree (Only when not scoped) */}
           {!categoryScope && (
             <div>
-              <label className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
-                Categories
-              </label>
-              <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+              <span className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
+                Departments
+              </span>
+              <div className="space-y-1 max-h-56 overflow-y-auto overscroll-contain pr-1">
                 <button
                   type="button"
                   onClick={() => handleSelectCategory("All")}
-                  className={`w-full flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg transition-colors cursor-pointer ${
+                  className={`w-full flex items-center justify-between text-xs py-2 px-3 rounded-xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                     selectedCategory === "All"
                       ? "bg-blue-50 text-blue-700 font-extrabold"
                       : "text-slate-600 hover:bg-slate-50 font-medium"
@@ -546,13 +699,13 @@ function ProductCatalogViewInner({
                       key={cat.id || cat.slug}
                       type="button"
                       onClick={() => handleSelectCategory(cat.slug)}
-                      className={`w-full flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg transition-colors cursor-pointer ${
+                      className={`w-full flex items-center justify-between text-xs py-2 px-3 rounded-xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                         isSelected
                           ? "bg-blue-50 text-blue-700 font-extrabold"
                           : "text-slate-600 hover:bg-slate-50 font-medium"
                       }`}
                     >
-                      <span>{cat.name}</span>
+                      <span className="truncate">{cat.name}</span>
                     </button>
                   );
                 })}
@@ -562,24 +715,25 @@ function ProductCatalogViewInner({
 
           {/* Brands Filter */}
           <div>
-            <label className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
-              Brands
-            </label>
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            <span className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
+              Official Brands
+            </span>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto overscroll-contain pr-1">
               {availableBrands.map((brand) => {
                 const brandIdOrSlug = brand.slug || brand.name;
                 const isChecked = selectedBrands.includes(brandIdOrSlug);
                 return (
                   <label
                     key={brand.id || brand.slug}
-                    className="flex items-center justify-between text-xs text-slate-700 hover:text-blue-700 cursor-pointer select-none py-0.5"
+                    className="flex items-center justify-between text-xs text-slate-700 hover:text-blue-700 cursor-pointer select-none py-1 px-1 rounded-lg"
                   >
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2.5">
                       <input
                         type="checkbox"
+                        name={`brand-${brandIdOrSlug}`}
                         checked={isChecked}
                         onChange={() => handleToggleBrand(brandIdOrSlug)}
-                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                        className="rounded border-slate-300 text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 w-3.5 h-3.5 cursor-pointer"
                       />
                       <span className="font-semibold">{brand.name}</span>
                     </div>
@@ -589,7 +743,7 @@ function ProductCatalogViewInner({
             </div>
           </div>
 
-          {/* Dynamic Attributes Filter (Color, Size, RAM, etc.) */}
+          {/* Dynamic Attributes Filter */}
           {availableAttributes.length > 0 && (
             <div className="space-y-4 pt-3 border-t border-slate-100">
               {availableAttributes.map((attr) => {
@@ -601,14 +755,14 @@ function ProductCatalogViewInner({
                 return (
                   <div key={attr.id || attr.slug}>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-extrabold uppercase text-slate-700 tracking-wider">
+                      <span className="text-xs font-extrabold uppercase text-slate-700 tracking-wider">
                         {attr.name}
-                      </label>
+                      </span>
                       {hasActiveSelection && (
                         <button
                           type="button"
                           onClick={() => handleClearAttribute(valuesInThisAttr)}
-                          className="text-[10px] font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+                          className="text-[10px] font-bold text-rose-600 hover:text-rose-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded px-1"
                         >
                           Clear
                         </button>
@@ -616,7 +770,6 @@ function ProductCatalogViewInner({
                     </div>
 
                     {attr.type === "COLOR" ? (
-                      /* Color Swatches */
                       <div className="flex flex-wrap gap-2">
                         {attr.values.map((val) => {
                           const isChecked = selectedAttributeValues.includes(val.value);
@@ -631,12 +784,12 @@ function ProductCatalogViewInner({
                             <button
                               key={val.id || val.value}
                               type="button"
+                              aria-pressed={isChecked}
                               onClick={() => handleToggleAttributeValue(val.value)}
-                              title={val.label || val.value}
                               aria-label={`Filter by ${attr.name}: ${val.label || val.value}`}
-                              className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                              className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-[border-color,background-color,box-shadow] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                                 isChecked
-                                  ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs ring-2 ring-blue-600/20"
+                                  ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs"
                                   : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                               }`}
                             >
@@ -650,6 +803,7 @@ function ProductCatalogViewInner({
                                       isDark ? "text-white" : "text-slate-900"
                                     }`}
                                     strokeWidth={3}
+                                    aria-hidden="true"
                                   />
                                 )}
                               </span>
@@ -659,7 +813,6 @@ function ProductCatalogViewInner({
                         })}
                       </div>
                     ) : attr.type === "BUTTON" ? (
-                      /* Button Pills (Size, Specs, etc.) */
                       <div className="flex flex-wrap gap-1.5">
                         {attr.values.map((val) => {
                           const isChecked = selectedAttributeValues.includes(val.value);
@@ -668,8 +821,9 @@ function ProductCatalogViewInner({
                             <button
                               key={val.id || val.value}
                               type="button"
+                              aria-pressed={isChecked}
                               onClick={() => handleToggleAttributeValue(val.value)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-[border-color,background-color,color] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                                 isChecked
                                   ? "bg-blue-600 border-blue-600 text-white shadow-xs"
                                   : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
@@ -681,8 +835,7 @@ function ProductCatalogViewInner({
                         })}
                       </div>
                     ) : (
-                      /* Text Checkboxes */
-                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto overscroll-contain pr-1">
                         {attr.values.map((val) => {
                           const isChecked = selectedAttributeValues.includes(val.value);
 
@@ -691,12 +844,12 @@ function ProductCatalogViewInner({
                               key={val.id || val.value}
                               className="flex items-center justify-between text-xs text-slate-700 hover:text-blue-700 cursor-pointer select-none py-0.5"
                             >
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
                                   onChange={() => handleToggleAttributeValue(val.value)}
-                                  className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                                  className="rounded border-slate-300 text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 w-3.5 h-3.5 cursor-pointer"
                                 />
                                 <span className="font-semibold">{val.label || val.value}</span>
                               </div>
@@ -714,14 +867,19 @@ function ProductCatalogViewInner({
           {/* Price Range Slider */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-extrabold uppercase text-slate-700">
-                Price Range
+              <label
+                htmlFor="catalog-price-range"
+                className="text-xs font-extrabold uppercase text-slate-700"
+              >
+                Budget Ceiling
               </label>
-              <span className="text-[11px] font-bold text-blue-700">
-                {formatBDT(minPrice)} - {formatBDT(maxPrice)}
+              <span className="text-[11px] font-black text-blue-700 tabular-nums">
+                {formatBDT(minPrice)} – {formatBDT(maxPrice)}
               </span>
             </div>
             <input
+              id="catalog-price-range"
+              name="maxPrice"
               type="range"
               min="0"
               max="500000"
@@ -730,11 +888,12 @@ function ProductCatalogViewInner({
               onChange={(e) => {
                 const val = Number(e.target.value);
                 setMaxPrice(val);
+                setCurrentPage(1);
                 updateUrlParams({ maxPrice: val < 500000 ? val.toString() : null, page: "1" });
               }}
-              className="w-full accent-blue-600 cursor-pointer"
+              className="w-full accent-blue-600 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1">
+            <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1 tabular-nums">
               <span>৳0</span>
               <span>৳2,50,000</span>
               <span>৳5,00,000+</span>
@@ -742,9 +901,14 @@ function ProductCatalogViewInner({
           </div>
 
           {/* In-Stock Toggle */}
-          <div className="pt-2 border-t border-slate-100">
-            <label className="flex items-center space-x-2.5 cursor-pointer select-none">
+          <div className="pt-3 border-t border-slate-100">
+            <label
+              htmlFor="catalog-instock-toggle"
+              className="flex items-center gap-2.5 cursor-pointer select-none"
+            >
               <input
+                id="catalog-instock-toggle"
+                name="inStock"
                 type="checkbox"
                 checked={inStockOnly}
                 onChange={(e) => {
@@ -753,90 +917,118 @@ function ProductCatalogViewInner({
                   setCurrentPage(1);
                   updateUrlParams({ inStock: checked ? "true" : null, page: "1" });
                 }}
-                className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                className="rounded border-slate-300 text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 w-4 h-4 cursor-pointer"
               />
-              <span className="text-xs font-bold text-slate-700">
-                In Stock Items Only
-              </span>
+              <span className="text-xs font-bold text-slate-700">Ready to Ship Only</span>
             </label>
           </div>
         </aside>
 
-        {/* Right Main Content Area (Products Grid) */}
+        {/* Right Main Content Area */}
         <div className="lg:col-span-9">
-          {/* Top Sort & Filter Bar */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
+          {/* Top Sort & View Control Bar */}
+          <div className="surface-3d rounded-2xl p-3.5 sm:p-4 mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setIsMobileFiltersOpen(true)}
-                className="lg:hidden flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-200"
+                className="lg:hidden flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-extrabold border border-blue-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
-                <Filter className="w-3.5 h-3.5" />
-                <span>Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}</span>
+                <Filter className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>
+                  Filters{" "}
+                  {activeFiltersCount > 0 ? (
+                    <span className="tabular-nums">({activeFiltersCount})</span>
+                  ) : (
+                    ""
+                  )}
+                </span>
               </button>
 
-              <span className="text-xs font-bold text-slate-500">
-                Showing <strong className="text-slate-900">{products.length}</strong> of{" "}
-                <strong className="text-slate-900">{totalProducts}</strong> products
+              <span className="text-xs font-semibold text-slate-500">
+                Showing{" "}
+                <strong className="text-slate-900 font-black tabular-nums">
+                  {products.length}
+                </strong>{" "}
+                of{" "}
+                <strong className="text-slate-900 font-black tabular-nums">
+                  {totalProducts}
+                </strong>{" "}
+                items
               </span>
             </div>
 
-            <div className="flex items-center space-x-3 ml-auto">
-              {/* Sort Dropdown */}
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-slate-400 hidden sm:inline">Sort:</span>
+            <div className="flex items-center gap-3 ml-auto">
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="catalog-sort-select"
+                  className="text-xs font-bold text-slate-400 hidden sm:inline"
+                >
+                  Sort by:
+                </label>
                 <select
+                  id="catalog-sort-select"
+                  name="sort"
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
-                  className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 focus:outline-none focus:border-blue-600 cursor-pointer"
+                  className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:border-blue-600 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                 >
-                  <option value="featured">Featured & Popular</option>
-                  <option value="newest">New Arrivals</option>
+                  <option value="featured">Featured &amp; Popular</option>
+                  <option value="newest">Newest Releases</option>
                   <option value="price-low">Price: Low to High</option>
                   <option value="price-high">Price: High to Low</option>
                   <option value="rating">Top Customer Rated</option>
                 </select>
               </div>
 
-              {/* View Mode Grid/List */}
-              <div className="hidden sm:flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-50">
+              {/* View Mode Switcher */}
+              <div
+                role="group"
+                aria-label="Product layout mode"
+                className="hidden sm:flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-50"
+              >
                 <button
                   type="button"
+                  aria-pressed={viewMode === "grid"}
                   onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    viewMode === "grid" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-400"
+                  className={`p-2 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                    viewMode === "grid"
+                      ? "bg-white text-blue-700 shadow-2xs"
+                      : "text-slate-400 hover:text-slate-700"
                   }`}
-                  aria-label="Grid view"
+                  aria-label="Grid layout"
                 >
-                  <Grid className="w-3.5 h-3.5" />
+                  <Grid className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
+                  aria-pressed={viewMode === "list"}
                   onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    viewMode === "list" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-400"
+                  className={`p-2 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                    viewMode === "list"
+                      ? "bg-white text-blue-700 shadow-2xs"
+                      : "text-slate-400 hover:text-slate-700"
                   }`}
-                  aria-label="List view"
+                  aria-label="Horizontal list layout"
                 >
-                  <List className="w-3.5 h-3.5" />
+                  <List className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Active Filter Badges / Tags */}
+          {/* Active Filter Chips Bar */}
           {activeFiltersCount > 0 && (
             <div className="flex flex-wrap items-center gap-2 mb-6">
-              <span className="text-xs font-bold text-slate-400 mr-1">Active Filters:</span>
+              <span className="text-xs font-bold text-slate-400 mr-1">Active:</span>
 
               {selectedCategory !== "All" && !categoryScope && (
-                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-full border border-blue-200/90 shadow-2xs">
-                  <span>Category: {selectedCategory}</span>
+                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200/90">
+                  <span>Dept: {selectedCategory}</span>
                   <button
                     type="button"
                     onClick={() => handleSelectCategory("All")}
-                    className="hover:text-blue-900 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+                    className="hover:text-blue-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     aria-label={`Remove category filter: ${selectedCategory}`}
                   >
                     <X className="w-3 h-3" aria-hidden="true" />
@@ -857,13 +1049,13 @@ function ProductCatalogViewInner({
                 return (
                   <span
                     key={b}
-                    className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200/90 shadow-2xs hover:bg-blue-100/70 transition-colors"
+                    className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200/90"
                   >
                     <span>Brand: {brandDisplayName}</span>
                     <button
                       type="button"
                       onClick={() => handleToggleBrand(b)}
-                      className="hover:text-blue-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+                      className="hover:text-blue-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       aria-label={`Remove brand filter: ${brandDisplayName}`}
                     >
                       <X className="w-3 h-3" aria-hidden="true" />
@@ -889,13 +1081,16 @@ function ProductCatalogViewInner({
                 return (
                   <span
                     key={val}
-                    className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-800 text-xs font-bold px-3 py-1 rounded-full border border-indigo-200/90 shadow-2xs hover:bg-indigo-100/70 transition-colors"
+                    className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-800 text-xs font-bold px-3 py-1 rounded-full border border-indigo-200/90"
                   >
-                    <span>{attrName ? `${attrName}: ` : ""}{attrLabel}</span>
+                    <span>
+                      {attrName ? `${attrName}: ` : ""}
+                      {attrLabel}
+                    </span>
                     <button
                       type="button"
                       onClick={() => handleToggleAttributeValue(val)}
-                      className="hover:text-indigo-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600"
+                      className="hover:text-indigo-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
                       aria-label={`Remove filter: ${attrLabel}`}
                     >
                       <X className="w-3 h-3" aria-hidden="true" />
@@ -913,7 +1108,7 @@ function ProductCatalogViewInner({
                       setMaxPrice(500000);
                       updateUrlParams({ maxPrice: null, page: "1" });
                     }}
-                    className="hover:text-slate-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-600"
+                    className="hover:text-slate-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600"
                     aria-label="Remove maximum price filter"
                   >
                     <X className="w-3 h-3" aria-hidden="true" />
@@ -922,7 +1117,7 @@ function ProductCatalogViewInner({
               )}
 
               {inStockOnly && (
-                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
+                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
                   <span>In Stock Only</span>
                   <button
                     type="button"
@@ -930,7 +1125,7 @@ function ProductCatalogViewInner({
                       setInStockOnly(false);
                       updateUrlParams({ inStock: null, page: "1" });
                     }}
-                    className="hover:text-emerald-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600"
+                    className="hover:text-emerald-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                     aria-label="Remove in-stock filter"
                   >
                     <X className="w-3 h-3" aria-hidden="true" />
@@ -940,14 +1135,14 @@ function ProductCatalogViewInner({
 
               {searchQuery.trim() && (
                 <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
-                  <span>&quot;{searchQuery}&quot;</span>
+                  <span>&ldquo;{searchQuery}&rdquo;</span>
                   <button
                     type="button"
                     onClick={() => {
                       setSearchQuery("");
                       updateUrlParams({ q: null, page: "1" });
                     }}
-                    className="hover:text-amber-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-600"
+                    className="hover:text-amber-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
                     aria-label={`Clear search query: ${searchQuery}`}
                   >
                     <X className="w-3 h-3" aria-hidden="true" />
@@ -958,20 +1153,20 @@ function ProductCatalogViewInner({
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline ml-1 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500 rounded px-1.5 py-0.5"
+                className="text-xs font-extrabold text-rose-600 hover:text-rose-700 hover:underline ml-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded px-1.5 py-0.5"
               >
                 Clear all
               </button>
             </div>
           )}
 
-          {/* Loading Skeleton */}
+          {/* Product Results Area */}
           {isLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-2xl p-4 border border-slate-100 shadow-2xs animate-pulse space-y-3"
+                  className="surface-3d rounded-2xl p-4 animate-pulse space-y-3"
                 >
                   <div className="w-full aspect-square bg-slate-100 rounded-xl" />
                   <div className="h-3 bg-slate-100 rounded w-1/3" />
@@ -982,28 +1177,149 @@ function ProductCatalogViewInner({
             </div>
           ) : products.length > 0 ? (
             <>
-              <div
-                className={
-                  viewMode === "grid"
-                    ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6"
-                    : "space-y-4"
-                }
-              >
-                {products.map((product, idx) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToCart={addToCart}
-                    onToggleWishlist={toggleWishlist}
-                    isWishlisted={wishlistIds.has(product.id)}
-                    index={idx}
-                  />
-                ))}
-              </div>
+              {viewMode === "grid" ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
+                  {products.map((product, idx) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onAddToCart={addToCart}
+                      onToggleWishlist={toggleWishlist}
+                      isWishlisted={wishlistIds.has(product.id)}
+                      index={idx}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* Sleek Horizontal 3D List View */
+                <div className="space-y-4">
+                  {products.map((product) => {
+                    const isWishlisted = wishlistIds.has(product.id);
+                    const outOfStock = product.inStock === false;
+                    return (
+                      <div
+                        key={product.id}
+                        className="surface-3d rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 hover:border-blue-300 transition-[border-color,box-shadow] group"
+                      >
+                        <Link
+                          href={`/products/${product.slug || product.id}`}
+                          className="relative w-full sm:w-36 h-40 sm:h-36 rounded-2xl bg-slate-50 border border-slate-200/80 shrink-0 overflow-hidden flex items-center justify-center p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        >
+                          <Image
+                            src={product.image}
+                            alt={product.title}
+                            fill
+                            sizes="(max-width: 640px) 100vw, 144px"
+                            className="object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {product.discountPercent && product.discountPercent > 0 ? (
+                            <span className="absolute top-2 left-2 bg-orange-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md tabular-nums">
+                              -{product.discountPercent}%
+                            </span>
+                          ) : null}
+                        </Link>
+
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md">
+                              {product.category}
+                            </span>
+                            {product.brand && (
+                              <span className="text-[10px] font-bold text-slate-500">
+                                {product.brand}
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 tabular-nums">
+                              <Star
+                                className="w-3.5 h-3.5 fill-amber-400 text-amber-400"
+                                aria-hidden="true"
+                              />
+                              <span>{product.rating.toFixed(1)}</span>
+                            </span>
+                          </div>
+
+                          <Link
+                            href={`/products/${product.slug || product.id}`}
+                            className="text-base sm:text-lg font-black text-slate-900 hover:text-blue-700 transition-colors block line-clamp-2 focus-visible:outline-none focus-visible:underline"
+                          >
+                            {product.title}
+                          </Link>
+
+                          {product.description && (
+                            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                              {product.description}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-3 pt-1 text-[11px] font-semibold text-slate-500">
+                            <span
+                              className={
+                                outOfStock ? "text-rose-600 font-bold" : "text-emerald-700 font-bold"
+                              }
+                            >
+                              {outOfStock ? "Out of Stock" : "● Official Stock Available"}
+                            </span>
+                            <span>•</span>
+                            <span>1-Year Brand Warranty</span>
+                          </div>
+                        </div>
+
+                        <div className="w-full sm:w-48 sm:text-right flex sm:flex-col items-center sm:items-end justify-between gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
+                          <div>
+                            <div className="text-lg sm:text-xl font-black text-slate-900 tabular-nums">
+                              {formatBDT(product.price)}
+                            </div>
+                            {product.regularPrice && product.regularPrice > product.price && (
+                              <div className="text-xs text-slate-400 line-through tabular-nums">
+                                {formatBDT(product.regularPrice)}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              aria-pressed={isWishlisted}
+                              aria-label={
+                                isWishlisted
+                                  ? `Remove ${product.title} from wishlist`
+                                  : `Save ${product.title} to wishlist`
+                              }
+                              onClick={() => toggleWishlist(product.id)}
+                              className={`p-2.5 rounded-xl border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                                isWishlisted
+                                  ? "bg-rose-50 border-rose-200 text-rose-600"
+                                  : "bg-slate-50 border-slate-200 text-slate-500 hover:text-rose-600"
+                              }`}
+                            >
+                              <Heart
+                                className={`w-4 h-4 ${isWishlisted ? "fill-current" : ""}`}
+                                aria-hidden="true"
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={outOfStock}
+                              onClick={() => addToCart(product)}
+                              className="px-4 py-2.5 bg-blue-700 hover:bg-blue-800 disabled:bg-slate-300 text-white font-black text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5" aria-hidden="true" />
+                              <span>Add to Cart</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Pagination Controls */}
               {totalPages > 1 && (
-                <div className="mt-10 flex items-center justify-center space-x-2">
+                <nav
+                  aria-label="Catalog pagination"
+                  className="mt-10 flex items-center justify-center gap-2"
+                >
                   <button
                     type="button"
                     disabled={currentPage <= 1}
@@ -1013,10 +1329,10 @@ function ProductCatalogViewInner({
                       updateUrlParams({ page: newPage.toString() });
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                    aria-label="Previous Page"
+                    className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                    aria-label="Previous page"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-4 h-4" aria-hidden="true" />
                   </button>
 
                   {Array.from({ length: totalPages }).map((_, i) => {
@@ -1026,15 +1342,16 @@ function ProductCatalogViewInner({
                       <button
                         key={pageNum}
                         type="button"
+                        aria-current={isActive ? "page" : undefined}
                         onClick={() => {
                           setCurrentPage(pageNum);
                           updateUrlParams({ page: pageNum.toString() });
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        className={`w-9 h-9 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                        className={`w-9 h-9 rounded-xl text-xs font-black cursor-pointer transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                           isActive
-                            ? "bg-blue-700 text-white shadow-xs"
-                            : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                         }`}
                       >
                         {pageNum}
@@ -1051,30 +1368,29 @@ function ProductCatalogViewInner({
                       updateUrlParams({ page: newPage.toString() });
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                    aria-label="Next Page"
+                    className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                    aria-label="Next page"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4" aria-hidden="true" />
                   </button>
-                </div>
+                </nav>
               )}
             </>
           ) : (
-            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/90 shadow-2xs">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-                <Search className="w-8 h-8" />
+            <div className="surface-3d rounded-3xl p-12 text-center">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-400">
+                <Search className="w-8 h-8" aria-hidden="true" />
               </div>
               <h3 className="text-lg font-black text-slate-900 mb-1">
                 No matching products found
               </h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto mb-6">
-                We couldn&apos;t find any items matching your current filters. Try relaxing the
-                price range or removing active brand filters.
+              <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto mb-6">
+                We couldn&apos;t find any items matching your active filters. Try raising the budget ceiling or clearing brand selections.
               </p>
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer"
+                className="px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-black text-xs rounded-2xl transition-colors shadow-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
               >
                 Reset All Filters
               </button>
@@ -1083,40 +1399,46 @@ function ProductCatalogViewInner({
         </div>
       </div>
 
-      {/* Mobile Filters Slide-Up Drawer */}
+      {/* Mobile Filters Slide-Over Dialog */}
       {isMobileFiltersOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filter products"
+          className="fixed inset-0 z-50 lg:hidden"
+        >
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+            aria-hidden="true"
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
             onClick={() => setIsMobileFiltersOpen(false)}
           />
-          <div className="fixed inset-y-0 right-0 w-full max-w-xs bg-white shadow-2xl flex flex-col z-10 p-6 overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
-              <div className="flex items-center space-x-2">
-                <SlidersHorizontal className="w-5 h-5 text-blue-700" />
-                <h3 className="text-base font-black text-slate-900">Filter Products</h3>
+          <div className="fixed inset-y-0 right-0 w-full max-w-xs bg-white shadow-2xl flex flex-col z-10 p-6 overflow-y-auto overscroll-contain">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-5">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-5 h-5 text-blue-700" aria-hidden="true" />
+                <h3 className="text-base font-black text-slate-900">Filter Catalog</h3>
               </div>
               <button
                 type="button"
+                aria-label="Close filter drawer"
                 onClick={() => setIsMobileFiltersOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
-            {/* Mobile Filters Body */}
             <div className="space-y-6 flex-1">
               {!categoryScope && (
                 <div>
-                  <label className="text-xs font-black uppercase text-slate-700 block mb-2">
+                  <span className="text-xs font-black uppercase text-slate-700 block mb-2">
                     Categories
-                  </label>
+                  </span>
                   <div className="space-y-1">
                     <button
                       type="button"
                       onClick={() => handleSelectCategory("All")}
-                      className={`w-full text-left text-xs py-1.5 px-2 rounded-lg font-bold ${
+                      className={`w-full text-left text-xs py-2 px-2.5 rounded-xl font-bold transition-colors ${
                         selectedCategory === "All"
                           ? "bg-blue-50 text-blue-700"
                           : "text-slate-600"
@@ -1129,7 +1451,7 @@ function ProductCatalogViewInner({
                         key={c.id || c.slug}
                         type="button"
                         onClick={() => handleSelectCategory(c.slug)}
-                        className={`w-full text-left text-xs py-1.5 px-2 rounded-lg font-bold ${
+                        className={`w-full text-left text-xs py-2 px-2.5 rounded-xl font-bold transition-colors ${
                           selectedCategory.toLowerCase() === c.slug.toLowerCase()
                             ? "bg-blue-50 text-blue-700"
                             : "text-slate-600"
@@ -1142,24 +1464,23 @@ function ProductCatalogViewInner({
                 </div>
               )}
 
-              {/* Brands */}
               <div>
-                <label className="text-xs font-black uppercase text-slate-700 block mb-2">
+                <span className="text-xs font-black uppercase text-slate-700 block mb-2">
                   Brands
-                </label>
+                </span>
                 <div className="space-y-1.5">
                   {availableBrands.map((b) => {
                     const brandSlug = b.slug || b.name;
                     return (
                       <label
                         key={b.id || b.slug}
-                        className="flex items-center space-x-2 text-xs font-semibold text-slate-700"
+                        className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-0.5"
                       >
                         <input
                           type="checkbox"
                           checked={selectedBrands.includes(brandSlug)}
                           onChange={() => handleToggleBrand(brandSlug)}
-                          className="rounded text-blue-600 w-3.5 h-3.5"
+                          className="rounded border-slate-300 text-blue-600 w-3.5 h-3.5"
                         />
                         <span>{b.name}</span>
                       </label>
@@ -1168,7 +1489,6 @@ function ProductCatalogViewInner({
                 </div>
               </div>
 
-              {/* Dynamic Attributes Filter (Mobile) */}
               {availableAttributes.length > 0 && (
                 <div className="space-y-4 pt-3 border-t border-slate-100">
                   {availableAttributes.map((attr) => {
@@ -1180,9 +1500,9 @@ function ProductCatalogViewInner({
                     return (
                       <div key={`m-${attr.id || attr.slug}`}>
                         <div className="flex items-center justify-between mb-2">
-                          <label className="text-xs font-black uppercase text-slate-700 tracking-wider">
+                          <span className="text-xs font-black uppercase text-slate-700 tracking-wider">
                             {attr.name}
-                          </label>
+                          </span>
                           {hasActiveSelection && (
                             <button
                               type="button"
@@ -1209,10 +1529,11 @@ function ProductCatalogViewInner({
                                 <button
                                   key={`m-${val.id || val.value}`}
                                   type="button"
+                                  aria-pressed={isChecked}
                                   onClick={() => handleToggleAttributeValue(val.value)}
-                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
                                     isChecked
-                                      ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs ring-2 ring-blue-600/20"
+                                      ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs"
                                       : "border-slate-200 bg-white text-slate-700"
                                   }`}
                                 >
@@ -1226,6 +1547,7 @@ function ProductCatalogViewInner({
                                           isDark ? "text-white" : "text-slate-900"
                                         }`}
                                         strokeWidth={3}
+                                        aria-hidden="true"
                                       />
                                     )}
                                   </span>
@@ -1242,8 +1564,9 @@ function ProductCatalogViewInner({
                                 <button
                                   key={`m-${val.id || val.value}`}
                                   type="button"
+                                  aria-pressed={isChecked}
                                   onClick={() => handleToggleAttributeValue(val.value)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
                                     isChecked
                                       ? "bg-blue-600 border-blue-600 text-white shadow-xs"
                                       : "bg-slate-50 border-slate-200 text-slate-700"
@@ -1255,19 +1578,19 @@ function ProductCatalogViewInner({
                             })}
                           </div>
                         ) : (
-                          <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto overscroll-contain">
                             {attr.values.map((val) => {
                               const isChecked = selectedAttributeValues.includes(val.value);
                               return (
                                 <label
                                   key={`m-${val.id || val.value}`}
-                                  className="flex items-center space-x-2 text-xs font-semibold text-slate-700"
+                                  className="flex items-center gap-2 text-xs font-semibold text-slate-700"
                                 >
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
                                     onChange={() => handleToggleAttributeValue(val.value)}
-                                    className="rounded text-blue-600 w-3.5 h-3.5"
+                                    className="rounded border-slate-300 text-blue-600 w-3.5 h-3.5"
                                   />
                                   <span>{val.label || val.value}</span>
                                 </label>
@@ -1281,38 +1604,67 @@ function ProductCatalogViewInner({
                 </div>
               )}
 
-              {/* Price */}
               <div>
-                <label className="text-xs font-black uppercase text-slate-700 block mb-2">
-                  Max Price: {formatBDT(maxPrice)}
+                <label
+                  htmlFor="mobile-catalog-price-range"
+                  className="text-xs font-black uppercase text-slate-700 block mb-2 tabular-nums"
+                >
+                  Max Budget: {formatBDT(maxPrice)}
                 </label>
                 <input
+                  id="mobile-catalog-price-range"
+                  name="mobileMaxPrice"
                   type="range"
                   min="0"
                   max="500000"
                   step="5000"
                   value={maxPrice}
-                  onChange={(e) => setMaxPrice(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setMaxPrice(val);
+                    setCurrentPage(1);
+                    updateUrlParams({ maxPrice: val < 500000 ? val.toString() : null, page: "1" });
+                  }}
                   className="w-full accent-blue-600"
                 />
               </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <label
+                  htmlFor="mobile-catalog-instock"
+                  className="flex items-center gap-2.5 text-xs font-bold text-slate-700"
+                >
+                  <input
+                    id="mobile-catalog-instock"
+                    type="checkbox"
+                    checked={inStockOnly}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setInStockOnly(checked);
+                      setCurrentPage(1);
+                      updateUrlParams({ inStock: checked ? "true" : null, page: "1" });
+                    }}
+                    className="rounded border-slate-300 text-blue-600 w-4 h-4"
+                  />
+                  <span>Ready to Ship Only</span>
+                </label>
+              </div>
             </div>
 
-            {/* Mobile Footer Apply */}
-            <div className="pt-4 border-t border-slate-200 mt-6 flex space-x-3">
+            <div className="pt-4 border-t border-slate-200 mt-6 flex gap-3">
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="flex-1 py-2.5 bg-slate-100 font-bold text-xs text-slate-700 rounded-xl cursor-pointer"
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 font-bold text-xs text-slate-700 rounded-xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
               >
                 Reset
               </button>
               <button
                 type="button"
                 onClick={() => setIsMobileFiltersOpen(false)}
-                className="flex-1 py-2.5 bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer"
+                className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-black text-xs rounded-xl shadow-sm transition-colors cursor-pointer tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
-                Apply ({totalProducts})
+                Show ({totalProducts})
               </button>
             </div>
           </div>
@@ -1337,10 +1689,10 @@ export function ProductCatalogView(props: ProductCatalogViewProps) {
               )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-              <div className="h-96 bg-white rounded-2xl border border-slate-200/80 animate-pulse hidden md:block" />
+              <div className="h-96 surface-3d rounded-3xl animate-pulse hidden md:block" />
               <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="h-80 bg-white rounded-2xl border border-slate-200/80 animate-pulse" />
+                  <div key={i} className="h-80 surface-3d rounded-2xl animate-pulse" />
                 ))}
               </div>
             </div>
@@ -1352,4 +1704,3 @@ export function ProductCatalogView(props: ProductCatalogViewProps) {
     </Suspense>
   );
 }
-
