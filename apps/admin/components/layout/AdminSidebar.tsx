@@ -15,6 +15,7 @@ const ITEM_MODULE_MAP: Record<string, AppModule> = {
   "products-all": "products",
   "products-brands": "brands",
   "products-tags": "products",
+  "products-collections": "products",
   "products-attributes": "attributes",
   "products-variants": "variants",
   orders: "orders",

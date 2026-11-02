@@ -65,7 +65,7 @@ export function ProductCard({
     onToggleWishlist?.(product.id);
   };
 
-  const productUrl = `/products/${product.slug || product.id}`;
+  const productUrl = `/product/${product.slug || product.id}`;
 
   return (
     <motion.div

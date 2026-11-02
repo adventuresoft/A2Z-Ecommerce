@@ -26,8 +26,6 @@ import {
   Product,
   formatBDT,
   ALL_PRODUCTS,
-  getAllCategories,
-  getAllBrands,
 } from "../../data/mock-catalog";
 import { ProductCard } from "../UI/ProductCard";
 import { Tilt3DCard } from "../UI/Tilt3DCard";
@@ -38,11 +36,14 @@ interface ProductCatalogViewProps {
   title: string;
   subtitle?: string;
   categoryScope?: string;
+  collectionSlug?: string;
   archiveBadge?: string;
   hasDiscount?: boolean;
   defaultSort?: string;
   bannerGradient?: string;
   headerExtra?: React.ReactNode;
+  showHeroBanner?: boolean;
+  showCategoryPills?: boolean;
 }
 
 interface CategoryOption {
@@ -75,15 +76,20 @@ interface FacetAttribute {
   values: FacetAttributeValue[];
 }
 
+const DEFAULT_MAX_PRICE = 500000;
+
 function ProductCatalogViewInner({
   title,
   subtitle,
   categoryScope,
+  collectionSlug,
   archiveBadge,
   hasDiscount = false,
   defaultSort,
   bannerGradient,
   headerExtra,
+  showHeroBanner = false,
+  showCategoryPills = true,
 }: ProductCatalogViewProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -100,13 +106,13 @@ function ProductCatalogViewInner({
   const urlBrands = searchParams.get("brand") ? searchParams.get("brand")!.split(",") : [];
   const urlAttributes = searchParams.get("attributeValues")
     ? searchParams
-        .get("attributeValues")!
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean)
+      .get("attributeValues")!
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean)
     : [];
   const urlMinPrice = parseInt(searchParams.get("minPrice") || "0", 10);
-  const urlMaxPrice = parseInt(searchParams.get("maxPrice") || "500000", 10);
+  const urlMaxPrice = parseInt(searchParams.get("maxPrice") || String(DEFAULT_MAX_PRICE), 10);
   const urlInStock = searchParams.get("inStock") === "true";
   const urlSort = searchParams.get("sort") || defaultSort || "featured";
   const urlQ = searchParams.get("q") || "";
@@ -119,6 +125,12 @@ function ProductCatalogViewInner({
   const [selectedAttributeValues, setSelectedAttributeValues] = useState<string[]>(urlAttributes);
   const [minPrice, setMinPrice] = useState<number>(urlMinPrice);
   const [maxPrice, setMaxPrice] = useState<number>(urlMaxPrice);
+  const [minPriceInput, setMinPriceInput] = useState<string>(
+    urlMinPrice > 0 ? String(urlMinPrice) : ""
+  );
+  const [maxPriceInput, setMaxPriceInput] = useState<string>(
+    urlMaxPrice !== DEFAULT_MAX_PRICE ? String(urlMaxPrice) : ""
+  );
   const [inStockOnly, setInStockOnly] = useState<boolean>(urlInStock);
   const [sortBy, setSortBy] = useState<string>(urlSort);
   const [searchQuery, setSearchQuery] = useState<string>(urlQ);
@@ -147,90 +159,6 @@ function ProductCatalogViewInner({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isMobileFiltersOpen]);
 
-  // Fetch Category Tree and Brands for Filter Facets
-  useEffect(() => {
-    async function fetchFacets() {
-      try {
-        const [catsRes, brandsRes, attrsRes] = await Promise.allSettled([
-          apiClient.get<any[]>("/categories/tree", { skipAuth: true }),
-          apiClient.get<any[]>("/brands/public", { skipAuth: true }),
-          apiClient.get<any[]>("/attributes", { skipAuth: true }),
-        ]);
-
-        if (catsRes.status === "fulfilled" && Array.isArray(catsRes.value)) {
-          const flatCats: CategoryOption[] = [];
-          const extractCats = (nodes: any[]) => {
-            for (const n of nodes) {
-              flatCats.push({ id: n.id, name: n.name, slug: n.slug });
-              if (n.children && n.children.length > 0) {
-                extractCats(n.children);
-              }
-            }
-          };
-          extractCats(catsRes.value);
-          setAvailableCategories(flatCats);
-        } else {
-          setAvailableCategories(
-            getAllCategories().map((c) => ({
-              id: c.toLowerCase().replace(/\s+/g, "-"),
-              name: c,
-              slug: c.toLowerCase().replace(/\s+/g, "-"),
-            }))
-          );
-        }
-
-        if (brandsRes.status === "fulfilled" && Array.isArray(brandsRes.value)) {
-          setAvailableBrands(
-            brandsRes.value.map((b) => ({ id: b.id, name: b.name, slug: b.slug }))
-          );
-        } else {
-          setAvailableBrands(
-            getAllBrands().map((b) => ({
-              id: b.toLowerCase().replace(/\s+/g, "-"),
-              name: b,
-              slug: b.toLowerCase().replace(/\s+/g, "-"),
-            }))
-          );
-        }
-
-        if (attrsRes.status === "fulfilled" && Array.isArray(attrsRes.value)) {
-          const mappedAttrs: FacetAttribute[] = attrsRes.value.map((a: any) => ({
-            id: a.id,
-            name: a.name,
-            slug: a.slug,
-            type: a.type || "TEXT",
-            values: Array.isArray(a.values)
-              ? a.values.map((v: any) => ({
-                  id: v.id,
-                  value: v.value,
-                  label: v.label || v.value,
-                  colorCode: v.colorCode || null,
-                }))
-              : [],
-          }));
-          setAvailableAttributes((prev) => (prev.length > 0 ? prev : mappedAttrs));
-        }
-      } catch {
-        setAvailableCategories(
-          getAllCategories().map((c) => ({
-            id: c.toLowerCase().replace(/\s+/g, "-"),
-            name: c,
-            slug: c.toLowerCase().replace(/\s+/g, "-"),
-          }))
-        );
-        setAvailableBrands(
-          getAllBrands().map((b) => ({
-            id: b.toLowerCase().replace(/\s+/g, "-"),
-            name: b,
-            slug: b.toLowerCase().replace(/\s+/g, "-"),
-          }))
-        );
-      }
-    }
-
-    void fetchFacets();
-  }, []);
-
   const updateUrlParams = useCallback(
     (updates: Record<string, string | null>) => {
       const current = new URLSearchParams(searchParams.toString());
@@ -248,7 +176,7 @@ function ProductCatalogViewInner({
     [pathname, router, searchParams]
   );
 
-  // Fetch Products from Backend API
+  // Fetch Products and Product-Scoped Facets from Backend API
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -256,18 +184,14 @@ function ProductCatalogViewInner({
       params.set("page", currentPage.toString());
       params.set("limit", "12");
 
+      if (collectionSlug) {
+        params.set("collectionSlug", collectionSlug);
+      }
+
       if (categoryScope) {
         params.set("categorySlug", categoryScope);
       } else if (selectedCategory && selectedCategory !== "All") {
-        const found = availableCategories.find(
-          (c) =>
-            c.name.toLowerCase() === selectedCategory.toLowerCase() ||
-            c.slug === selectedCategory
-        );
-        params.set(
-          "categorySlug",
-          found ? found.slug : selectedCategory.toLowerCase().replace(/\s+/g, "-")
-        );
+        params.set("categorySlug", selectedCategory.toLowerCase().replace(/\s+/g, "-"));
       }
 
       if (selectedBrands.length > 0) {
@@ -281,7 +205,7 @@ function ProductCatalogViewInner({
       if (minPrice > 0) {
         params.set("minPrice", minPrice.toString());
       }
-      if (maxPrice < 500000) {
+      if (maxPrice !== DEFAULT_MAX_PRICE) {
         params.set("maxPrice", maxPrice.toString());
       }
       if (inStockOnly) {
@@ -325,16 +249,19 @@ function ProductCatalogViewInner({
         setProducts(mapped);
         setTotalProducts(res.total || 0);
         setTotalPages(res.totalPages || 1);
-        if (
-          res.facets?.attributes &&
-          Array.isArray(res.facets.attributes) &&
-          res.facets.attributes.length > 0
-        ) {
+
+        if (Array.isArray(res.facets?.categories)) {
+          setAvailableCategories(res.facets.categories);
+        }
+        if (Array.isArray(res.facets?.brands)) {
+          setAvailableBrands(res.facets.brands);
+        }
+        if (Array.isArray(res.facets?.attributes)) {
           setAvailableAttributes(res.facets.attributes);
         }
       }
     } catch {
-      const fallback = ALL_PRODUCTS.filter((p) => {
+      const baseScopeProducts = ALL_PRODUCTS.filter((p) => {
         if (
           categoryScope &&
           p.category.toLowerCase().replace(/\s+/g, "-") !== categoryScope.toLowerCase() &&
@@ -342,6 +269,20 @@ function ProductCatalogViewInner({
         ) {
           return false;
         }
+        if (hasDiscount && (!p.discountPercent || p.discountPercent <= 0)) return false;
+        return true;
+      });
+
+      const scopedCats = Array.from(new Set(baseScopeProducts.map((p) => p.category))).map(
+        (c) => ({
+          id: c.toLowerCase().replace(/\s+/g, "-"),
+          name: c,
+          slug: c.toLowerCase().replace(/\s+/g, "-"),
+        })
+      );
+      setAvailableCategories(scopedCats);
+
+      const categoryScopedProducts = baseScopeProducts.filter((p) => {
         if (
           !categoryScope &&
           selectedCategory !== "All" &&
@@ -350,18 +291,37 @@ function ProductCatalogViewInner({
         ) {
           return false;
         }
+        return true;
+      });
+
+      const scopedBrands = Array.from(
+        new Set(
+          categoryScopedProducts
+            .map((p) => p.brand)
+            .filter((b): b is string => Boolean(b))
+        )
+      ).map((b) => ({
+        id: b.toLowerCase().replace(/\s+/g, "-"),
+        name: b,
+        slug: b.toLowerCase().replace(/\s+/g, "-"),
+      }));
+      setAvailableBrands(scopedBrands);
+      setAvailableAttributes([]);
+
+      const fallback = categoryScopedProducts.filter((p) => {
         if (
           selectedBrands.length > 0 &&
           (!p.brand ||
             !selectedBrands.some(
-              (b) => b.toLowerCase() === p.brand!.toLowerCase()
+              (b) =>
+                b.toLowerCase() === p.brand!.toLowerCase() ||
+                b.toLowerCase() === p.brand!.toLowerCase().replace(/\s+/g, "-")
             ))
         ) {
           return false;
         }
         if (p.price < minPrice || p.price > maxPrice) return false;
         if (inStockOnly && p.inStock === false) return false;
-        if (hasDiscount && (!p.discountPercent || p.discountPercent <= 0)) return false;
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           if (
@@ -386,6 +346,7 @@ function ProductCatalogViewInner({
     }
   }, [
     currentPage,
+    collectionSlug,
     categoryScope,
     selectedCategory,
     selectedBrands,
@@ -396,7 +357,6 @@ function ProductCatalogViewInner({
     hasDiscount,
     searchQuery,
     sortBy,
-    availableCategories,
   ]);
 
   useEffect(() => {
@@ -448,12 +408,35 @@ function ProductCatalogViewInner({
     updateUrlParams({ sort: newSort, page: "1" });
   };
 
+  const applyPriceRange = (rawMin: string, rawMax: string) => {
+    const parsedMin = rawMin.trim() === "" ? 0 : Math.max(0, Math.round(Number(rawMin) || 0));
+    const parsedMax =
+      rawMax.trim() === ""
+        ? DEFAULT_MAX_PRICE
+        : Math.max(0, Math.round(Number(rawMax) || 0));
+    const nextMin = Math.min(parsedMin, parsedMax);
+    const nextMax = Math.max(parsedMin, parsedMax);
+
+    setMinPrice(nextMin);
+    setMaxPrice(nextMax);
+    setMinPriceInput(nextMin > 0 ? String(nextMin) : "");
+    setMaxPriceInput(nextMax !== DEFAULT_MAX_PRICE ? String(nextMax) : "");
+    setCurrentPage(1);
+    updateUrlParams({
+      minPrice: nextMin > 0 ? String(nextMin) : null,
+      maxPrice: nextMax !== DEFAULT_MAX_PRICE ? String(nextMax) : null,
+      page: "1",
+    });
+  };
+
   const handleResetFilters = () => {
     setSelectedCategory(categoryScope || "All");
     setSelectedBrands([]);
     setSelectedAttributeValues([]);
     setMinPrice(0);
-    setMaxPrice(500000);
+    setMaxPrice(DEFAULT_MAX_PRICE);
+    setMinPriceInput("");
+    setMaxPriceInput("");
     setInStockOnly(false);
     setSearchQuery("");
     setCurrentPage(1);
@@ -475,7 +458,8 @@ function ProductCatalogViewInner({
     (selectedCategory !== "All" && !categoryScope ? 1 : 0) +
     selectedBrands.length +
     selectedAttributeValues.length +
-    (minPrice > 0 || maxPrice < 500000 ? 1 : 0) +
+    (minPrice > 0 ? 1 : 0) +
+    (maxPrice !== DEFAULT_MAX_PRICE ? 1 : 0) +
     (inStockOnly ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
 
@@ -493,106 +477,94 @@ function ProductCatalogViewInner({
           Home
         </Link>
         <span aria-hidden="true">/</span>
-        {categoryScope ? (
-          <>
-            <Link
-              href="/shop"
-              className="hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:underline"
-            >
-              Shop
-            </Link>
-            <span aria-hidden="true">/</span>
-            <span className="text-slate-900 font-bold" aria-current="page">
-              {title}
-            </span>
-          </>
-        ) : (
-          <span className="text-slate-900 font-bold" aria-current="page">
-            {title}
-          </span>
-        )}
+        <span className="text-slate-900 font-bold" aria-current="page">
+          {title.replace(/\s+Collection$/i, "")}
+        </span>
       </nav>
 
+      {/* Hidden SEO/Accessible H1 when visual hero banner is disabled */}
+      {!showHeroBanner && <h1 className="sr-only">{title}</h1>}
+
       {/* 1. 3D Spatial Catalog Hero Banner */}
-      <div
-        className={`${
-          bannerGradient
+      {showHeroBanner && (
+        <div
+          className={`${bannerGradient
             ? `bg-gradient-to-r ${bannerGradient} shadow-xl border border-white/10`
             : "surface-3d-dark"
-        } bg-tech-grid rounded-3xl p-6 sm:p-9 lg:p-10 text-white mb-6 relative overflow-hidden flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6`}
-      >
-        <div
-          aria-hidden="true"
-          className="absolute -right-12 -top-12 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute -left-12 -bottom-16 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"
-        />
+            } bg-tech-grid rounded-3xl p-6 sm:p-9 lg:p-10 text-white mb-6 relative overflow-hidden flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6`}
+        >
+          <div
+            aria-hidden="true"
+            className="absolute -right-12 -top-12 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute -left-12 -bottom-16 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"
+          />
 
-        <div className="relative z-10 max-w-2xl space-y-2.5">
-          <span className="inline-flex items-center gap-1.5 bg-white/10 text-blue-200 text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-white/15 backdrop-blur-xs">
-            <Sparkles className="w-3.5 h-3.5 text-orange-400" aria-hidden="true" />
-            <span>
-              {archiveBadge ||
-                (categoryScope ? "Authorized Department" : "Official Storefront Catalog")}
+          <div className="relative z-10 max-w-2xl space-y-2.5">
+            <span className="inline-flex items-center gap-1.5 bg-white/10 text-blue-200 text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-white/15 backdrop-blur-xs">
+              <Sparkles className="w-3.5 h-3.5 text-orange-400" aria-hidden="true" />
+              <span>
+                {archiveBadge ||
+                  (categoryScope ? "Authorized Department" : "Official Storefront Catalog")}
+              </span>
             </span>
-          </span>
-          <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight text-white">
-            {title}
-          </h1>
-          <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl">
-            {subtitle ||
-              "Explore genuine tech gadgets, computer components, laptops, and electronics with official warranty and instant doorstep delivery across Bangladesh."}
-          </p>
-        </div>
-
-        {headerExtra ? (
-          <div className="relative z-10 shrink-0 w-full lg:w-auto">{headerExtra}</div>
-        ) : (
-          <div className="relative z-10 shrink-0 w-full sm:w-auto">
-            <Tilt3DCard maxTilt={6} scale={1.015}>
-              <div className="bg-white/8 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:p-5 flex sm:flex-col justify-between gap-4 min-w-[230px]">
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-300 block">
-                    Live Inventory
-                  </span>
-                  <div className="text-2xl sm:text-3xl font-black text-white tabular-nums mt-0.5">
-                    {isLoading ? "…" : totalProducts}
-                    <span className="text-xs font-bold text-slate-300 ml-1.5">Items</span>
-                  </div>
-                </div>
-                <div className="space-y-1 text-[11px] text-slate-300">
-                  <div className="flex items-center gap-1.5 font-semibold">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
-                    <span>Official Brand Warranty</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-semibold">
-                    <Truck className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" />
-                    <span>Express 64-District Dispatch</span>
-                  </div>
-                </div>
-              </div>
-            </Tilt3DCard>
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight text-white">
+              {title}
+            </h1>
+            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl">
+              {subtitle ||
+                "Explore genuine tech gadgets, computer components, laptops, and electronics with official warranty and instant doorstep delivery across Bangladesh."}
+            </p>
           </div>
-        )}
-      </div>
 
-      {/* Quick Department Pill Strip (Unscoped Shop View) */}
-      {!categoryScope && availableCategories.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-7 no-scrollbar">
+          {headerExtra ? (
+            <div className="relative z-10 shrink-0 w-full lg:w-auto">{headerExtra}</div>
+          ) : (
+            <div className="relative z-10 shrink-0 w-full sm:w-auto">
+              <Tilt3DCard maxTilt={6} scale={1.015}>
+                <div className="bg-white/8 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:p-5 flex sm:flex-col justify-between gap-4 min-w-[230px]">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-300 block">
+                      Live Inventory
+                    </span>
+                    <div className="text-2xl sm:text-3xl font-black text-white tabular-nums mt-0.5">
+                      {isLoading ? "…" : totalProducts}
+                      <span className="text-xs font-bold text-slate-300 ml-1.5">Items</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-[11px] text-slate-300">
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                      <span>Official Brand Warranty</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <Truck className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" />
+                      <span>Express 64-District Dispatch</span>
+                    </div>
+                  </div>
+                </div>
+              </Tilt3DCard>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Quick Department Pill Strip (Unscoped / Collection View) */}
+      {showCategoryPills && !categoryScope && availableCategories.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-6">
           <button
             type="button"
             onClick={() => handleSelectCategory("All")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-[background-color,color,border-color,box-shadow] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-              selectedCategory === "All"
-                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                : "bg-white text-slate-600 border-slate-200/90 hover:border-blue-300 hover:text-slate-900"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-[background-color,color,border-color,box-shadow] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selectedCategory === "All"
+              ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+              : "bg-white text-slate-600 border-slate-200/90 hover:border-blue-300 hover:text-slate-900"
+              }`}
           >
             All Departments
           </button>
-          {availableCategories.slice(0, 10).map((cat) => {
+          {availableCategories.map((cat) => {
             const isSelected =
               selectedCategory.toLowerCase() === cat.name.toLowerCase() ||
               selectedCategory.toLowerCase() === cat.slug.toLowerCase();
@@ -601,11 +573,10 @@ function ProductCatalogViewInner({
                 key={`pill-${cat.id || cat.slug}`}
                 type="button"
                 onClick={() => handleSelectCategory(cat.slug)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-[background-color,color,border-color,box-shadow] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                  isSelected
-                    ? "bg-blue-700 text-white border-blue-700 shadow-xs"
-                    : "bg-white text-slate-600 border-slate-200/90 hover:border-blue-300 hover:text-slate-900"
-                }`}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-[background-color,color,border-color,box-shadow] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isSelected
+                  ? "bg-blue-700 text-white border-blue-700 shadow-xs"
+                  : "bg-white text-slate-600 border-slate-200/90 hover:border-blue-300 hover:text-slate-900"
+                  }`}
               >
                 {cat.name}
               </button>
@@ -624,9 +595,10 @@ function ProductCatalogViewInner({
                 <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
               </div>
               <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                Refine Catalog
+                Filters
               </h2>
             </div>
+
             {activeFiltersCount > 0 && (
               <button
                 type="button"
@@ -672,76 +644,37 @@ function ProductCatalogViewInner({
             </div>
           </div>
 
-          {/* Category Tree (Only when not scoped) */}
-          {!categoryScope && (
+          {/* Brands Filter */}
+          {availableBrands.length > 0 && (
             <div>
               <span className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
-                Departments
+                Official Brands
               </span>
-              <div className="space-y-1 max-h-56 overflow-y-auto overscroll-contain pr-1">
-                <button
-                  type="button"
-                  onClick={() => handleSelectCategory("All")}
-                  className={`w-full flex items-center justify-between text-xs py-2 px-3 rounded-xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                    selectedCategory === "All"
-                      ? "bg-blue-50 text-blue-700 font-extrabold"
-                      : "text-slate-600 hover:bg-slate-50 font-medium"
-                  }`}
-                >
-                  <span>All Categories</span>
-                </button>
-                {availableCategories.map((cat) => {
-                  const isSelected =
-                    selectedCategory.toLowerCase() === cat.name.toLowerCase() ||
-                    selectedCategory.toLowerCase() === cat.slug.toLowerCase();
+              <div className="space-y-1.5 max-h-48 overflow-y-auto overscroll-contain pr-1">
+                {availableBrands.map((brand) => {
+                  const brandIdOrSlug = brand.slug || brand.name;
+                  const isChecked = selectedBrands.includes(brandIdOrSlug);
                   return (
-                    <button
-                      key={cat.id || cat.slug}
-                      type="button"
-                      onClick={() => handleSelectCategory(cat.slug)}
-                      className={`w-full flex items-center justify-between text-xs py-2 px-3 rounded-xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                        isSelected
-                          ? "bg-blue-50 text-blue-700 font-extrabold"
-                          : "text-slate-600 hover:bg-slate-50 font-medium"
-                      }`}
+                    <label
+                      key={brand.id || brand.slug}
+                      className="flex items-center justify-between text-xs text-slate-700 hover:text-blue-700 cursor-pointer select-none py-1 px-1 rounded-lg"
                     >
-                      <span className="truncate">{cat.name}</span>
-                    </button>
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          name={`brand-${brandIdOrSlug}`}
+                          checked={isChecked}
+                          onChange={() => handleToggleBrand(brandIdOrSlug)}
+                          className="rounded border-slate-300 text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 w-3.5 h-3.5 cursor-pointer"
+                        />
+                        <span className="font-semibold">{brand.name}</span>
+                      </div>
+                    </label>
                   );
                 })}
               </div>
             </div>
           )}
-
-          {/* Brands Filter */}
-          <div>
-            <span className="text-xs font-extrabold uppercase text-slate-700 block mb-2">
-              Official Brands
-            </span>
-            <div className="space-y-1.5 max-h-48 overflow-y-auto overscroll-contain pr-1">
-              {availableBrands.map((brand) => {
-                const brandIdOrSlug = brand.slug || brand.name;
-                const isChecked = selectedBrands.includes(brandIdOrSlug);
-                return (
-                  <label
-                    key={brand.id || brand.slug}
-                    className="flex items-center justify-between text-xs text-slate-700 hover:text-blue-700 cursor-pointer select-none py-1 px-1 rounded-lg"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        name={`brand-${brandIdOrSlug}`}
-                        checked={isChecked}
-                        onChange={() => handleToggleBrand(brandIdOrSlug)}
-                        className="rounded border-slate-300 text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 w-3.5 h-3.5 cursor-pointer"
-                      />
-                      <span className="font-semibold">{brand.name}</span>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Dynamic Attributes Filter */}
           {availableAttributes.length > 0 && (
@@ -787,11 +720,10 @@ function ProductCatalogViewInner({
                               aria-pressed={isChecked}
                               onClick={() => handleToggleAttributeValue(val.value)}
                               aria-label={`Filter by ${attr.name}: ${val.label || val.value}`}
-                              className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-[border-color,background-color,box-shadow] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                                isChecked
-                                  ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs"
-                                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                              }`}
+                              className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-[border-color,background-color,box-shadow] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isChecked
+                                ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                                }`}
                             >
                               <span
                                 className="w-3.5 h-3.5 rounded-full border border-black/15 shadow-2xs shrink-0 flex items-center justify-center"
@@ -799,9 +731,8 @@ function ProductCatalogViewInner({
                               >
                                 {isChecked && (
                                   <Check
-                                    className={`w-2.5 h-2.5 ${
-                                      isDark ? "text-white" : "text-slate-900"
-                                    }`}
+                                    className={`w-2.5 h-2.5 ${isDark ? "text-white" : "text-slate-900"
+                                      }`}
                                     strokeWidth={3}
                                     aria-hidden="true"
                                   />
@@ -823,11 +754,10 @@ function ProductCatalogViewInner({
                               type="button"
                               aria-pressed={isChecked}
                               onClick={() => handleToggleAttributeValue(val.value)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-[border-color,background-color,color] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                                isChecked
-                                  ? "bg-blue-600 border-blue-600 text-white shadow-xs"
-                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
-                              }`}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-[border-color,background-color,color] cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isChecked
+                                ? "bg-blue-600 border-blue-600 text-white shadow-xs"
+                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+                                }`}
                             >
                               <span>{val.label || val.value}</span>
                             </button>
@@ -864,32 +794,105 @@ function ProductCatalogViewInner({
             </div>
           )}
 
-          {/* Price Range Slider */}
+          {/* Price Range Filter */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label
-                htmlFor="catalog-price-range"
-                className="text-xs font-extrabold uppercase text-slate-700"
-              >
-                Budget Ceiling
-              </label>
+              <span className="text-xs font-extrabold uppercase text-slate-700">
+                Price Range
+              </span>
               <span className="text-[11px] font-black text-blue-700 tabular-nums">
                 {formatBDT(minPrice)} – {formatBDT(maxPrice)}
               </span>
             </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <label
+                  htmlFor="catalog-min-price"
+                  className="text-[10px] font-bold uppercase text-slate-500 block mb-1"
+                >
+                  Min Price
+                </label>
+                <div className="relative">
+                  <span className="text-xs font-bold text-slate-400 absolute left-2.5 top-2 pointer-events-none">
+                    ৳
+                  </span>
+                  <input
+                    id="catalog-min-price"
+                    name="minPrice"
+                    type="number"
+                    min="0"
+                    step="500"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={minPriceInput}
+                    onChange={(e) => setMinPriceInput(e.target.value)}
+                    onBlur={() => applyPriceRange(minPriceInput, maxPriceInput)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        applyPriceRange(minPriceInput, maxPriceInput);
+                      }
+                    }}
+                    className="w-full text-xs font-semibold tabular-nums bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="catalog-max-price"
+                  className="text-[10px] font-bold uppercase text-slate-500 block mb-1"
+                >
+                  Max Price
+                </label>
+                <div className="relative">
+                  <span className="text-xs font-bold text-slate-400 absolute left-2.5 top-2 pointer-events-none">
+                    ৳
+                  </span>
+                  <input
+                    id="catalog-max-price"
+                    name="maxPriceInput"
+                    type="number"
+                    min="0"
+                    step="500"
+                    inputMode="numeric"
+                    placeholder="500000"
+                    value={maxPriceInput}
+                    onChange={(e) => setMaxPriceInput(e.target.value)}
+                    onBlur={() => applyPriceRange(minPriceInput, maxPriceInput)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        applyPriceRange(minPriceInput, maxPriceInput);
+                      }
+                    }}
+                    className="w-full text-xs font-semibold tabular-nums bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  />
+                </div>
+              </div>
+            </div>
+
             <input
               id="catalog-price-range"
               name="maxPrice"
               type="range"
+              aria-label="Maximum price slider"
               min="0"
-              max="500000"
+              max={Math.max(DEFAULT_MAX_PRICE, maxPrice)}
               step="5000"
               value={maxPrice}
               onChange={(e) => {
                 const val = Number(e.target.value);
+                const nextMin = Math.min(minPrice, val);
+                setMinPrice(nextMin);
                 setMaxPrice(val);
+                setMinPriceInput(nextMin > 0 ? String(nextMin) : "");
+                setMaxPriceInput(val !== DEFAULT_MAX_PRICE ? String(val) : "");
                 setCurrentPage(1);
-                updateUrlParams({ maxPrice: val < 500000 ? val.toString() : null, page: "1" });
+                updateUrlParams({
+                  minPrice: nextMin > 0 ? String(nextMin) : null,
+                  maxPrice: val !== DEFAULT_MAX_PRICE ? String(val) : null,
+                  page: "1",
+                });
               }}
               className="w-full accent-blue-600 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded"
             />
@@ -900,7 +903,7 @@ function ProductCatalogViewInner({
             </div>
           </div>
 
-          {/* In-Stock Toggle */}
+          {/* In Stock Checkbox */}
           <div className="pt-3 border-t border-slate-100">
             <label
               htmlFor="catalog-instock-toggle"
@@ -919,7 +922,7 @@ function ProductCatalogViewInner({
                 }}
                 className="rounded border-slate-300 text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 w-4 h-4 cursor-pointer"
               />
-              <span className="text-xs font-bold text-slate-700">Ready to Ship Only</span>
+              <span className="text-xs font-bold text-slate-700">In Stock</span>
             </label>
           </div>
         </aside>
@@ -991,11 +994,10 @@ function ProductCatalogViewInner({
                   type="button"
                   aria-pressed={viewMode === "grid"}
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                    viewMode === "grid"
-                      ? "bg-white text-blue-700 shadow-2xs"
-                      : "text-slate-400 hover:text-slate-700"
-                  }`}
+                  className={`p-2 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${viewMode === "grid"
+                    ? "bg-white text-blue-700 shadow-2xs"
+                    : "text-slate-400 hover:text-slate-700"
+                    }`}
                   aria-label="Grid layout"
                 >
                   <Grid className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1004,11 +1006,10 @@ function ProductCatalogViewInner({
                   type="button"
                   aria-pressed={viewMode === "list"}
                   onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                    viewMode === "list"
-                      ? "bg-white text-blue-700 shadow-2xs"
-                      : "text-slate-400 hover:text-slate-700"
-                  }`}
+                  className={`p-2 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${viewMode === "list"
+                    ? "bg-white text-blue-700 shadow-2xs"
+                    : "text-slate-400 hover:text-slate-700"
+                    }`}
                   aria-label="Horizontal list layout"
                 >
                   <List className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1099,13 +1100,34 @@ function ProductCatalogViewInner({
                 );
               })}
 
-              {maxPrice < 500000 && (
+              {minPrice > 0 && (
+                <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1 rounded-full border border-slate-200">
+                  <span className="tabular-nums">Min: {formatBDT(minPrice)}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMinPrice(0);
+                      setMinPriceInput("");
+                      setCurrentPage(1);
+                      updateUrlParams({ minPrice: null, page: "1" });
+                    }}
+                    className="hover:text-slate-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600"
+                    aria-label="Remove minimum price filter"
+                  >
+                    <X className="w-3 h-3" aria-hidden="true" />
+                  </button>
+                </span>
+              )}
+
+              {maxPrice !== DEFAULT_MAX_PRICE && (
                 <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1 rounded-full border border-slate-200">
                   <span className="tabular-nums">Max: {formatBDT(maxPrice)}</span>
                   <button
                     type="button"
                     onClick={() => {
-                      setMaxPrice(500000);
+                      setMaxPrice(DEFAULT_MAX_PRICE);
+                      setMaxPriceInput("");
+                      setCurrentPage(1);
                       updateUrlParams({ maxPrice: null, page: "1" });
                     }}
                     className="hover:text-slate-950 cursor-pointer p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600"
@@ -1118,7 +1140,7 @@ function ProductCatalogViewInner({
 
               {inStockOnly && (
                 <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
-                  <span>In Stock Only</span>
+                  <span>In Stock</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -1286,11 +1308,10 @@ function ProductCatalogViewInner({
                                   : `Save ${product.title} to wishlist`
                               }
                               onClick={() => toggleWishlist(product.id)}
-                              className={`p-2.5 rounded-xl border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                                isWishlisted
-                                  ? "bg-rose-50 border-rose-200 text-rose-600"
-                                  : "bg-slate-50 border-slate-200 text-slate-500 hover:text-rose-600"
-                              }`}
+                              className={`p-2.5 rounded-xl border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isWishlisted
+                                ? "bg-rose-50 border-rose-200 text-rose-600"
+                                : "bg-slate-50 border-slate-200 text-slate-500 hover:text-rose-600"
+                                }`}
                             >
                               <Heart
                                 className={`w-4 h-4 ${isWishlisted ? "fill-current" : ""}`}
@@ -1348,11 +1369,10 @@ function ProductCatalogViewInner({
                           updateUrlParams({ page: pageNum.toString() });
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        className={`w-9 h-9 rounded-xl text-xs font-black cursor-pointer transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                          isActive
-                            ? "bg-slate-900 text-white shadow-xs"
-                            : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                        }`}
+                        className={`w-9 h-9 rounded-xl text-xs font-black cursor-pointer transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isActive
+                          ? "bg-slate-900 text-white shadow-xs"
+                          : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                          }`}
                       >
                         {pageNum}
                       </button>
@@ -1385,7 +1405,7 @@ function ProductCatalogViewInner({
                 No matching products found
               </h3>
               <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto mb-6">
-                We couldn&apos;t find any items matching your active filters. Try raising the budget ceiling or clearing brand selections.
+                We couldn&apos;t find any items matching your active filters. Try adjusting the price range or clearing brand selections.
               </p>
               <button
                 type="button"
@@ -1429,65 +1449,32 @@ function ProductCatalogViewInner({
             </div>
 
             <div className="space-y-6 flex-1">
-              {!categoryScope && (
+              {availableBrands.length > 0 && (
                 <div>
                   <span className="text-xs font-black uppercase text-slate-700 block mb-2">
-                    Categories
+                    Official Brands
                   </span>
-                  <div className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectCategory("All")}
-                      className={`w-full text-left text-xs py-2 px-2.5 rounded-xl font-bold transition-colors ${
-                        selectedCategory === "All"
-                          ? "bg-blue-50 text-blue-700"
-                          : "text-slate-600"
-                      }`}
-                    >
-                      All Categories
-                    </button>
-                    {availableCategories.map((c) => (
-                      <button
-                        key={c.id || c.slug}
-                        type="button"
-                        onClick={() => handleSelectCategory(c.slug)}
-                        className={`w-full text-left text-xs py-2 px-2.5 rounded-xl font-bold transition-colors ${
-                          selectedCategory.toLowerCase() === c.slug.toLowerCase()
-                            ? "bg-blue-50 text-blue-700"
-                            : "text-slate-600"
-                        }`}
-                      >
-                        {c.name}
-                      </button>
-                    ))}
+                  <div className="space-y-1.5">
+                    {availableBrands.map((b) => {
+                      const brandSlug = b.slug || b.name;
+                      return (
+                        <label
+                          key={b.id || b.slug}
+                          className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-0.5"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedBrands.includes(brandSlug)}
+                            onChange={() => handleToggleBrand(brandSlug)}
+                            className="rounded border-slate-300 text-blue-600 w-3.5 h-3.5"
+                          />
+                          <span>{b.name}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               )}
-
-              <div>
-                <span className="text-xs font-black uppercase text-slate-700 block mb-2">
-                  Brands
-                </span>
-                <div className="space-y-1.5">
-                  {availableBrands.map((b) => {
-                    const brandSlug = b.slug || b.name;
-                    return (
-                      <label
-                        key={b.id || b.slug}
-                        className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 py-0.5"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedBrands.includes(brandSlug)}
-                          onChange={() => handleToggleBrand(brandSlug)}
-                          className="rounded border-slate-300 text-blue-600 w-3.5 h-3.5"
-                        />
-                        <span>{b.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
 
               {availableAttributes.length > 0 && (
                 <div className="space-y-4 pt-3 border-t border-slate-100">
@@ -1531,11 +1518,10 @@ function ProductCatalogViewInner({
                                   type="button"
                                   aria-pressed={isChecked}
                                   onClick={() => handleToggleAttributeValue(val.value)}
-                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
-                                    isChecked
-                                      ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs"
-                                      : "border-slate-200 bg-white text-slate-700"
-                                  }`}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-colors ${isChecked
+                                    ? "border-blue-600 bg-blue-50/80 text-blue-900 shadow-2xs"
+                                    : "border-slate-200 bg-white text-slate-700"
+                                    }`}
                                 >
                                   <span
                                     className="w-3.5 h-3.5 rounded-full border border-black/15 shadow-2xs shrink-0 flex items-center justify-center"
@@ -1543,9 +1529,8 @@ function ProductCatalogViewInner({
                                   >
                                     {isChecked && (
                                       <Check
-                                        className={`w-2.5 h-2.5 ${
-                                          isDark ? "text-white" : "text-slate-900"
-                                        }`}
+                                        className={`w-2.5 h-2.5 ${isDark ? "text-white" : "text-slate-900"
+                                          }`}
                                         strokeWidth={3}
                                         aria-hidden="true"
                                       />
@@ -1566,11 +1551,10 @@ function ProductCatalogViewInner({
                                   type="button"
                                   aria-pressed={isChecked}
                                   onClick={() => handleToggleAttributeValue(val.value)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                                    isChecked
-                                      ? "bg-blue-600 border-blue-600 text-white shadow-xs"
-                                      : "bg-slate-50 border-slate-200 text-slate-700"
-                                  }`}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${isChecked
+                                    ? "bg-blue-600 border-blue-600 text-white shadow-xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-700"
+                                    }`}
                                 >
                                   <span>{val.label || val.value}</span>
                                 </button>
@@ -1605,25 +1589,101 @@ function ProductCatalogViewInner({
               )}
 
               <div>
-                <label
-                  htmlFor="mobile-catalog-price-range"
-                  className="text-xs font-black uppercase text-slate-700 block mb-2 tabular-nums"
-                >
-                  Max Budget: {formatBDT(maxPrice)}
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black uppercase text-slate-700">
+                    Price Range
+                  </span>
+                  <span className="text-[11px] font-black text-blue-700 tabular-nums">
+                    {formatBDT(minPrice)} – {formatBDT(maxPrice)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <label
+                      htmlFor="mobile-catalog-min-price"
+                      className="text-[10px] font-bold uppercase text-slate-500 block mb-1"
+                    >
+                      Min Price
+                    </label>
+                    <div className="relative">
+                      <span className="text-xs font-bold text-slate-400 absolute left-2.5 top-2 pointer-events-none">
+                        ৳
+                      </span>
+                      <input
+                        id="mobile-catalog-min-price"
+                        type="number"
+                        min="0"
+                        step="500"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={minPriceInput}
+                        onChange={(e) => setMinPriceInput(e.target.value)}
+                        onBlur={() => applyPriceRange(minPriceInput, maxPriceInput)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            applyPriceRange(minPriceInput, maxPriceInput);
+                          }
+                        }}
+                        className="w-full text-xs font-semibold tabular-nums bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="mobile-catalog-max-price"
+                      className="text-[10px] font-bold uppercase text-slate-500 block mb-1"
+                    >
+                      Max Price
+                    </label>
+                    <div className="relative">
+                      <span className="text-xs font-bold text-slate-400 absolute left-2.5 top-2 pointer-events-none">
+                        ৳
+                      </span>
+                      <input
+                        id="mobile-catalog-max-price"
+                        type="number"
+                        min="0"
+                        step="500"
+                        inputMode="numeric"
+                        placeholder="500000"
+                        value={maxPriceInput}
+                        onChange={(e) => setMaxPriceInput(e.target.value)}
+                        onBlur={() => applyPriceRange(minPriceInput, maxPriceInput)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            applyPriceRange(minPriceInput, maxPriceInput);
+                          }
+                        }}
+                        className="w-full text-xs font-semibold tabular-nums bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <input
                   id="mobile-catalog-price-range"
                   name="mobileMaxPrice"
                   type="range"
+                  aria-label="Maximum price slider"
                   min="0"
-                  max="500000"
+                  max={Math.max(DEFAULT_MAX_PRICE, maxPrice)}
                   step="5000"
                   value={maxPrice}
                   onChange={(e) => {
                     const val = Number(e.target.value);
+                    const nextMin = Math.min(minPrice, val);
+                    setMinPrice(nextMin);
                     setMaxPrice(val);
+                    setMinPriceInput(nextMin > 0 ? String(nextMin) : "");
+                    setMaxPriceInput(val !== DEFAULT_MAX_PRICE ? String(val) : "");
                     setCurrentPage(1);
-                    updateUrlParams({ maxPrice: val < 500000 ? val.toString() : null, page: "1" });
+                    updateUrlParams({
+                      minPrice: nextMin > 0 ? String(nextMin) : null,
+                      maxPrice: val !== DEFAULT_MAX_PRICE ? String(val) : null,
+                      page: "1",
+                    });
                   }}
                   className="w-full accent-blue-600"
                 />
@@ -1632,7 +1692,7 @@ function ProductCatalogViewInner({
               <div className="pt-2 border-t border-slate-100">
                 <label
                   htmlFor="mobile-catalog-instock"
-                  className="flex items-center gap-2.5 text-xs font-bold text-slate-700"
+                  className="flex items-center gap-2.5 text-xs font-bold text-slate-700 cursor-pointer select-none"
                 >
                   <input
                     id="mobile-catalog-instock"
@@ -1644,9 +1704,9 @@ function ProductCatalogViewInner({
                       setCurrentPage(1);
                       updateUrlParams({ inStock: checked ? "true" : null, page: "1" });
                     }}
-                    className="rounded border-slate-300 text-blue-600 w-4 h-4"
+                    className="rounded border-slate-300 text-blue-600 w-4 h-4 cursor-pointer"
                   />
-                  <span>Ready to Ship Only</span>
+                  <span>In Stock</span>
                 </label>
               </div>
             </div>
@@ -1700,7 +1760,10 @@ export function ProductCatalogView(props: ProductCatalogViewProps) {
         </div>
       }
     >
-      <ProductCatalogViewInner {...props} />
+      <ProductCatalogViewInner
+        key={`${props.collectionSlug || ""}:${props.categoryScope || ""}`}
+        {...props}
+      />
     </Suspense>
   );
 }

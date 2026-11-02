@@ -27,6 +27,7 @@ import { CouponsModule } from './coupons/coupons.module.js';
 import { CheckoutModule } from './checkout/checkout.module.js';
 import { WishlistModule } from './wishlist/wishlist.module.js';
 import { TagsModule } from './tags/tags.module.js';
+import { CollectionsModule } from './collections/collections.module.js';
 
 @Module({
   imports: [
@@ -58,10 +59,10 @@ import { TagsModule } from './tags/tags.module.js';
     CheckoutModule,
     WishlistModule,
     TagsModule,
+    CollectionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-
 

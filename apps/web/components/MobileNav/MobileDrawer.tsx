@@ -312,7 +312,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               Quick Shortcuts
             </div>
             <Link
-              href="/flash-sale"
+              href="/collections/flash-sale"
               onClick={onClose}
               className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-orange-50 text-orange-600 text-xs font-bold transition-colors"
             >
@@ -325,7 +325,7 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               </span>
             </Link>
             <Link
-              href="/new-arrivals"
+              href="/collections/new-arrivals"
               onClick={onClose}
               className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-700 text-xs font-bold transition-colors"
             >
@@ -333,20 +333,12 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               <span>New Arrivals</span>
             </Link>
             <Link
-              href="/archive"
+              href="/collections/archive"
               onClick={onClose}
               className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-purple-50 text-purple-700 text-xs font-bold transition-colors"
             >
               <Tag className="w-4 h-4 text-purple-600" />
               <span>Archive & Clearance Deals</span>
-            </Link>
-            <Link
-              href="/shop"
-              onClick={onClose}
-              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
-            >
-              <ShieldCheck className="w-4 h-4 text-slate-500" />
-              <span>All Products Catalog</span>
             </Link>
           </div>
         </div>

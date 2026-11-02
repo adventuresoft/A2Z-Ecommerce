@@ -16,8 +16,14 @@ describe('ProductsService - Public Methods', () => {
       category: {
         findMany: vi.fn(),
       },
+      collection: {
+        findUnique: vi.fn(),
+      },
     };
-    service = new ProductsService(prismaMock);
+    const tagsServiceMock: any = {
+      resolveOrCreateTags: vi.fn(),
+    };
+    service = new ProductsService(prismaMock, tagsServiceMock);
   });
 
   describe('findPublicProducts', () => {

@@ -411,10 +411,6 @@ export function ProductDetailView({ slug, productId }: ProductDetailViewProps) {
           Home
         </Link>
         <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" aria-hidden="true" />
-        <Link href="/shop" className="hover:text-blue-700 transition-colors">
-          Shop
-        </Link>
-        <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" aria-hidden="true" />
         <Link href={`/category/${categorySlug}`} className="hover:text-blue-700 transition-colors">
           {categoryName}
         </Link>

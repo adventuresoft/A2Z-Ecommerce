@@ -475,5 +475,5 @@ export function getProductStorefrontUrl(slug: string): string {
     process.env.NEXT_PUBLIC_STORE_URL ||
     process.env.NEXT_PUBLIC_STOREFRONT_URL ||
     'http://localhost:3000';
-  return `${storeUrl.replace(/\/$/, '')}/products/${slug}`;
+  return `${storeUrl.replace(/\/$/, '')}/product/${slug}`;
 }

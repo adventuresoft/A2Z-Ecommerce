@@ -21,6 +21,8 @@ import type {
   ProductQueryDto,
   ProductResponseDto,
   ProductVariantResponseDto,
+  PublicProductBrandDto,
+  PublicProductCategoryDto,
   PublicProductDetailDto,
   PublicProductQueryDto,
   PublicProductSummaryDto,
@@ -37,7 +39,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tagsService: TagsService,
-  ) {}
+  ) { }
 
   /**
    * Format text into a clean lowercase kebab-case slug
@@ -114,14 +116,14 @@ export class ProductsService {
       images.find((img) => img.isPrimary) ||
       (product.thumbnailUrl
         ? {
-            id: 'thumbnail',
-            productId: product.id,
-            imageUrl: product.thumbnailUrl,
-            altText: product.title,
-            isPrimary: true,
-            sortOrder: -1,
-            createdAt: product.createdAt,
-          }
+          id: 'thumbnail',
+          productId: product.id,
+          imageUrl: product.thumbnailUrl,
+          altText: product.title,
+          isPrimary: true,
+          sortOrder: -1,
+          createdAt: product.createdAt,
+        }
         : images.length > 0
           ? images[0]
           : null);
@@ -152,14 +154,14 @@ export class ProductsService {
           imageUrl: v.imageUrl || v.image?.imageUrl || null,
           image: v.image
             ? {
-                id: v.image.id,
-                productId: v.image.productId,
-                imageUrl: v.image.imageUrl,
-                altText: v.image.altText,
-                isPrimary: v.image.isPrimary,
-                sortOrder: v.image.sortOrder,
-                createdAt: v.image.createdAt,
-              }
+              id: v.image.id,
+              productId: v.image.productId,
+              imageUrl: v.image.imageUrl,
+              altText: v.image.altText,
+              isPrimary: v.image.isPrimary,
+              sortOrder: v.image.sortOrder,
+              createdAt: v.image.createdAt,
+            }
             : null,
           isActive: v.isActive,
           attributes,
@@ -200,10 +202,10 @@ export class ProductsService {
       brandId: product.brandId,
       brand: product.brand
         ? {
-            id: product.brand.id,
-            name: product.brand.name,
-            slug: product.brand.slug,
-          }
+          id: product.brand.id,
+          name: product.brand.name,
+          slug: product.brand.slug,
+        }
         : null,
       isFeatured: product.isFeatured,
       isActive: product.isActive,
@@ -1047,14 +1049,14 @@ export class ProductsService {
       imageUrl: v.imageUrl || v.image?.imageUrl || null,
       image: v.image
         ? {
-            id: v.image.id,
-            productId: v.image.productId,
-            imageUrl: v.image.imageUrl,
-            altText: v.image.altText,
-            isPrimary: v.image.isPrimary,
-            sortOrder: v.image.sortOrder,
-            createdAt: v.image.createdAt,
-          }
+          id: v.image.id,
+          productId: v.image.productId,
+          imageUrl: v.image.imageUrl,
+          altText: v.image.altText,
+          isPrimary: v.image.isPrimary,
+          sortOrder: v.image.sortOrder,
+          createdAt: v.image.createdAt,
+        }
         : null,
       isActive: v.isActive,
       attributes: v.attributes.map((attrRel) => ({
@@ -1199,14 +1201,14 @@ export class ProductsService {
       imageUrl: updated.imageUrl || updated.image?.imageUrl || null,
       image: updated.image
         ? {
-            id: updated.image.id,
-            productId: updated.image.productId,
-            imageUrl: updated.image.imageUrl,
-            altText: updated.image.altText,
-            isPrimary: updated.image.isPrimary,
-            sortOrder: updated.image.sortOrder,
-            createdAt: updated.image.createdAt,
-          }
+          id: updated.image.id,
+          productId: updated.image.productId,
+          imageUrl: updated.image.imageUrl,
+          altText: updated.image.altText,
+          isPrimary: updated.image.isPrimary,
+          sortOrder: updated.image.sortOrder,
+          createdAt: updated.image.createdAt,
+        }
         : null,
       isActive: updated.isActive,
       attributes: updated.attributes.map((attrRel) => ({
@@ -1302,8 +1304,68 @@ export class ProductsService {
     const limit = Math.min(100, Math.max(1, query.limit ?? 12));
     const skip = (page - 1) * limit;
 
+    const andFilters: Prisma.ProductWhereInput[] = [];
+
+    if (query.collectionSlug) {
+      const collection = await this.prisma.collection.findUnique({
+        where: { slug: query.collectionSlug, isActive: true },
+        include: {
+          categories: { select: { categoryId: true } },
+          tags: { select: { tagId: true } },
+          products: {
+            select: { productId: true },
+            orderBy: [{ isPinned: 'desc' }, { sortOrder: 'asc' }],
+          },
+        },
+      });
+
+      if (collection) {
+        const categoryIds = collection.categories.map((c) => c.categoryId);
+        const tagIds = collection.tags.map((t) => t.tagId);
+        const pinnedProductIds = collection.products.map((p) => p.productId);
+
+        let allCategoryIds = [...categoryIds];
+        if (categoryIds.length > 0) {
+          const childCategories = await this.prisma.category.findMany({
+            where: { parentId: { in: categoryIds } },
+            select: { id: true },
+          });
+          allCategoryIds = [
+            ...new Set([...categoryIds, ...childCategories.map((c) => c.id)]),
+          ];
+        }
+
+        const collectionConditions: Prisma.ProductWhereInput[] = [];
+        if (pinnedProductIds.length > 0) {
+          collectionConditions.push({ id: { in: pinnedProductIds } });
+        }
+        if (allCategoryIds.length > 0) {
+          collectionConditions.push({ categoryId: { in: allCategoryIds } });
+        }
+        if (tagIds.length > 0) {
+          collectionConditions.push({ tags: { some: { tagId: { in: tagIds } } } });
+        }
+
+        if (collectionConditions.length > 0) {
+          andFilters.push({ OR: collectionConditions });
+        } else if (query.collectionSlug === 'flash-sale') {
+          // If flash sale collection is totally empty, fall back to products with discount
+          andFilters.push({
+            variants: { some: { isActive: true, salePrice: { not: null } } },
+          });
+        } else if (query.collectionSlug === 'new-arrivals') {
+          // Default empty new-arrivals collection falls back to general catalog
+        } else {
+          andFilters.push({ id: { in: [] } });
+        }
+      } else {
+        andFilters.push({ id: { in: [] } });
+      }
+    }
+
     const where: Prisma.ProductWhereInput = {
       isActive: true,
+      ...(andFilters.length > 0 ? { AND: andFilters } : {}),
     };
 
     if (query.categoryId || query.categorySlug) {
@@ -1586,10 +1648,10 @@ export class ProductsService {
       const rating =
         reviewsCount > 0
           ? Number(
-              (
-                reviews.reduce((acc, r) => acc + r.rating, 0) / reviewsCount
-              ).toFixed(1),
-            )
+            (
+              reviews.reduce((acc, r) => acc + r.rating, 0) / reviewsCount
+            ).toFixed(1),
+          )
           : 0;
 
       const tags = (product.tags || []).map((pt: any) => ({
@@ -1608,12 +1670,12 @@ export class ProductsService {
         brand: product.brand,
         primaryImage: primaryImage
           ? {
-              id: primaryImage.id,
-              imageUrl: primaryImage.imageUrl,
-              altText: primaryImage.altText,
-              isPrimary: primaryImage.isPrimary,
-              sortOrder: primaryImage.sortOrder,
-            }
+            id: primaryImage.id,
+            imageUrl: primaryImage.imageUrl,
+            altText: primaryImage.altText,
+            isPrimary: primaryImage.isPrimary,
+            sortOrder: primaryImage.sortOrder,
+          }
           : null,
         regularPrice: lowestRegularPrice,
         salePrice: lowestSalePrice,
@@ -1637,25 +1699,93 @@ export class ProductsService {
       items.sort((a, b) => b.rating - a.rating);
     }
 
-    // Compute dynamic attribute facets based on products in current scope
+    // Compute dynamic facets (categories, brands, attributes) based on products in current scope
+    const collectionScopeWhere: Prisma.ProductWhereInput = {
+      isActive: true,
+      ...(andFilters.length > 0 ? { AND: andFilters } : {}),
+    };
+
+    const facetProductWhere: Prisma.ProductWhereInput = {
+      ...collectionScopeWhere,
+    };
+    if (where.categoryId) {
+      facetProductWhere.categoryId = where.categoryId;
+    } else if (where.category) {
+      facetProductWhere.category = where.category;
+    }
+
+    let facetCategories: PublicProductCategoryDto[] = [];
+    if (this.prisma.category?.findMany) {
+      try {
+        const cats = await this.prisma.category.findMany({
+          where: {
+            isActive: true,
+            products: {
+              some: collectionScopeWhere,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        });
+        if (Array.isArray(cats)) {
+          facetCategories = cats.filter((c) => Boolean(c && c.id && c.name && c.slug));
+        }
+      } catch {
+        facetCategories = [];
+      }
+    }
+    if (facetCategories.length === 0 && !query.categorySlug && !query.categoryId && items.length > 0) {
+      const catMap = new Map<string, PublicProductCategoryDto>();
+      for (const item of items) {
+        if (item.category?.id && item.category?.name && item.category?.slug) {
+          catMap.set(item.category.id, item.category);
+        }
+      }
+      facetCategories = Array.from(catMap.values());
+    }
+
+    let facetBrands: PublicProductBrandDto[] = [];
+    if (this.prisma.brand?.findMany) {
+      try {
+        const brands = await this.prisma.brand.findMany({
+          where: {
+            isActive: true,
+            products: {
+              some: facetProductWhere,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+          },
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        });
+        if (Array.isArray(brands)) {
+          facetBrands = brands.filter((b) => Boolean(b && b.id && b.name && b.slug));
+        }
+      } catch {
+        facetBrands = [];
+      }
+    }
+    if (facetBrands.length === 0 && !query.brandSlug && !query.brandId && items.length > 0) {
+      const brandMap = new Map<string, PublicProductBrandDto>();
+      for (const item of items) {
+        if (item.brand?.id && item.brand?.name && item.brand?.slug) {
+          brandMap.set(item.brand.id, item.brand);
+        }
+      }
+      facetBrands = Array.from(brandMap.values());
+    }
+
     let facetAttributes: FacetAttributeDto[] = [];
     if (this.prisma.productVariantAttributeValue?.findMany) {
       try {
-        const facetProductWhere: Prisma.ProductWhereInput = {
-          isActive: true,
-        };
-        if (where.categoryId) {
-          facetProductWhere.categoryId = where.categoryId;
-        } else if (where.category) {
-          facetProductWhere.category = where.category;
-        }
-        if (where.brand) {
-          facetProductWhere.brand = where.brand;
-        }
-        if (where.brandId) {
-          facetProductWhere.brandId = where.brandId;
-        }
-
         const variantAttrValues =
           await this.prisma.productVariantAttributeValue.findMany({
             where: {
@@ -1740,6 +1870,8 @@ export class ProductsService {
       limit,
       totalPages: Math.ceil(total / limit) || 1,
       facets: {
+        categories: facetCategories,
+        brands: facetBrands,
         attributes: facetAttributes,
       },
     };
@@ -1805,10 +1937,10 @@ export class ProductsService {
     const rating =
       reviewsCount > 0
         ? Number(
-            (
-              reviews.reduce((acc, r) => acc + r.rating, 0) / reviewsCount
-            ).toFixed(1),
-          )
+          (
+            reviews.reduce((acc, r) => acc + r.rating, 0) / reviewsCount
+          ).toFixed(1),
+        )
         : 0;
 
     const mappedVariants = product.variants.map((v) => {
@@ -1910,7 +2042,7 @@ export class ProductsService {
             }
             if (
               (v.inventory?.quantity ?? 0) -
-                (v.inventory?.reservedQuantity ?? 0) >
+              (v.inventory?.reservedQuantity ?? 0) >
               0
             ) {
               hasAnyStock = true;
@@ -1923,10 +2055,10 @@ export class ProductsService {
         const relRating =
           relCount > 0
             ? Number(
-                (
-                  relReviews.reduce((acc, r) => acc + r.rating, 0) / relCount
-                ).toFixed(1),
-              )
+              (
+                relReviews.reduce((acc, r) => acc + r.rating, 0) / relCount
+              ).toFixed(1),
+            )
             : 0;
 
         return {
@@ -1938,12 +2070,12 @@ export class ProductsService {
           brand: relProd.brand,
           primaryImage: primaryImage
             ? {
-                id: primaryImage.id,
-                imageUrl: primaryImage.imageUrl,
-                altText: primaryImage.altText,
-                isPrimary: primaryImage.isPrimary,
-                sortOrder: primaryImage.sortOrder,
-              }
+              id: primaryImage.id,
+              imageUrl: primaryImage.imageUrl,
+              altText: primaryImage.altText,
+              isPrimary: primaryImage.isPrimary,
+              sortOrder: primaryImage.sortOrder,
+            }
             : null,
           regularPrice: lowestRegularPrice,
           salePrice: lowestSalePrice,
@@ -1951,13 +2083,13 @@ export class ProductsService {
           maxPrice: prices.length > 0 ? Math.max(...prices) : 0,
           discountPercent:
             lowestSalePrice !== null &&
-            lowestSalePrice < lowestRegularPrice &&
-            lowestRegularPrice > 0
+              lowestSalePrice < lowestRegularPrice &&
+              lowestRegularPrice > 0
               ? Math.round(
-                  ((lowestRegularPrice - lowestSalePrice) /
-                    lowestRegularPrice) *
-                    100,
-                )
+                ((lowestRegularPrice - lowestSalePrice) /
+                  lowestRegularPrice) *
+                100,
+              )
               : null,
           inStock: hasAnyStock,
           isFeatured: relProd.isFeatured,
@@ -1966,17 +2098,17 @@ export class ProductsService {
           tags: (relProd.tags || []).map((pt: any) =>
             pt.tag
               ? {
-                  id: pt.tag.id,
-                  name: pt.tag.name,
-                  slug: pt.tag.slug,
-                  colorCode: pt.tag.colorCode,
-                }
+                id: pt.tag.id,
+                name: pt.tag.name,
+                slug: pt.tag.slug,
+                colorCode: pt.tag.colorCode,
+              }
               : {
-                  id: pt.id,
-                  name: pt.name,
-                  slug: pt.slug,
-                  colorCode: pt.colorCode,
-                },
+                id: pt.id,
+                name: pt.name,
+                slug: pt.slug,
+                colorCode: pt.colorCode,
+              },
           ),
           createdAt: relProd.createdAt,
         };
@@ -2156,11 +2288,11 @@ export class ProductsService {
     const rating =
       reviewsCount > 0
         ? Number(
-            (
-              reviews.reduce((acc: number, r: any) => acc + r.rating, 0) /
-              reviewsCount
-            ).toFixed(1),
-          )
+          (
+            reviews.reduce((acc: number, r: any) => acc + r.rating, 0) /
+            reviewsCount
+          ).toFixed(1),
+        )
         : 0;
 
     return {
@@ -2172,12 +2304,12 @@ export class ProductsService {
       brand: product.brand,
       primaryImage: primaryImage
         ? {
-            id: primaryImage.id,
-            imageUrl: primaryImage.imageUrl,
-            altText: primaryImage.altText,
-            isPrimary: primaryImage.isPrimary,
-            sortOrder: primaryImage.sortOrder,
-          }
+          id: primaryImage.id,
+          imageUrl: primaryImage.imageUrl,
+          altText: primaryImage.altText,
+          isPrimary: primaryImage.isPrimary,
+          sortOrder: primaryImage.sortOrder,
+        }
         : null,
       regularPrice: lowestRegularPrice,
       salePrice: lowestSalePrice,
@@ -2191,17 +2323,17 @@ export class ProductsService {
       tags: (product.tags || []).map((pt: any) =>
         pt.tag
           ? {
-              id: pt.tag.id,
-              name: pt.tag.name,
-              slug: pt.tag.slug,
-              colorCode: pt.tag.colorCode,
-            }
+            id: pt.tag.id,
+            name: pt.tag.name,
+            slug: pt.tag.slug,
+            colorCode: pt.tag.colorCode,
+          }
           : {
-              id: pt.id,
-              name: pt.name,
-              slug: pt.slug,
-              colorCode: pt.colorCode,
-            },
+            id: pt.id,
+            name: pt.name,
+            slug: pt.slug,
+            colorCode: pt.colorCode,
+          },
       ),
       createdAt: product.createdAt,
     };
@@ -2249,16 +2381,34 @@ export class ProductsService {
       },
     };
 
-    // 1. Flash Deals: Active products with at least one active variant on sale
+    // 1. Flash Deals: Check if flash-sale collection has curated products, else active sale products
+    const flashSaleCollection = this.prisma.collection?.findUnique
+      ? await this.prisma.collection.findUnique({
+          where: { slug: 'flash-sale', isActive: true },
+          include: {
+            products: {
+              select: { productId: true },
+              orderBy: [{ isPinned: 'desc' }, { sortOrder: 'asc' }],
+            },
+          },
+        })
+      : null;
+    const flashPinnedIds =
+      flashSaleCollection?.products.map((p) => p.productId) || [];
+
     const flashDealsPromise = this.prisma.product.findMany({
       where: {
         isActive: true,
-        variants: {
-          some: {
-            isActive: true,
-            salePrice: { not: null },
-          },
-        },
+        ...(flashPinnedIds.length > 0
+          ? { id: { in: flashPinnedIds } }
+          : {
+            variants: {
+              some: {
+                isActive: true,
+                salePrice: { not: null },
+              },
+            },
+          }),
       },
       take: 12,
       include: publicInclude,

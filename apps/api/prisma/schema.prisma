@@ -122,6 +122,7 @@ model Category {
   children    Category[] @relation("CategoryHierarchy")
   taxClass    TaxClass?  @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
   products    Product[]
+  collections CollectionCategory[]
 
   @@index([parentId])
   @@index([taxClassId])
@@ -214,6 +215,7 @@ model Product {
   images           ProductImage[]
   variants         ProductVariant[]
   tags             ProductTag[]
+  collections      CollectionProduct[]
   reviews          Review[]
   wishlistItems    WishlistItem[]
 
@@ -291,6 +293,7 @@ model Tag {
   updatedAt DateTime     @updatedAt
 
   products  ProductTag[]
+  collections CollectionTag[]
 
   @@index([isActive])
   @@index([slug])
@@ -810,4 +813,77 @@ model WishlistItem {
   @@index([userId])
   @@index([productId])
   @@map("WishlistItem")
+}
+
+// ============================================================================
+// COLLECTION MODELS
+// ============================================================================
+
+model Collection {
+  id             String               @id @default(uuid())
+  name           String               @db.VarChar(150)
+  slug           String               @unique @db.VarChar(150)
+  description    String?              @db.Text
+  bannerUrl      String?              @db.VarChar(255)
+  badgeText      String?              @db.VarChar(50)
+  isActive       Boolean              @default(true)
+  startDate      DateTime?
+  endDate        DateTime?
+  seoTitle       String?              @db.VarChar(150)
+  seoDescription String?              @db.VarChar(255)
+  sortOrder      Int                  @default(0)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  categories     CollectionCategory[]
+  tags           CollectionTag[]
+  products       CollectionProduct[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("Collection")
+}
+
+model CollectionCategory {
+  collectionId String
+  categoryId   String
+  createdAt    DateTime   @default(now())
+
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  category     Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, categoryId])
+  @@index([categoryId])
+  @@index([collectionId])
+  @@map("CollectionCategory")
+}
+
+model CollectionTag {
+  collectionId String
+  tagId        String
+  createdAt    DateTime   @default(now())
+
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  tag          Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, tagId])
+  @@index([tagId])
+  @@index([collectionId])
+  @@map("CollectionTag")
+}
+
+model CollectionProduct {
+  collectionId String
+  productId    String
+  sortOrder    Int        @default(0)
+  isPinned     Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, productId])
+  @@index([productId])
+  @@index([collectionId])
+  @@map("CollectionProduct")
 }

@@ -226,13 +226,13 @@ export function MainNav() {
                   {/* Left Column Bottom Link */}
                   <div className="p-3 border-t border-slate-200/70 mx-2 mt-2">
                     <Link
-                      href="/shop"
+                      href="/collections/flash-sale"
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50/70 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors group"
+                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-orange-50/70 hover:bg-orange-100 text-orange-700 text-xs font-bold transition-colors group"
                     >
                       <span className="flex items-center gap-1.5">
-                        <Package className="w-3.5 h-3.5 text-blue-600" />
-                        Browse All Products
+                        <Flame className="w-3.5 h-3.5 text-orange-600" />
+                        Explore Live Flash Deals
                       </span>
                       <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </Link>
@@ -385,11 +385,8 @@ export function MainNav() {
             >
               Home
             </Link>
-            <Link href="/shop" className="hover:text-blue-700 py-3.5 transition-colors">
-              Shop
-            </Link>
             <Link
-              href="/flash-sale"
+              href="/collections/flash-sale"
               className="hover:text-orange-600 py-3.5 transition-colors flex items-center space-x-1.5"
             >
               <span>Flash Sale</span>
@@ -398,11 +395,11 @@ export function MainNav() {
                 HOT
               </span>
             </Link>
-            <Link href="/new-arrivals" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+            <Link href="/collections/new-arrivals" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
               <span>New Arrivals</span>
               <Sparkles className="w-3 h-3 text-amber-500" />
             </Link>
-            <Link href="/archive" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+            <Link href="/collections/archive" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
               <Tag className="w-3 h-3 text-blue-600" />
               <span>Archive & Clearance</span>
             </Link>

@@ -99,6 +99,14 @@ export class PublicProductQueryDto {
   attributeValues?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter by collection slug (e.g. flash-sale, new-arrivals, or custom collection)',
+    example: 'flash-sale',
+  })
+  @IsString()
+  @IsOptional()
+  collectionSlug?: string;
+
+  @ApiPropertyOptional({
     description: 'Catalog sort ordering',
     enum: ['newest', 'price_asc', 'price_desc', 'rating', 'featured'],
     default: 'newest',
@@ -256,6 +264,12 @@ export class FacetAttributeDto {
 }
 
 export class PublicProductFacetsDto {
+  @ApiPropertyOptional({ type: [PublicProductCategoryDto] })
+  categories?: PublicProductCategoryDto[];
+
+  @ApiPropertyOptional({ type: [PublicProductBrandDto] })
+  brands?: PublicProductBrandDto[];
+
   @ApiPropertyOptional({ type: [FacetAttributeDto] })
   attributes?: FacetAttributeDto[];
 }

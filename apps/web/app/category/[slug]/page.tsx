@@ -69,6 +69,7 @@ export default async function CategoryPage({
         title={`${categoryName} Collection`}
         subtitle={`Browse official ${categoryName} with verified warranty, competitive pricing, and fast nationwide delivery.`}
         categoryScope={slug}
+        showHeroBanner={false}
       />
     </StorefrontShell>
   );
