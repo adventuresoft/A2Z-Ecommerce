@@ -826,6 +826,8 @@ model Collection {
   description    String?              @db.Text
   bannerUrl      String?              @db.VarChar(255)
   badgeText      String?              @db.VarChar(50)
+  showOnHomePage Boolean              @default(false)
+  designTemplate String               @default("default") @db.VarChar(50)
   isActive       Boolean              @default(true)
   startDate      DateTime?
   endDate        DateTime?
@@ -841,6 +843,7 @@ model Collection {
 
   @@index([slug])
   @@index([isActive])
+  @@index([isActive, showOnHomePage, sortOrder])
   @@map("Collection")
 }
 

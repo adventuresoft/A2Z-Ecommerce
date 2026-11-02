@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -53,6 +54,21 @@ export class CreateCollectionDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Whether the collection and its products are displayed on the home page' })
+  @IsBoolean()
+  @IsOptional()
+  showOnHomePage?: boolean;
+
+  @ApiPropertyOptional({
+    example: 'default',
+    enum: ['default', 'collection-1', 'collection-2'],
+    description: 'Home page section design template (default, collection-1, collection-2)',
+  })
+  @IsString()
+  @IsIn(['default', 'collection-1', 'collection-2'])
+  @IsOptional()
+  designTemplate?: 'default' | 'collection-1' | 'collection-2';
 
   @ApiPropertyOptional({ example: '2026-11-01T00:00:00Z', description: 'Campaign start time' })
   @IsDateString()

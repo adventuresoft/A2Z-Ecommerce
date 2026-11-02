@@ -7,6 +7,15 @@ import { CollectionsService } from './collections.service.js';
 export class CollectionsPublicController {
   constructor(private readonly collectionsService: CollectionsService) {}
 
+  @Get('home')
+  @ApiOperation({ summary: 'Get active collections enabled for home page display with their matching products' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max products per collection (default 12)' })
+  @ApiResponse({ status: 200, description: 'List of home page collections with products' })
+  async getHomeCollections(@Query('limit') limit?: string) {
+    const limitNum = limit ? parseInt(limit, 10) : 12;
+    return this.collectionsService.findHomeCollections(limitNum);
+  }
+
   @Get(':slug')
   @ApiOperation({ summary: 'Get collection details, countdown timer, and matching products by slug' })
   @ApiParam({ name: 'slug', description: 'Collection slug', example: 'flash-sale' })
@@ -24,4 +33,3 @@ export class CollectionsPublicController {
     return this.collectionsService.findBySlug(slug, pageNum, limitNum);
   }
 }
-

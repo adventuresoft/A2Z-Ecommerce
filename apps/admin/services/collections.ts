@@ -1,3 +1,5 @@
+export type CollectionDesignTemplate = 'default' | 'collection-1' | 'collection-2';
+
 export interface CollectionItem {
   id: string;
   name: string;
@@ -6,6 +8,8 @@ export interface CollectionItem {
   bannerUrl?: string | null;
   badgeText?: string | null;
   isActive: boolean;
+  showOnHomePage?: boolean;
+  designTemplate?: CollectionDesignTemplate;
   startDate?: string | null;
   endDate?: string | null;
   seoTitle?: string | null;
@@ -31,6 +35,8 @@ export interface CollectionQuery {
   limit?: number;
   search?: string;
   isActive?: boolean;
+  showOnHomePage?: boolean;
+  designTemplate?: CollectionDesignTemplate;
 }
 
 export interface PaginatedCollections {
@@ -50,6 +56,8 @@ export interface CollectionPayload {
   bannerUrl?: string;
   badgeText?: string;
   isActive?: boolean;
+  showOnHomePage?: boolean;
+  designTemplate?: CollectionDesignTemplate;
   startDate?: string | null;
   endDate?: string | null;
   seoTitle?: string;
@@ -138,6 +146,7 @@ export const collectionsService = {
     if (query.limit) params.set('limit', query.limit.toString());
     if (query.search) params.set('search', query.search);
     if (query.isActive !== undefined) params.set('isActive', query.isActive.toString());
+    if (query.showOnHomePage !== undefined) params.set('showOnHomePage', query.showOnHomePage.toString());
 
     const qs = params.toString();
     return request<PaginatedCollections>(`/admin/collections${qs ? `?${qs}` : ''}`);
@@ -195,4 +204,3 @@ export const collectionsService = {
     return res.json();
   },
 };
-

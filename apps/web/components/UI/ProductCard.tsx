@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Star, ShoppingCart, Heart, Check, Flame, ShieldCheck, Eye } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { Product, formatBDT } from "../../data/mock-catalog";
-import { Tilt3DCard } from "./Tilt3DCard";
 
 export interface ProductCardProps {
   product: Product & {
@@ -73,14 +72,10 @@ export function ProductCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-24px" }}
       transition={{ duration: 0.28, delay: Math.min((index % 6) * 0.04, 0.2), ease: "easeOut" }}
-      className="h-full perspective-stage"
+      className="h-full"
     >
-      <Tilt3DCard
-        maxTilt={4.5}
-        glareOpacity={0.12}
-        className="group relative flex flex-col justify-between bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/85 hover:border-blue-500/70 shadow-[0_2px_10px_rgba(15,23,42,0.035)] hover:shadow-[0_18px_36px_-10px_rgba(29,78,216,0.14)] transition-[border-color,box-shadow] duration-300 h-full focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 select-none overflow-hidden"
-      >
-        {/* Top Specular Accent Bar */}
+      <div className="group relative flex flex-col justify-between bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/85 hover:border-blue-500/60 shadow-[0_2px_10px_rgba(15,23,42,0.035)] hover:shadow-[0_12px_28px_-8px_rgba(15,23,42,0.09)] transition-[border-color,box-shadow] duration-300 h-full focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 select-none overflow-hidden">
+        {/* Top Accent Bar */}
         <div
           aria-hidden="true"
           className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-t-2xl"
@@ -138,30 +133,31 @@ export function ProductCard({
           </button>
         </div>
 
-        {/* 2. 3D Elevated Product Image Stage */}
+        {/* 2. Full-Cover Product Image with Centered Watermark Eye on Hover */}
         <Link
           href={productUrl}
-          className="relative w-full aspect-square bg-gradient-to-b from-slate-50/90 to-slate-100/60 group-hover:from-blue-50/40 group-hover:to-indigo-50/20 rounded-xl overflow-hidden mb-3 border border-slate-100 group-hover:border-blue-200/70 transition-colors duration-300 flex items-center justify-center p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+          className="relative w-full aspect-square bg-slate-100 rounded-xl overflow-hidden mb-3 border border-slate-100 group-hover:border-slate-200/80 transition-colors duration-300 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
         >
-          {/* Subtle radial pedestal shadow */}
-          <div
-            aria-hidden="true"
-            className="absolute bottom-3 inset-x-8 h-3 bg-slate-900/10 blur-md rounded-full scale-90 group-hover:scale-105 transition-transform duration-300"
-          />
-
           <Image
             src={product.image}
             alt={product.title}
             fill
-            className="object-contain p-2.5 group-hover:scale-108 group-hover:-translate-y-1 transition-transform duration-300 ease-out"
+            className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
             loading="lazy"
           />
 
-          {/* Quick View Hover Pill */}
-          <div className="absolute inset-x-3 bottom-2.5 opacity-0 group-hover:opacity-100 transition-[opacity,transform] duration-200 translate-y-2 group-hover:translate-y-0 hidden sm:flex items-center justify-center gap-1.5 py-1.5 bg-slate-900/90 text-white rounded-lg text-[11px] font-bold backdrop-blur-xs shadow-md">
-            <Eye className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" />
-            <span>Inspect Details</span>
+          {/* Centered Watermark Eye Icon on Hover */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          >
+            <div className="w-11 h-11 rounded-full bg-white/30 backdrop-blur-[2px] border border-white/40 flex items-center justify-center scale-90 group-hover:scale-100 transition-transform duration-300 ease-out">
+              <Eye
+                className="w-5 h-5 text-white/85 drop-shadow-[0_1px_2px_rgba(15,23,42,0.35)]"
+                strokeWidth={1.75}
+              />
+            </div>
           </div>
         </Link>
 
@@ -359,7 +355,7 @@ export function ProductCard({
             )}
           </div>
         </div>
-      </Tilt3DCard>
+      </div>
     </motion.div>
   );
 }

@@ -1,11 +1,9 @@
 import {
-  BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { ReviewStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CollectionQueryDto,
@@ -50,6 +48,113 @@ export class CollectionsService implements OnModuleInit {
     }
   }
 
+  private mapProductToSummary(product: any) {
+    const primaryImage =
+      product.images?.find((img: any) => img.isPrimary) ||
+      product.images?.[0] ||
+      (product.thumbnailUrl
+        ? {
+            id: 'thumbnail',
+            imageUrl: product.thumbnailUrl,
+            altText: product.title,
+            isPrimary: true,
+            sortOrder: 0,
+          }
+        : null);
+
+    const activeVariants = (product.variants || []).filter(
+      (v: any) => v.isActive !== false,
+    );
+    let lowestRegularPrice = 0;
+    let lowestSalePrice: number | null = null;
+    let hasAnyStock = activeVariants.length === 0;
+    const prices: number[] = [];
+
+    if (activeVariants.length > 0) {
+      lowestRegularPrice = Number(activeVariants[0].regularPrice);
+      for (const v of activeVariants) {
+        const reg = Number(v.regularPrice);
+        const sale = v.salePrice !== null && v.salePrice !== undefined ? Number(v.salePrice) : null;
+        const effective = sale !== null && sale < reg ? sale : reg;
+        prices.push(effective);
+
+        if (reg < lowestRegularPrice) {
+          lowestRegularPrice = reg;
+        }
+        if (
+          sale !== null &&
+          (lowestSalePrice === null || sale < lowestSalePrice)
+        ) {
+          lowestSalePrice = sale;
+        }
+
+        if (v.inventory) {
+          const stock =
+            (v.inventory.quantity ?? 0) - (v.inventory.reservedQuantity ?? 0);
+          if (stock > 0) {
+            hasAnyStock = true;
+          }
+        } else {
+          hasAnyStock = true;
+        }
+      }
+    }
+
+    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
+    let discountPercent: number | null = null;
+    if (
+      lowestSalePrice !== null &&
+      lowestSalePrice < lowestRegularPrice &&
+      lowestRegularPrice > 0
+    ) {
+      discountPercent = Math.round(
+        ((lowestRegularPrice - lowestSalePrice) / lowestRegularPrice) * 100,
+      );
+    }
+
+    const reviews = product.reviews || [];
+    const reviewsCount = reviews.length;
+    const rating =
+      reviewsCount > 0
+        ? Number(
+            (
+              reviews.reduce((acc: number, r: any) => acc + r.rating, 0) /
+              reviewsCount
+            ).toFixed(1),
+          )
+        : 4.8;
+
+    return {
+      id: product.id,
+      title: product.title,
+      slug: product.slug,
+      shortDescription: product.shortDescription,
+      category: product.category,
+      brand: product.brand,
+      primaryImage: primaryImage
+        ? {
+            id: primaryImage.id,
+            imageUrl: primaryImage.imageUrl,
+            altText: primaryImage.altText,
+            isPrimary: primaryImage.isPrimary,
+            sortOrder: primaryImage.sortOrder,
+          }
+        : null,
+      regularPrice: lowestRegularPrice,
+      salePrice: lowestSalePrice,
+      minPrice,
+      maxPrice,
+      discountPercent,
+      inStock: hasAnyStock,
+      isFeatured: product.isFeatured,
+      rating,
+      reviewsCount,
+      createdAt: product.createdAt,
+    };
+  }
+
   /**
    * Seed default collections (flash-sale, new-arrivals, archive) if they don't already exist
    */
@@ -61,6 +166,7 @@ export class CollectionsService implements OnModuleInit {
         description: 'Limited-time mega savings on flagship gadgets, laptops, and authentic tech in Bangladesh.',
         badgeText: 'Live Flash Deals',
         isActive: true,
+        showOnHomePage: false,
         startDate: new Date(),
         endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
         seoTitle: 'Exclusive Flash Sale & Instant Discounts | A to Z Ecommerce',
@@ -73,6 +179,7 @@ export class CollectionsService implements OnModuleInit {
         description: 'Freshly launched premium electronics, gaming hardware, and smart appliances just added to our catalog.',
         badgeText: 'Just Landed',
         isActive: true,
+        showOnHomePage: false,
         seoTitle: 'New Arrivals & Fresh Electronics | A to Z Ecommerce Bangladesh',
         seoDescription: 'Explore freshly dropped laptops, smartphones, and gear with official warranty in Bangladesh.',
         sortOrder: 2,
@@ -83,6 +190,7 @@ export class CollectionsService implements OnModuleInit {
         description: 'Past season inventory, clearance stock, and last-chance deals at unprecedented prices.',
         badgeText: 'Final Clearance',
         isActive: true,
+        showOnHomePage: false,
         seoTitle: 'Archive & Clearance Tech Deals | A to Z Ecommerce',
         seoDescription: 'Save big on archived inventory and clearance items before they are gone forever.',
         sortOrder: 3,
@@ -99,6 +207,138 @@ export class CollectionsService implements OnModuleInit {
         });
       }
     }
+  }
+
+  /**
+   * Public: Get active collections configured with showOnHomePage = true and their products
+   */
+  async findHomeCollections(limitPerCollection = 12) {
+    const collections = await this.prisma.collection.findMany({
+      where: {
+        isActive: true,
+        showOnHomePage: true,
+      },
+      include: {
+        categories: {
+          select: { categoryId: true },
+        },
+        tags: {
+          select: { tagId: true },
+        },
+        products: {
+          select: { productId: true, sortOrder: true, isPinned: true },
+          orderBy: [{ isPinned: 'desc' }, { sortOrder: 'asc' }],
+        },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+
+    if (collections.length === 0) {
+      return [];
+    }
+
+    const publicInclude = {
+      category: { select: { id: true, name: true, slug: true } },
+      brand: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      images: {
+        orderBy: [{ isPrimary: 'desc' as const }, { sortOrder: 'asc' as const }],
+      },
+      variants: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          sku: true,
+          regularPrice: true,
+          salePrice: true,
+          isActive: true,
+          inventory: {
+            select: {
+              quantity: true,
+              reservedQuantity: true,
+            },
+          },
+        },
+      },
+      reviews: {
+        where: { status: ReviewStatus.APPROVED },
+        select: { rating: true },
+      },
+    };
+
+    const results = await Promise.all(
+      collections.map(async (col) => {
+        const categoryIds = col.categories.map((c) => c.categoryId);
+        const tagIds = col.tags.map((t) => t.tagId);
+        const pinnedProductIds = col.products.map((p) => p.productId);
+
+        let allCategoryIds = [...categoryIds];
+        if (categoryIds.length > 0) {
+          const childCategories = await this.prisma.category.findMany({
+            where: { parentId: { in: categoryIds } },
+            select: { id: true },
+          });
+          allCategoryIds = [
+            ...new Set([...categoryIds, ...childCategories.map((c) => c.id)]),
+          ];
+        }
+
+        const orConditions: Prisma.ProductWhereInput[] = [];
+        if (pinnedProductIds.length > 0) {
+          orConditions.push({ id: { in: pinnedProductIds } });
+        }
+        if (allCategoryIds.length > 0) {
+          orConditions.push({ categoryId: { in: allCategoryIds } });
+        }
+        if (tagIds.length > 0) {
+          orConditions.push({ tags: { some: { tagId: { in: tagIds } } } });
+        }
+
+        const whereClause: Prisma.ProductWhereInput = {
+          isActive: true,
+          ...(orConditions.length > 0 ? { OR: orConditions } : {}),
+        };
+
+        const rawProducts = await this.prisma.product.findMany({
+          where: whereClause,
+          include: publicInclude,
+          orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+          take: Math.max(limitPerCollection, pinnedProductIds.length, 12),
+        });
+
+        // Order pinned products first in their configured sortOrder
+        const pinnedRank = new Map<string, number>();
+        col.products.forEach((p, idx) => {
+          pinnedRank.set(p.productId, idx);
+        });
+
+        const sortedRaw = [...rawProducts].sort((a, b) => {
+          const rankA = pinnedRank.has(a.id) ? pinnedRank.get(a.id)! : 999999;
+          const rankB = pinnedRank.has(b.id) ? pinnedRank.get(b.id)! : 999999;
+          if (rankA !== rankB) return rankA - rankB;
+          return 0;
+        });
+
+        const mappedProducts = sortedRaw
+          .slice(0, limitPerCollection)
+          .map((p) => this.mapProductToSummary(p));
+
+        return {
+          id: col.id,
+          name: col.name,
+          slug: col.slug,
+          description: col.description,
+          bannerUrl: col.bannerUrl,
+          badgeText: col.badgeText,
+          designTemplate: col.designTemplate || 'default',
+          sortOrder: col.sortOrder,
+          startDate: col.startDate,
+          endDate: col.endDate,
+          products: mappedProducts,
+        };
+      }),
+    );
+
+    return results.filter((col) => col.products.length > 0);
   }
 
   /**
@@ -206,6 +446,8 @@ export class CollectionsService implements OnModuleInit {
         bannerUrl: collection.bannerUrl,
         badgeText: collection.badgeText,
         isActive: collection.isActive,
+        showOnHomePage: collection.showOnHomePage,
+        designTemplate: collection.designTemplate || 'default',
         startDate: collection.startDate,
         endDate: collection.endDate,
         seoTitle: collection.seoTitle,
@@ -227,7 +469,7 @@ export class CollectionsService implements OnModuleInit {
    * Admin: List all collections with pagination and filter
    */
   async findAdminAll(query: CollectionQueryDto) {
-    const { search, isActive, page = 1, limit = 20 } = query;
+    const { search, isActive, showOnHomePage, page = 1, limit = 20 } = query;
     const where: Prisma.CollectionWhereInput = {};
 
     if (search) {
@@ -239,6 +481,10 @@ export class CollectionsService implements OnModuleInit {
 
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+
+    if (showOnHomePage !== undefined) {
+      where.showOnHomePage = showOnHomePage;
     }
 
     const skip = (page - 1) * limit;
@@ -443,4 +689,3 @@ export class CollectionsService implements OnModuleInit {
     });
   }
 }
-

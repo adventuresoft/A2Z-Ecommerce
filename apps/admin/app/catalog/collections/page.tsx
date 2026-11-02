@@ -18,6 +18,11 @@ export default function CollectionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [homeFilter, setHomeFilter] = useState("");
+
+  // Inline toggle & sort order state
+  const [togglingHomeId, setTogglingHomeId] = useState<string | null>(null);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -47,6 +52,7 @@ export default function CollectionsPage() {
         limit,
         search: debouncedSearch || undefined,
         isActive: statusFilter === "" ? undefined : statusFilter === "true",
+        showOnHomePage: homeFilter === "" ? undefined : homeFilter === "true",
       });
       setCollections(res.data || []);
       setTotal(res.meta?.total || 0);
@@ -59,11 +65,66 @@ export default function CollectionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, debouncedSearch, statusFilter]);
+  }, [page, limit, debouncedSearch, statusFilter, homeFilter]);
 
   useEffect(() => {
     fetchCollections();
   }, [fetchCollections]);
+
+  const handleToggleHomePage = async (col: CollectionItem) => {
+    const nextVal = !col.showOnHomePage;
+    setTogglingHomeId(col.id);
+    try {
+      await collectionsService.updateCollection(col.id, {
+        showOnHomePage: nextVal,
+      });
+      setCollections((prev) =>
+        prev.map((item) =>
+          item.id === col.id ? { ...item, showOnHomePage: nextVal } : item
+        )
+      );
+      setAlert({
+        type: "success",
+        text: nextVal
+          ? `"${col.name}" will now be displayed on the storefront Home Page.`
+          : `"${col.name}" was removed from the storefront Home Page.`,
+      });
+    } catch (err: any) {
+      setAlert({
+        type: "danger",
+        text: err?.message || "Failed to update Home Page visibility.",
+      });
+    } finally {
+      setTogglingHomeId(null);
+    }
+  };
+
+  const handleUpdateSortOrder = async (col: CollectionItem, newSortOrder: number) => {
+    setUpdatingOrderId(col.id);
+    try {
+      await collectionsService.updateCollection(col.id, {
+        sortOrder: newSortOrder,
+      });
+      setCollections((prev) =>
+        [...prev]
+          .map((item) =>
+            item.id === col.id ? { ...item, sortOrder: newSortOrder } : item
+          )
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      );
+      setAlert({
+        type: "success",
+        text: `Updated display order for "${col.name}" to ${newSortOrder}.`,
+      });
+    } catch (err: any) {
+      setAlert({
+        type: "danger",
+        text: err?.message || "Failed to update display order.",
+      });
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
 
   const handleDeletePrompt = (col: CollectionItem) => {
     setCollectionToDelete(col);
@@ -111,7 +172,7 @@ export default function CollectionsPage() {
           </nav>
           <h2 className="h4 fw-bold text-dark mb-1">Curated Collections</h2>
           <p className="text-muted small mb-0">
-            Create and organize campaign landing pages (e.g. Flash Sale, New Arrivals, Best Selling TV) with hybrid rules and countdown timers.
+            Create and organize campaign landing pages (e.g. Flash Sale, New Arrivals, Best Selling TV) with hybrid rules, countdown timers, and Home Page product sliders.
           </p>
         </div>
 
@@ -151,7 +212,7 @@ export default function CollectionsPage() {
       <div className="card border-0 shadow-sm rounded-4 mb-4">
         <div className="card-body p-3">
           <div className="row g-2 align-items-center">
-            <div className="col-md-5">
+            <div className="col-md-4">
               <div className="input-group input-group-sm">
                 <span className="input-group-text bg-light border-end-0">
                   <i className="bi bi-search text-muted" />
@@ -190,7 +251,22 @@ export default function CollectionsPage() {
               </select>
             </div>
 
-            <div className="col-md-4 text-md-end text-muted small">
+            <div className="col-md-3">
+              <select
+                className="form-select form-select-sm bg-light"
+                value={homeFilter}
+                onChange={(e) => {
+                  setHomeFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">All Home Page Visibility</option>
+                <option value="true">Shown on Home Page</option>
+                <option value="false">Not on Home Page</option>
+              </select>
+            </div>
+
+            <div className="col-md-2 text-md-end text-muted small">
               Total {total} {total === 1 ? "collection" : "collections"}
             </div>
           </div>
@@ -203,6 +279,10 @@ export default function CollectionsPage() {
           collections={collections}
           loading={loading}
           onDelete={handleDeletePrompt}
+          onToggleHomePage={handleToggleHomePage}
+          togglingHomeId={togglingHomeId}
+          onUpdateSortOrder={handleUpdateSortOrder}
+          updatingOrderId={updatingOrderId}
         />
 
         {/* Pagination Footer */}

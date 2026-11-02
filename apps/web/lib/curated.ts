@@ -7,6 +7,7 @@ export interface PublicHeroBannerItem {
   imageUrl: string;
   linkUrl?: string | null;
   badgeText?: string | null;
+  designTemplate?: "default" | "collection-1" | "collection-2";
   sortOrder: number;
   isActive: boolean;
 }
@@ -61,6 +62,21 @@ export interface CuratedProductsResponse {
   featured: PublicProductSummary[];
   newArrivals: PublicProductSummary[];
   bestSellers: PublicProductSummary[];
+}
+
+export interface PublicHomeCollection {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  bannerUrl?: string | null;
+  badgeText?: string | null;
+  designTemplate?: "default" | "collection-1" | "collection-2";
+  sortOrder: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  products: PublicProductSummary[];
+
 }
 
 /**

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  CollectionDesignTemplate,
   CollectionItem,
   CollectionPayload,
   collectionsService,
@@ -12,6 +13,368 @@ import { categoriesApi, CategoryItem } from "@/services/categories";
 import { tagsApi, TagItem } from "@/services/tags";
 import { getProducts, ProductItem } from "@/services/products";
 import { CollectionBannerUpload } from "./CollectionBannerUpload";
+
+interface MultiSelectOption {
+  id: string;
+  label: string;
+  prefix?: string;
+}
+
+interface MultiSelectFieldProps {
+  id: string;
+  label: string;
+  placeholder: string;
+  options: MultiSelectOption[];
+  selectedIds: string[];
+  onChange: (nextIds: string[]) => void;
+  accentVariant?: "blue" | "teal";
+  emptyMessage?: string;
+}
+
+function MultiSelectField({
+  id,
+  label,
+  placeholder,
+  options,
+  selectedIds,
+  onChange,
+  accentVariant = "blue",
+  emptyMessage = "No matching options found",
+}: MultiSelectFieldProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const optionMap = useMemo(() => {
+    const map = new Map<string, MultiSelectOption>();
+    options.forEach((opt) => map.set(opt.id, opt));
+    return map;
+  }, [options]);
+
+  const filteredOptions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((opt) => opt.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const toggleOption = (optId: string) => {
+    if (selectedIds.includes(optId)) {
+      onChange(selectedIds.filter((item) => item !== optId));
+    } else {
+      onChange([...selectedIds, optId]);
+    }
+  };
+
+  const removeOption = (e: React.MouseEvent, optId: string) => {
+    e.stopPropagation();
+    onChange(selectedIds.filter((item) => item !== optId));
+  };
+
+  const handleSelectAllFiltered = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const merged = Array.from(
+      new Set([...selectedIds, ...filteredOptions.map((o) => o.id)])
+    );
+    onChange(merged);
+  };
+
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange([]);
+    setQuery("");
+  };
+
+  const isBlue = accentVariant === "blue";
+  const chipBg = isBlue ? "#eff6ff" : "#ecfeff";
+  const chipBorder = isBlue ? "#bfdbfe" : "#a5f3fc";
+  const chipText = isBlue ? "#1d4ed8" : "#0e7490";
+  const activeBorder = isBlue ? "#2563eb" : "#0891b2";
+  const activeRing = isBlue
+    ? "0 0 0 3px rgba(37, 99, 235, 0.14)"
+    : "0 0 0 3px rgba(8, 145, 178, 0.14)";
+
+  return (
+    <div className="mb-4" ref={containerRef}>
+      {/* Field Header */}
+      <div className="d-flex align-items-center justify-content-between mb-1.5">
+        <label
+          htmlFor={id}
+          className="form-label small fw-semibold text-dark mb-0 d-flex align-items-center gap-2"
+        >
+          <span>{label}</span>
+          <span
+            className="badge rounded-pill fw-semibold"
+            style={{
+              backgroundColor: selectedIds.length > 0 ? chipBg : "#f1f5f9",
+              color: selectedIds.length > 0 ? chipText : "#64748b",
+              border: `1px solid ${
+                selectedIds.length > 0 ? chipBorder : "#e2e8f0"
+              }`,
+              fontSize: "0.7rem",
+            }}
+          >
+            {selectedIds.length} selected
+          </span>
+        </label>
+
+        {selectedIds.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-link btn-sm text-decoration-none p-0 text-muted small"
+            onClick={handleClearAll}
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+
+      {/* Interactive Multi-Select Combobox Surface */}
+      <div className="position-relative">
+        <div
+          onClick={() => {
+            setIsOpen(true);
+            inputRef.current?.focus();
+          }}
+          className="d-flex flex-wrap align-items-center justify-content-between gap-1.5 rounded-3 bg-white px-2.5 py-2"
+          style={{
+            minHeight: 44,
+            cursor: "text",
+            border: `1px solid ${isOpen ? activeBorder : "#cbd5e1"}`,
+            boxShadow: isOpen ? activeRing : "0 1px 2px rgba(15, 23, 42, 0.03)",
+            transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+          }}
+        >
+          <div className="d-flex flex-wrap align-items-center gap-1.5 flex-grow-1">
+            {selectedIds.map((selId) => {
+              const item = optionMap.get(selId);
+              if (!item) return null;
+              return (
+                <span
+                  key={selId}
+                  className="d-inline-flex align-items-center gap-1 rounded-2 px-2 py-1 small fw-semibold"
+                  style={{
+                    backgroundColor: chipBg,
+                    color: chipText,
+                    border: `1px solid ${chipBorder}`,
+                    fontSize: "0.76rem",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {item.prefix && (
+                    <span style={{ opacity: 0.7 }}>{item.prefix}</span>
+                  )}
+                  <span>{item.label}</span>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${item.label}`}
+                    onClick={(e) => removeOption(e, selId)}
+                    className="btn p-0 border-0 d-inline-flex align-items-center justify-content-center ms-0.5"
+                    style={{
+                      color: chipText,
+                      width: 15,
+                      height: 15,
+                      borderRadius: "50%",
+                      lineHeight: 1,
+                    }}
+                  >
+                    <i className="bi bi-x" style={{ fontSize: "0.85rem" }} />
+                  </button>
+                </span>
+              );
+            })}
+
+            <input
+              ref={inputRef}
+              id={id}
+              type="text"
+              value={query}
+              onFocus={() => setIsOpen(true)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (!isOpen) setIsOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Backspace" &&
+                  query === "" &&
+                  selectedIds.length > 0
+                ) {
+                  onChange(selectedIds.slice(0, -1));
+                } else if (e.key === "Escape") {
+                  setIsOpen(false);
+                }
+              }}
+              placeholder={selectedIds.length === 0 ? placeholder : "Search..."}
+              className="border-0 bg-transparent small text-dark flex-grow-1"
+              style={{
+                outline: "none",
+                minWidth: 120,
+                padding: "2px 4px",
+              }}
+            />
+          </div>
+
+          <div className="d-flex align-items-center gap-1 pe-1">
+            {query && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setQuery("");
+                  inputRef.current?.focus();
+                }}
+                className="btn btn-sm p-0 border-0 text-muted d-inline-flex align-items-center justify-content-center"
+                style={{ width: 20, height: 20 }}
+              >
+                <i className="bi bi-x-circle-fill small" />
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="Toggle options dropdown"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen((prev) => !prev);
+              }}
+              className="btn btn-sm p-0 border-0 text-secondary d-inline-flex align-items-center justify-content-center"
+              style={{ width: 22, height: 22 }}
+            >
+              <i
+                className={`bi ${
+                  isOpen ? "bi-chevron-up" : "bi-chevron-down"
+                } small`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Floating Multi-Select Dropdown Menu */}
+        {isOpen && (
+          <div
+            className="position-absolute start-0 end-0 mt-1 bg-white rounded-3 border overflow-hidden"
+            style={{
+              zIndex: 1050,
+              boxShadow:
+                "0 12px 28px -6px rgba(15, 23, 42, 0.14), 0 4px 10px -2px rgba(15, 23, 42, 0.06)",
+              borderColor: "#cbd5e1",
+            }}
+          >
+            {/* Quick Action Header */}
+            <div
+              className="d-flex align-items-center justify-content-between px-3 py-1.5 border-bottom small"
+              style={{ backgroundColor: "#f8fafc", fontSize: "0.74rem" }}
+            >
+              <span className="text-muted fw-medium">
+                Showing {filteredOptions.length} of {options.length}
+              </span>
+              <div className="d-flex align-items-center gap-2">
+                {filteredOptions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAllFiltered}
+                    className="btn btn-link btn-sm p-0 text-decoration-none fw-semibold"
+                    style={{ fontSize: "0.74rem", color: activeBorder }}
+                  >
+                    Select all
+                  </button>
+                )}
+                {selectedIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    className="btn btn-link btn-sm p-0 text-decoration-none text-muted"
+                    style={{ fontSize: "0.74rem" }}
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Option List */}
+            <div style={{ maxHeight: 220, overflowY: "auto" }} className="p-1.5">
+              {filteredOptions.length === 0 ? (
+                <div className="text-center py-3 text-muted small">
+                  {emptyMessage}
+                </div>
+              ) : (
+                filteredOptions.map((opt) => {
+                  const isSelected = selectedIds.includes(opt.id);
+                  return (
+                    <div
+                      key={opt.id}
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => toggleOption(opt.id)}
+                      className="d-flex align-items-center justify-content-between px-2.5 py-1.5 rounded-2 mb-0.5"
+                      style={{
+                        cursor: "pointer",
+                        backgroundColor: isSelected ? chipBg : "transparent",
+                        color: isSelected ? chipText : "#1e293b",
+                        transition: "background-color 0.12s ease",
+                      }}
+                    >
+                      <div className="d-flex align-items-center gap-2 text-truncate">
+                        <span
+                          className="d-inline-flex align-items-center justify-content-center rounded-1 border"
+                          style={{
+                            width: 16,
+                            height: 16,
+                            backgroundColor: isSelected
+                              ? activeBorder
+                              : "#ffffff",
+                            borderColor: isSelected ? activeBorder : "#94a3b8",
+                            color: "#ffffff",
+                            fontSize: "0.7rem",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {isSelected && <i className="bi bi-check-lg" />}
+                        </span>
+                        <span className="small fw-medium text-truncate">
+                          {opt.prefix ? `${opt.prefix}${opt.label}` : opt.label}
+                        </span>
+                      </div>
+
+                      {isSelected && (
+                        <span
+                          className="badge rounded-pill"
+                          style={{
+                            backgroundColor: "#ffffff",
+                            color: chipText,
+                            border: `1px solid ${chipBorder}`,
+                            fontSize: "0.66rem",
+                          }}
+                        >
+                          Selected
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface CollectionFormProps {
   initialData?: CollectionItem | null;
@@ -31,6 +394,12 @@ export function CollectionForm({
   const [bannerUrl, setBannerUrl] = useState(initialData?.bannerUrl || "");
   const [badgeText, setBadgeText] = useState(initialData?.badgeText || "");
   const [isActive, setIsActive] = useState(initialData?.isActive ?? true);
+  const [showOnHomePage, setShowOnHomePage] = useState(
+    initialData?.showOnHomePage ?? false
+  );
+  const [designTemplate, setDesignTemplate] = useState<CollectionDesignTemplate>(
+    initialData?.designTemplate || "default"
+  );
   const [sortOrder, setSortOrder] = useState<number>(initialData?.sortOrder ?? 0);
 
   // Campaign / Timer
@@ -104,6 +473,8 @@ export function CollectionForm({
       setBannerUrl(initialData.bannerUrl || "");
       setBadgeText(initialData.badgeText || "");
       setIsActive(initialData.isActive ?? true);
+      setShowOnHomePage(initialData.showOnHomePage ?? false);
+      setDesignTemplate(initialData.designTemplate || "default");
       setSortOrder(initialData.sortOrder ?? 0);
       setStartDate(
         initialData.startDate ? initialData.startDate.substring(0, 16) : ""
@@ -132,23 +503,30 @@ export function CollectionForm({
     }
   };
 
-  const toggleCategory = (catId: string) => {
-    setSelectedCategoryIds((prev) =>
-      prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
-    );
-  };
-
-  const toggleTag = (tagId: string) => {
-    setSelectedTagIds((prev) =>
-      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
-    );
-  };
-
   const toggleProduct = (prodId: string) => {
     setSelectedProductIds((prev) =>
       prev.includes(prodId) ? prev.filter((id) => id !== prodId) : [...prev, prodId]
     );
   };
+
+  const categoryOptions: MultiSelectOption[] = useMemo(
+    () =>
+      categories.map((cat) => ({
+        id: cat.id,
+        label: cat.name,
+      })),
+    [categories]
+  );
+
+  const tagOptions: MultiSelectOption[] = useMemo(
+    () =>
+      tags.map((tg) => ({
+        id: tg.id,
+        label: tg.name,
+        prefix: "#",
+      })),
+    [tags]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,6 +545,8 @@ export function CollectionForm({
       bannerUrl: bannerUrl.trim() || undefined,
       badgeText: badgeText.trim() || undefined,
       isActive,
+      showOnHomePage,
+      designTemplate,
       sortOrder: Number(sortOrder) || 0,
       startDate: startDate ? new Date(startDate).toISOString() : null,
       endDate: endDate ? new Date(endDate).toISOString() : null,
@@ -273,7 +653,7 @@ export function CollectionForm({
       )}
 
       <div className="row g-4">
-        {/* Main Left Column (7 cols) */}
+        {/* Main Left Column (8 cols) */}
         <div className="col-lg-8">
           {/* 1. General Info Card */}
           <div className="card border-0 shadow-sm rounded-4 mb-4">
@@ -314,14 +694,19 @@ export function CollectionForm({
                 </div>
 
                 <div className="col-12">
-                  <label className="form-label fw-semibold small">Description</label>
+                  <label className="form-label fw-semibold small">
+                    Description / Home Page Subtitle
+                  </label>
                   <textarea
                     className="form-control rounded-3"
                     rows={3}
-                    placeholder="Provide a compelling description for this collection or campaign..."
+                    placeholder="Provide a compelling subtitle/description for this collection..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                   />
+                  <div className="form-text small text-muted">
+                    When &ldquo;Show on Home Page&rdquo; is enabled, this description appears directly beneath the collection title on the home page.
+                  </div>
                 </div>
 
                 <div className="col-12">
@@ -356,94 +741,42 @@ export function CollectionForm({
             </div>
             <div className="card-body p-4">
               <p className="text-muted small mb-4">
-                Products matching any selected Categories, Tags, or Pinned Products will be displayed on this collection page.
+                Products matching any selected Categories, Tags, or Pinned Products will be displayed on this collection page and in its home page section.
               </p>
 
-              {/* Categories */}
-              <div className="mb-4">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <label className="form-label small fw-semibold text-dark mb-0">
-                    1. Match Categories ({selectedCategoryIds.length} selected)
-                  </label>
-                  {selectedCategoryIds.length > 0 && (
-                    <button
-                      type="button"
-                      className="btn btn-link btn-sm text-decoration-none p-0 text-muted"
-                      onClick={() => setSelectedCategoryIds([])}
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </div>
-                <div className="d-flex flex-wrap gap-1.5 border rounded-3 p-3 bg-light/50" style={{ maxHeight: 150, overflowY: "auto" }}>
-                  {categories.length === 0 ? (
-                    <span className="text-muted small">Loading categories...</span>
-                  ) : (
-                    categories.map((cat) => {
-                      const isSelected = selectedCategoryIds.includes(cat.id);
-                      return (
-                        <button
-                          type="button"
-                          key={cat.id}
-                          onClick={() => toggleCategory(cat.id)}
-                          className={`btn btn-sm rounded-pill py-1 px-3 text-xs transition-colors ${
-                            isSelected
-                              ? "btn-primary text-white shadow-xs"
-                              : "btn-outline-secondary bg-white text-dark"
-                          }`}
-                        >
-                          {isSelected && <i className="bi bi-check me-1" />}
-                          {cat.name}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
+              {/* 1. Multi-Select Categories */}
+              <MultiSelectField
+                id="match-categories-select"
+                label="1. Match Categories"
+                placeholder="Select one or more categories..."
+                options={categoryOptions}
+                selectedIds={selectedCategoryIds}
+                onChange={setSelectedCategoryIds}
+                accentVariant="blue"
+                emptyMessage={
+                  categories.length === 0
+                    ? "Loading categories..."
+                    : "No categories match your search"
+                }
+              />
 
-              {/* Tags */}
-              <div className="mb-4">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <label className="form-label small fw-semibold text-dark mb-0">
-                    2. Match Tags ({selectedTagIds.length} selected)
-                  </label>
-                  {selectedTagIds.length > 0 && (
-                    <button
-                      type="button"
-                      className="btn btn-link btn-sm text-decoration-none p-0 text-muted"
-                      onClick={() => setSelectedTagIds([])}
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </div>
-                <div className="d-flex flex-wrap gap-1.5 border rounded-3 p-3 bg-light/50" style={{ maxHeight: 130, overflowY: "auto" }}>
-                  {tags.length === 0 ? (
-                    <span className="text-muted small">No tags available</span>
-                  ) : (
-                    tags.map((tg) => {
-                      const isSelected = selectedTagIds.includes(tg.id);
-                      return (
-                        <button
-                          type="button"
-                          key={tg.id}
-                          onClick={() => toggleTag(tg.id)}
-                          className={`btn btn-sm rounded-pill py-1 px-3 text-xs transition-colors ${
-                            isSelected
-                              ? "btn-info text-white shadow-xs"
-                              : "btn-outline-secondary bg-white text-dark"
-                          }`}
-                        >
-                          {isSelected && <i className="bi bi-check me-1" />}
-                          #{tg.name}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
+              {/* 2. Multi-Select Tags */}
+              <MultiSelectField
+                id="match-tags-select"
+                label="2. Match Tags"
+                placeholder="Select one or more tags..."
+                options={tagOptions}
+                selectedIds={selectedTagIds}
+                onChange={setSelectedTagIds}
+                accentVariant="teal"
+                emptyMessage={
+                  tags.length === 0
+                    ? "No tags available"
+                    : "No tags match your search"
+                }
+              />
 
-              {/* Pinned Products */}
+              {/* 3. Pinned Products */}
               <div>
                 <div className="d-flex align-items-center justify-content-between mb-2">
                   <label className="form-label small fw-semibold text-dark mb-0">
@@ -546,7 +879,45 @@ export function CollectionForm({
                 </label>
               </div>
 
-              <div className="mb-3">
+              <div className="form-check form-switch mb-3 pt-3 border-top">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="collectionShowOnHomeSwitch"
+                  checked={showOnHomePage}
+                  onChange={(e) => setShowOnHomePage(e.target.checked)}
+                />
+                <label className="form-check-label fw-semibold small d-flex align-items-center gap-1.5" htmlFor="collectionShowOnHomeSwitch">
+                  <i className="bi bi-house-heart-fill text-primary" />
+                  <span>Show on Home Page</span>
+                </label>
+                <div className="text-muted small mt-1">
+                  Displays this collection&apos;s products on the storefront home page using the selected design template.
+                </div>
+              </div>
+
+              <div className="mb-3 pt-2 border-top">
+                <label className="form-label fw-semibold small d-flex align-items-center gap-1.5" htmlFor="collectionDesignTemplateSelect">
+                  <i className="bi bi-layout-wtf text-primary" />
+                  <span>Home Page Design Template</span>
+                </label>
+                <select
+                  id="collectionDesignTemplateSelect"
+                  className="form-select rounded-3"
+                  value={designTemplate}
+                  onChange={(e) => setDesignTemplate(e.target.value as CollectionDesignTemplate)}
+                >
+                  <option value="default">Default (5-Product Slider)</option>
+                  <option value="collection-1">Collection-1 (Spotlight + Brand Filter Grid)</option>
+                  <option value="collection-2">Collection-2 (Category Tabs + 5-Column Grid)</option>
+                </select>
+                <span className="text-muted small d-block mt-1">
+                  Select how this collection is styled on the home page when &ldquo;Show on Home Page&rdquo; is enabled.
+                </span>
+              </div>
+
+              <div className="mb-3 pt-2 border-top">
                 <label className="form-label fw-semibold small">Display Sort Priority</label>
                 <input
                   type="number"
@@ -554,7 +925,7 @@ export function CollectionForm({
                   value={sortOrder}
                   onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
                 />
-                <span className="text-muted small">Lower numbers appear first.</span>
+                <span className="text-muted small">Lower numbers appear first on the home page and menus.</span>
               </div>
             </div>
           </div>
@@ -569,7 +940,7 @@ export function CollectionForm({
             </div>
             <div className="card-body p-4">
               <p className="text-muted small mb-3">
-                If an End Date is set, a real-time ticking countdown timer will automatically appear on the storefront.
+                If an End Date is set, a real-time ticking countdown timer will automatically appear on the collection storefront page.
               </p>
 
               <div className="mb-3">

@@ -77,11 +77,20 @@ export interface PromoBanner {
 }
 
 export function formatBDT(amount: number): string {
-  const formatted = new Intl.NumberFormat("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-  return `৳${formatted}`;
+
+
+
+
+  const rounded = Math.round(Number(amount) || 0);
+  const isNegative = rounded < 0;
+  const digits = Math.abs(rounded).toString();
+  if (digits.length <= 3) {
+    return `${isNegative ? "-" : ""}৳${digits}`;
+  }
+  const lastThree = digits.slice(-3);
+  const otherNumbers = digits.slice(0, -3);
+  const formattedOther = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+  return `${isNegative ? "-" : ""}৳${formattedOther},${lastThree}`;
 }
 
 export const HERO_SLIDES: HeroSlide[] = [

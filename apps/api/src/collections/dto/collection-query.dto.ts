@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class CollectionQueryDto {
@@ -9,10 +9,16 @@ export class CollectionQueryDto {
   search?: string;
 
   @ApiPropertyOptional({ example: true, description: 'Filter by active status' })
-  @Type(() => Boolean)
+  @Transform(({ value }) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined))
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Filter by home page visibility' })
+  @Transform(({ value }) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined))
+  @IsBoolean()
+  @IsOptional()
+  showOnHomePage?: boolean;
 
   @ApiPropertyOptional({ example: 1, default: 1 })
   @Type(() => Number)
@@ -29,4 +35,3 @@ export class CollectionQueryDto {
   @IsOptional()
   limit?: number = 20;
 }
-
