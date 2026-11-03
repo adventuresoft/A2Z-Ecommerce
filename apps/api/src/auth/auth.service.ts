@@ -208,7 +208,7 @@ export class AuthService {
     }
 
     const passwordHash = await this.passwordService.hash(dto.password);
-    const fullName = `${dto.firstName.trim()} ${dto.lastName.trim()}`.trim();
+    const fullName = dto.name.trim();
 
     const user = await this.usersService.create({
       phone,

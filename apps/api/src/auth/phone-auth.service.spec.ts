@@ -133,8 +133,7 @@ describe('PhoneAuth in AuthService', () => {
 
       const res = await authService.phoneRegister({
         signupToken: 'signup-token-456',
-        firstName: 'John',
-        lastName: 'Doe',
+        name: 'John Doe',
         password: 'Password123!',
       });
 

@@ -52,15 +52,10 @@ export class PhoneRegisterDto {
   @IsString()
   signupToken!: string;
 
-  @ApiProperty({ example: 'Rahim' })
+  @ApiProperty({ example: 'Rahim Ahmed' })
   @IsNotEmpty()
   @IsString()
-  firstName!: string;
-
-  @ApiProperty({ example: 'Ahmed' })
-  @IsNotEmpty()
-  @IsString()
-  lastName!: string;
+  name!: string;
 
   @ApiPropertyOptional({ example: 'rahim@example.com' })
   @IsOptional()

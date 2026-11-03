@@ -53,8 +53,7 @@ export interface AuthContextType {
   ) => Promise<{ success: boolean; verified: boolean; token: string; phone: string }>;
   phoneRegister: (data: {
     signupToken: string;
-    firstName: string;
-    lastName: string;
+    name: string;
     email?: string;
     password: string;
   }) => Promise<CustomerUser>;
@@ -229,8 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const phoneRegister = useCallback(
     async (data: {
       signupToken: string;
-      firstName: string;
-      lastName: string;
+      name: string;
       email?: string;
       password: string;
     }): Promise<CustomerUser> => {

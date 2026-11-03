@@ -61,8 +61,7 @@ export function UnifiedAuthCard({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -273,8 +272,8 @@ export function UnifiedAuthCard({
       return;
     }
 
-    if (!firstName.trim() || !lastName.trim()) {
-      setError('Please enter both your first and last name.');
+    if (!name.trim()) {
+      setError('Please enter your name.');
       return;
     }
 
@@ -297,8 +296,7 @@ export function UnifiedAuthCard({
       setLoading(true);
       await phoneRegister({
         signupToken,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        name: name.trim(),
         email: email.trim() || undefined,
         password,
       });
@@ -562,12 +560,12 @@ export function UnifiedAuthCard({
                 </button>
               </div>
 
-              {/* Social Buttons */}
-              <div className="grid grid-cols-2 gap-2.5">
+              {/* Social Button */}
+              <div>
                 <button
                   type="button"
                   onClick={() => handleSocialPlaceholder('Google')}
-                  className="h-10 flex items-center justify-center gap-2 px-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40"
+                  className="w-full h-10 flex items-center justify-center gap-2 px-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40"
                 >
                   <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                     <path
@@ -588,17 +586,6 @@ export function UnifiedAuthCard({
                     />
                   </svg>
                   <span>Google</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSocialPlaceholder('Facebook')}
-                  className="h-10 flex items-center justify-center gap-2 px-3 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-xl text-xs font-bold transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2] focus-visible:ring-offset-2"
-                >
-                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
-                  <span>Facebook</span>
                 </button>
               </div>
             </div>
@@ -711,49 +698,27 @@ export function UnifiedAuthCard({
               </button>
 
               <form onSubmit={handleRegisterSubmit} className="space-y-2.5">
-                {/* First Name & Last Name */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label
-                      htmlFor="signup-first-name"
-                      className="block text-xs font-bold text-slate-800 mb-1"
-                    >
-                      First Name
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <UserIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                      </div>
-                      <input
-                        id="signup-first-name"
-                        name="given-name"
-                        type="text"
-                        autoComplete="given-name"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="First name…"
-                        className="w-full h-9.5 pl-8 pr-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-xs font-medium focus:outline-none focus:border-[#FF5A00] focus:ring-2 focus:ring-orange-500/15 transition-colors"
-                        required
-                      />
+                {/* Name */}
+                <div>
+                  <label
+                    htmlFor="signup-name"
+                    className="block text-xs font-bold text-slate-800 mb-1"
+                  >
+                    Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <UserIcon className="w-3.5 h-3.5" aria-hidden="true" />
                     </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="signup-last-name"
-                      className="block text-xs font-bold text-slate-800 mb-1"
-                    >
-                      Last Name
-                    </label>
                     <input
-                      id="signup-last-name"
-                      name="family-name"
+                      id="signup-name"
+                      name="name"
                       type="text"
-                      autoComplete="family-name"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Last name…"
-                      className="w-full h-9.5 px-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-xs font-medium focus:outline-none focus:border-[#FF5A00] focus:ring-2 focus:ring-orange-500/15 transition-colors"
+                      autoComplete="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Enter your name…"
+                      className="w-full h-9.5 pl-9 pr-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-xs font-medium focus:outline-none focus:border-[#FF5A00] focus:ring-2 focus:ring-orange-500/15 transition-colors"
                       required
                     />
                   </div>
@@ -994,12 +959,12 @@ export function UnifiedAuthCard({
                 </button>
               </div>
 
-              {/* Social Buttons */}
-              <div className="grid grid-cols-2 gap-2.5">
+              {/* Social Button */}
+              <div>
                 <button
                   type="button"
                   onClick={() => handleSocialPlaceholder('Google')}
-                  className="h-10 flex items-center justify-center gap-2 px-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40"
+                  className="w-full h-10 flex items-center justify-center gap-2 px-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40"
                 >
                   <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                     <path
@@ -1020,17 +985,6 @@ export function UnifiedAuthCard({
                     />
                   </svg>
                   <span>Google</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSocialPlaceholder('Facebook')}
-                  className="h-10 flex items-center justify-center gap-2 px-3 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-xl text-xs font-bold transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2] focus-visible:ring-offset-2"
-                >
-                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
-                  <span>Facebook</span>
                 </button>
               </div>
             </div>
