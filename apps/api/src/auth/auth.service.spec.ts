@@ -8,10 +8,13 @@ describe('AuthService', () => {
   let usersServiceMock: any;
   let passwordServiceMock: any;
   let tokenServiceMock: any;
+  let mobireachSmsMock: any;
+  let prismaMock: any;
 
   beforeEach(() => {
     usersServiceMock = {
       findByEmail: vi.fn(),
+      findByPhone: vi.fn().mockResolvedValue(null),
       findById: vi.fn(),
       create: vi.fn(),
       incrementTokenVersion: vi.fn(),
@@ -23,11 +26,31 @@ describe('AuthService', () => {
     tokenServiceMock = {
       generateTokens: vi.fn(),
       verifyRefreshToken: vi.fn(),
+      generateVerificationToken: vi.fn().mockResolvedValue('mock-verification-token'),
+      verifyVerificationToken: vi.fn(),
+    };
+    mobireachSmsMock = {
+      formatLocalPhoneNumber: vi.fn((p) => p),
+      normalizePhoneNumber: vi.fn((p) => p),
+      sendSms: vi.fn().mockResolvedValue({ success: true, isMock: true }),
+    };
+    prismaMock = {
+      otpCode: {
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
+      },
+      user: {
+        update: vi.fn(),
+      },
     };
     authService = new AuthService(
       usersServiceMock,
       passwordServiceMock,
       tokenServiceMock,
+      mobireachSmsMock,
+      prismaMock,
     );
   });
 

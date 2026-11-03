@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useSafeReducedMotion } from "../../lib/useSafeReducedMotion";
 import { ProductCard } from "../UI/ProductCard";
 import { FEATURED_PRODUCTS, Product } from "../../data/mock-catalog";
 import { mapSummaryToProduct } from "../../lib/curated";
@@ -26,7 +27,7 @@ export function FeaturedSection({
   wishlistIds = new Set(),
   products,
 }: FeaturedSectionProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
   const [activeTab, setActiveTab] = useState<"all" | "laptops" | "gadgets" | "lifestyle">("all");
 
   if (products !== undefined && products.length === 0) {
@@ -36,25 +37,25 @@ export function FeaturedSection({
   const allProducts: Product[] =
     products !== undefined
       ? products.map((p) =>
-          typeof p.category === "string" && !p.primaryImage
-            ? (p as Product)
-            : mapSummaryToProduct(p)
-        )
+        typeof p.category === "string" && !p.primaryImage
+          ? (p as Product)
+          : mapSummaryToProduct(p)
+      )
       : FEATURED_PRODUCTS;
 
   const filtered =
     activeTab === "all"
       ? allProducts
       : allProducts.filter((p: Product & { tab?: string }) => {
-          if (p.tab === activeTab) return true;
-          const cat = (p.category || "").toLowerCase();
-          if (activeTab === "laptops") return cat.includes("laptop") || cat.includes("computer");
-          if (activeTab === "gadgets")
-            return cat.includes("gadget") || cat.includes("audio") || cat.includes("phone");
-          if (activeTab === "lifestyle")
-            return cat.includes("life") || cat.includes("wearable") || cat.includes("watch");
-          return false;
-        });
+        if (p.tab === activeTab) return true;
+        const cat = (p.category || "").toLowerCase();
+        if (activeTab === "laptops") return cat.includes("laptop") || cat.includes("computer");
+        if (activeTab === "gadgets")
+          return cat.includes("gadget") || cat.includes("audio") || cat.includes("phone");
+        if (activeTab === "lifestyle")
+          return cat.includes("life") || cat.includes("wearable") || cat.includes("watch");
+        return false;
+      });
 
   const filteredProducts = filtered.length > 0 ? filtered : allProducts;
 
@@ -92,11 +93,10 @@ export function FeaturedSection({
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative px-4 py-2 rounded-xl text-xs font-extrabold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                    isActive
+                  className={`relative px-4 py-2 rounded-xl text-xs font-extrabold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isActive
                       ? "text-white"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
-                  }`}
+                    }`}
                 >
                   {isActive && (
                     <motion.div

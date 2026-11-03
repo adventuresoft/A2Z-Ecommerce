@@ -17,10 +17,10 @@ import {
 } from './dto/index.js';
 
 export interface CreateUserData {
-  email: string;
+  email?: string | null;
   passwordHash: string;
   name: string;
-  phone?: string;
+  phone?: string | null;
   role?: Role;
 }
 
@@ -38,8 +38,30 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
+    if (!email) return null;
     return this.prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
+      include: {
+        roleDefinition: true,
+      },
+    });
+  }
+
+  async findByPhone(phone: string): Promise<User | null> {
+    if (!phone) return null;
+    const cleaned = phone.replace(/[^\d]/g, '');
+    const local = cleaned.startsWith('880')
+      ? cleaned.slice(2)
+      : cleaned.startsWith('01')
+      ? cleaned
+      : cleaned.startsWith('1')
+      ? `0${cleaned}`
+      : cleaned;
+
+    return this.prisma.user.findFirst({
+      where: {
+        OR: [{ phone: local }, { phone: `88${local}` }, { phone }],
+      },
       include: {
         roleDefinition: true,
       },
@@ -49,10 +71,10 @@ export class UsersService {
   async create(data: CreateUserData): Promise<User> {
     return this.prisma.user.create({
       data: {
-        email: data.email.toLowerCase().trim(),
+        email: data.email ? data.email.toLowerCase().trim() : null,
         passwordHash: data.passwordHash,
         name: data.name,
-        phone: data.phone,
+        phone: data.phone?.trim() || null,
         role: data.role ?? 'CUSTOMER',
       },
     });

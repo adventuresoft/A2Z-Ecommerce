@@ -48,8 +48,8 @@ export class CustomerItemDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty()
-  email: string;
+  @ApiPropertyOptional()
+  email?: string | null;
 
   @ApiPropertyOptional()
   phone?: string | null;
@@ -193,8 +193,8 @@ export class CustomerDetailResponseDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty()
-  email: string;
+  @ApiPropertyOptional()
+  email?: string | null;
 
   @ApiPropertyOptional()
   phone?: string | null;

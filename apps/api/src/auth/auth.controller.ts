@@ -18,7 +18,17 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
-import { RegisterDto, LoginDto, RefreshTokenDto } from './dto/index.js';
+import {
+  RegisterDto,
+  LoginDto,
+  RefreshTokenDto,
+  CheckPhoneDto,
+  SendOtpDto,
+  VerifyOtpDto,
+  PhoneRegisterDto,
+  PhoneLoginDto,
+  PhoneResetPasswordDto,
+} from './dto/index.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import type { AccessPayload } from './interfaces/token-payload.interface.js';
@@ -37,6 +47,90 @@ export const getRefreshCookieOptions = () => ({
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  // ==================== PHONE AUTHENTICATION ====================
+
+  @Post('phone/check')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check if a mobile number is already registered' })
+  @ApiResponse({ status: 200, description: 'Check status result' })
+  async checkPhone(@Body() dto: CheckPhoneDto) {
+    return this.authService.checkPhone(dto);
+  }
+
+  @Post('phone/send-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send 4-digit verification OTP code via MobiReach SMS' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  async sendOtp(@Body() dto: SendOtpDto) {
+    return this.authService.sendOtp(dto);
+  }
+
+  @Post('phone/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify 4-digit OTP and obtain a secure verification token' })
+  @ApiResponse({ status: 200, description: 'OTP verified successfully' })
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyOtp(dto);
+  }
+
+  @Post('phone/register')
+  @ApiOperation({ summary: 'Complete registration with verified phone token' })
+  @ApiResponse({ status: 201, description: 'Account registered and logged in' })
+  async phoneRegister(
+    @Body() dto: PhoneRegisterDto,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const result = await this.authService.phoneRegister(dto);
+    if (result && 'refreshToken' in result && typeof result.refreshToken === 'string' && res) {
+      res.cookie(
+        REFRESH_COOKIE_NAME,
+        result.refreshToken,
+        getRefreshCookieOptions(),
+      );
+    }
+    return result;
+  }
+
+  @Post('phone/login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login with mobile number and password' })
+  @ApiResponse({ status: 200, description: 'Logged in successfully' })
+  async phoneLogin(
+    @Body() dto: PhoneLoginDto,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const result = await this.authService.phoneLogin(dto);
+    if (result && 'refreshToken' in result && typeof result.refreshToken === 'string' && res) {
+      res.cookie(
+        REFRESH_COOKIE_NAME,
+        result.refreshToken,
+        getRefreshCookieOptions(),
+      );
+    }
+    return result;
+  }
+
+  @Post('phone/reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password with verified reset token' })
+  @ApiResponse({ status: 200, description: 'Password reset and logged in successfully' })
+  async phoneResetPassword(
+    @Body() dto: PhoneResetPasswordDto,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const result = await this.authService.phoneResetPassword(dto);
+    if (result && 'refreshToken' in result && typeof result.refreshToken === 'string' && res) {
+      res.cookie(
+        REFRESH_COOKIE_NAME,
+        result.refreshToken,
+        getRefreshCookieOptions(),
+      );
+    }
+    return result;
+  }
+
+  // ==================== EMAIL AUTHENTICATION ====================
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new customer account' })

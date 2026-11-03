@@ -18,7 +18,7 @@ enum Role {
 
 model User {
   id              String    @id @default(uuid())
-  email           String    @unique
+  email           String?   @unique
   passwordHash    String
   name            String
   phone           String?
@@ -48,6 +48,7 @@ model User {
   couponUsages    CouponUsage[]
   wishlistItems   WishlistItem[]
 
+  @@index([phone])
   @@map("User")
 }
 
@@ -889,4 +890,18 @@ model CollectionProduct {
   @@index([productId])
   @@index([collectionId])
   @@map("CollectionProduct")
+}
+
+model OtpCode {
+  id         String   @id @default(uuid())
+  phone      String   @db.VarChar(30)
+  codeHash   String   @db.VarChar(255)
+  purpose    String   @default("SIGNUP") @db.VarChar(50)
+  expiresAt  DateTime
+  isUsed     Boolean  @default(false)
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([phone])
+  @@map("OtpCode")
 }

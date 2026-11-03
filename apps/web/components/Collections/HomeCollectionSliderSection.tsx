@@ -18,7 +18,8 @@ import {
   Eye,
   Sparkles,
 } from "lucide-react";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { useSafeReducedMotion } from "../../lib/useSafeReducedMotion";
 
 import "swiper/css";
 import "swiper/css/navigation";
@@ -89,11 +90,10 @@ function CollectionDefaultSlider({
                 onClick={() => swiperInstance?.slidePrev()}
                 disabled={isBeginning}
                 aria-label={`Previous products in ${collection.name}`}
-                className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                  isBeginning
+                className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isBeginning
                     ? "opacity-35 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200"
                     : "bg-white text-slate-700 border-slate-200/90 hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-sm hover:shadow active:scale-95 cursor-pointer"
-                }`}
+                  }`}
               >
                 <ChevronLeft className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -103,11 +103,10 @@ function CollectionDefaultSlider({
                 onClick={() => swiperInstance?.slideNext()}
                 disabled={isEnd}
                 aria-label={`Next products in ${collection.name}`}
-                className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                  isEnd
+                className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isEnd
                     ? "opacity-35 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200"
                     : "bg-white text-slate-700 border-slate-200/90 hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-sm hover:shadow active:scale-95 cursor-pointer"
-                }`}
+                  }`}
               >
                 <ChevronRight className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -190,7 +189,7 @@ function CollectionTemplateOne({
   onToggleWishlist,
   wishlistIds,
 }: CollectionSectionItemProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [isHeroAdded, setIsHeroAdded] = useState(false);
 
@@ -306,11 +305,10 @@ function CollectionTemplateOne({
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setSelectedBrand(tab.id)}
-                  className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
-                    isActive
+                  className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${isActive
                       ? "text-white shadow-md shadow-blue-700/20"
                       : "bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/80"
-                  }`}
+                    }`}
                 >
                   {isActive && (
                     <motion.div
@@ -428,11 +426,10 @@ function CollectionTemplateOne({
                   type="button"
                   onClick={handleHeroAddToCart}
                   disabled={heroProduct.inStock === false}
-                  className={`w-full font-black text-xs py-3.5 px-5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-[background-color,transform,box-shadow] cursor-pointer disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                    isHeroAdded
+                  className={`w-full font-black text-xs py-3.5 px-5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-[background-color,transform,box-shadow] cursor-pointer disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${isHeroAdded
                       ? "bg-emerald-600 text-white ring-2 ring-emerald-400"
                       : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 hover:-translate-y-0.5"
-                  }`}
+                    }`}
                   aria-label={
                     isHeroAdded
                       ? `Added ${heroProduct.title} to cart`
@@ -512,7 +509,7 @@ function CollectionTemplateTwo({
   onToggleWishlist,
   wishlistIds,
 }: CollectionSectionItemProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
   const [activeCategory, setActiveCategory] = useState<string>("all");
 
   const categoryTabs = useMemo(() => {
@@ -578,11 +575,10 @@ function CollectionTemplateTwo({
                       role="tab"
                       aria-selected={isActive}
                       onClick={() => setActiveCategory(tab.id)}
-                      className={`relative px-4 py-2 rounded-xl text-xs font-extrabold transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                        isActive
+                      className={`relative px-4 py-2 rounded-xl text-xs font-extrabold transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isActive
                           ? "text-white"
                           : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
-                      }`}
+                        }`}
                     >
                       {isActive && (
                         <motion.div

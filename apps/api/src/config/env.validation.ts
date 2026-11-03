@@ -40,6 +40,22 @@ export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN: string = '7d';
+
+  @IsString()
+  @IsOptional()
+  MOBIREACH_BASE_URL: string = 'https://api.mobireach.com.bd';
+
+  @IsString()
+  @IsOptional()
+  MOBIREACH_USERNAME: string = 'advsoft';
+
+  @IsString()
+  @IsOptional()
+  MOBIREACH_PASSWORD: string = 'Dhaka@0088';
+
+  @IsString()
+  @IsOptional()
+  MOBIREACH_SENDER_ID: string = '01805976387';
 }
 
 export function validate(config: Record<string, unknown>): EnvironmentVariables {

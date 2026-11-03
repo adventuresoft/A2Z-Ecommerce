@@ -3378,7 +3378,7 @@ export class ReportsService {
       computed.push({
         id: u.id,
         name: u.name,
-        email: u.email,
+        email: u.email ?? '',
         phone: u.phone,
         isActive: u.isActive,
         createdAt: u.createdAt.toISOString(),
@@ -3501,7 +3501,7 @@ export class ReportsService {
       records.push({
         id: u.id,
         name: u.name,
-        email: u.email,
+        email: u.email ?? '',
         phone: u.phone,
         isActive: u.isActive,
         createdAt: u.createdAt.toISOString(),

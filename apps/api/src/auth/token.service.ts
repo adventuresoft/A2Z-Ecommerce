@@ -5,6 +5,7 @@ import type { Role } from '@prisma/client';
 import type {
   AccessPayload,
   RefreshPayload,
+  VerificationTokenPayload,
   TokenPair,
 } from './interfaces/token-payload.interface.js';
 
@@ -17,13 +18,15 @@ export class TokenService {
 
   async generateTokens(user: {
     id: string;
-    email: string;
+    email?: string | null;
+    phone?: string | null;
     role: Role;
     tokenVersion: number;
   }): Promise<TokenPair> {
     const accessPayload: AccessPayload = {
       sub: user.id,
-      email: user.email,
+      email: user.email ?? null,
+      phone: user.phone ?? null,
       role: user.role,
     };
 
@@ -90,6 +93,43 @@ export class TokenService {
       });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
+  async generateVerificationToken(
+    phone: string,
+    purpose: 'SIGNUP' | 'RESET_PASSWORD' = 'SIGNUP',
+  ): Promise<string> {
+    const payload: VerificationTokenPayload = { phone, purpose };
+    const secret = this.configService.get<string>(
+      'JWT_SECRET',
+      'dev-insecure-access-secret-change-in-production',
+    );
+    return this.jwtService.signAsync(payload, {
+      secret,
+      expiresIn: '15m',
+    });
+  }
+
+  async verifyVerificationToken(
+    token: string,
+    expectedPurpose?: 'SIGNUP' | 'RESET_PASSWORD',
+  ): Promise<VerificationTokenPayload> {
+    try {
+      const secret = this.configService.get<string>(
+        'JWT_SECRET',
+        'dev-insecure-access-secret-change-in-production',
+      );
+      const payload = await this.jwtService.verifyAsync<VerificationTokenPayload>(
+        token,
+        { secret },
+      );
+      if (expectedPurpose && payload.purpose !== expectedPurpose) {
+        throw new UnauthorizedException('Invalid verification token purpose');
+      }
+      return payload;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired verification session');
     }
   }
 }

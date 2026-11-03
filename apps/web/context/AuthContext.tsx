@@ -17,7 +17,7 @@ import {
 
 export interface CustomerUser {
   id: string;
-  email: string;
+  email?: string | null;
   name: string;
   phone?: string | null;
   role: string;
@@ -35,6 +35,31 @@ export interface AuthContextType {
     name: string;
     phone?: string;
   }) => Promise<CustomerUser>;
+  phoneCheck: (phone: string) => Promise<{ phone: string; exists: boolean; name?: string }>;
+  phoneSendOtp: (
+    phone: string,
+    purpose?: 'SIGNUP' | 'RESET_PASSWORD',
+  ) => Promise<{
+    success: boolean;
+    phone: string;
+    expiresInSeconds: number;
+    resendInSeconds: number;
+    message?: string;
+  }>;
+  phoneVerifyOtp: (
+    phone: string,
+    code: string,
+    purpose?: 'SIGNUP' | 'RESET_PASSWORD',
+  ) => Promise<{ success: boolean; verified: boolean; token: string; phone: string }>;
+  phoneRegister: (data: {
+    signupToken: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+    password: string;
+  }) => Promise<CustomerUser>;
+  phoneLogin: (credentials: { phone: string; password: string }) => Promise<CustomerUser>;
+  phoneResetPassword: (data: { resetToken: string; password: string }) => Promise<CustomerUser>;
   logout: () => Promise<void>;
   updateProfile: (data: { name?: string; phone?: string }) => Promise<CustomerUser>;
   refreshSession: () => Promise<boolean>;
@@ -167,6 +192,124 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     [],
   );
 
+  const phoneCheck = useCallback(
+    async (phone: string): Promise<{ phone: string; exists: boolean; name?: string }> => {
+      return apiClient.post('/auth/phone/check', { phone }, { skipAuth: true });
+    },
+    [],
+  );
+
+  const phoneSendOtp = useCallback(
+    async (
+      phone: string,
+      purpose: 'SIGNUP' | 'RESET_PASSWORD' = 'SIGNUP',
+    ): Promise<{
+      success: boolean;
+      phone: string;
+      expiresInSeconds: number;
+      resendInSeconds: number;
+      message?: string;
+    }> => {
+      return apiClient.post('/auth/phone/send-otp', { phone, purpose }, { skipAuth: true });
+    },
+    [],
+  );
+
+  const phoneVerifyOtp = useCallback(
+    async (
+      phone: string,
+      code: string,
+      purpose: 'SIGNUP' | 'RESET_PASSWORD' = 'SIGNUP',
+    ): Promise<{ success: boolean; verified: boolean; token: string; phone: string }> => {
+      return apiClient.post('/auth/phone/verify-otp', { phone, code, purpose }, { skipAuth: true });
+    },
+    [],
+  );
+
+  const phoneRegister = useCallback(
+    async (data: {
+      signupToken: string;
+      firstName: string;
+      lastName: string;
+      email?: string;
+      password: string;
+    }): Promise<CustomerUser> => {
+      const res = await apiClient.post<any>('/auth/phone/register', data, {
+        skipAuth: true,
+      });
+
+      if (res.accessToken) {
+        setAccessToken(res.accessToken);
+      }
+
+      const userData: CustomerUser =
+        res.user || {
+          id: res.id,
+          email: res.email,
+          name: res.name,
+          phone: res.phone,
+          role: res.role,
+        };
+
+      setUser(userData);
+      await triggerGuestWishlistSync();
+      return userData;
+    },
+    [],
+  );
+
+  const phoneLogin = useCallback(
+    async (credentials: { phone: string; password: string }): Promise<CustomerUser> => {
+      const res = await apiClient.post<any>('/auth/phone/login', credentials, {
+        skipAuth: true,
+      });
+
+      if (res.accessToken) {
+        setAccessToken(res.accessToken);
+      }
+
+      const userData: CustomerUser =
+        res.user || {
+          id: res.id,
+          email: res.email,
+          name: res.name,
+          phone: res.phone,
+          role: res.role,
+        };
+
+      setUser(userData);
+      await triggerGuestWishlistSync();
+      return userData;
+    },
+    [],
+  );
+
+  const phoneResetPassword = useCallback(
+    async (data: { resetToken: string; password: string }): Promise<CustomerUser> => {
+      const res = await apiClient.post<any>('/auth/phone/reset-password', data, {
+        skipAuth: true,
+      });
+
+      if (res.accessToken) {
+        setAccessToken(res.accessToken);
+      }
+
+      const userData: CustomerUser =
+        res.user || {
+          id: res.id,
+          email: res.email,
+          name: res.name,
+          phone: res.phone,
+          role: res.role,
+        };
+
+      setUser(userData);
+      await triggerGuestWishlistSync();
+      return userData;
+    },
+    [],
+  );
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       await apiClient.post('/auth/logout', {});
@@ -197,11 +340,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       isAuthenticated: Boolean(user),
       login,
       register,
+      phoneCheck,
+      phoneSendOtp,
+      phoneVerifyOtp,
+      phoneRegister,
+      phoneLogin,
+      phoneResetPassword,
       logout,
       updateProfile,
       refreshSession,
     }),
-    [user, isLoading, login, register, logout, updateProfile, refreshSession],
+    [
+      user,
+      isLoading,
+      login,
+      register,
+      phoneCheck,
+      phoneSendOtp,
+      phoneVerifyOtp,
+      phoneRegister,
+      phoneLogin,
+      phoneResetPassword,
+      logout,
+      updateProfile,
+      refreshSession,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

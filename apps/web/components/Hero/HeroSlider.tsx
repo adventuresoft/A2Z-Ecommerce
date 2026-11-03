@@ -11,7 +11,8 @@ import {
   Truck,
   AudioLines,
 } from "lucide-react";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { useSafeReducedMotion } from "../../lib/useSafeReducedMotion";
 import { HERO_SLIDES, HeroSlide } from "../../data/mock-catalog";
 import { PublicHeroBannerItem } from "../../lib/curated";
 
@@ -54,25 +55,25 @@ export function HeroSlider({
   banners,
   sideBanners = DEFAULT_SIDE_BANNERS,
 }: HeroSliderProps = {}) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
 
   const slides: HeroSlide[] =
     banners && banners.length > 0
       ? banners.map((b, idx) => ({
-          id: b.id || `banner-${idx}`,
-          tagline: b.badgeText || "IMMERSIVE TECH EXPERIENCE",
-          title: b.title,
-          subtitle:
-            b.subtitle ||
-            "Experience studio-grade acoustic clarity, precision performance, and all-day reliability with our curated flagship selection.",
-          primaryCtaText: "Explore Now",
-          primaryCtaLink: b.linkUrl || "/shop",
-          secondaryCtaText: "Top Rated",
-          secondaryCtaLink: "/flash-sale",
-          badgeText: b.badgeText || "STUDIO GRADE",
-          image: b.imageUrl || "/placeholder.png",
-          bgColor: "from-slate-950 via-slate-900 to-slate-950",
-        }))
+        id: b.id || `banner-${idx}`,
+        tagline: b.badgeText || "IMMERSIVE TECH EXPERIENCE",
+        title: b.title,
+        subtitle:
+          b.subtitle ||
+          "Experience studio-grade acoustic clarity, precision performance, and all-day reliability with our curated flagship selection.",
+        primaryCtaText: "Explore Now",
+        primaryCtaLink: b.linkUrl || "/shop",
+        secondaryCtaText: "Top Rated",
+        secondaryCtaLink: "/flash-sale",
+        badgeText: b.badgeText || "STUDIO GRADE",
+        image: b.imageUrl || "/placeholder.png",
+        bgColor: "from-slate-950 via-slate-900 to-slate-950",
+      }))
       : HERO_SLIDES;
 
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -260,11 +261,10 @@ export function HeroSlider({
                         key={idx}
                         type="button"
                         onClick={() => setCurrentSlide(idx)}
-                        className={`h-2 rounded-full cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                          currentSlide === idx
+                        className={`h-2 rounded-full cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${currentSlide === idx
                             ? "w-6 bg-gradient-to-b from-blue-400 to-blue-600 shadow-[0_0_10px_rgba(59,130,246,0.95),inset_0_1px_0_rgba(255,255,255,0.5)]"
                             : "w-2 bg-gradient-to-b from-slate-500 to-slate-700 hover:from-slate-300 hover:to-slate-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.6)]"
-                        }`}
+                          }`}
                         aria-label={`Go to slide ${idx + 1}`}
                         aria-current={currentSlide === idx ? "true" : undefined}
                       />

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
-import { useReducedMotion } from "motion/react";
+import { useSafeReducedMotion } from "../../lib/useSafeReducedMotion";
 
 export interface Tilt3DCardProps {
   children: React.ReactNode;
@@ -29,7 +29,7 @@ export function Tilt3DCard({
   glareOpacity = 0.14,
   disabled = false,
 }: Tilt3DCardProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
   const [isMounted, setIsMounted] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [transformStyle, setTransformStyle] = useState<string>("none");
@@ -44,7 +44,7 @@ export function Tilt3DCard({
   }, []);
 
   const effectiveTilt = maxTiltDeg ?? maxTilt;
-  const isDisabled = disabled || (isMounted && Boolean(prefersReducedMotion));
+  const isDisabled = disabled || prefersReducedMotion;
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isDisabled || !cardRef.current) return;

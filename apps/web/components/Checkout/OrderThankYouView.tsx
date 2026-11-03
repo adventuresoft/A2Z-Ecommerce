@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useSafeReducedMotion } from "../../lib/useSafeReducedMotion";
 import {
   PackageCheck,
   Copy,
@@ -85,7 +86,7 @@ const FULFILLMENT_ROADMAP = [
 ];
 
 export function OrderThankYouView({ order, warningMessage }: OrderThankYouViewProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
   const [copiedOrderNo, setCopiedOrderNo] = useState(false);
 
   const isDhaka =
@@ -101,8 +102,8 @@ export function OrderThankYouView({ order, warningMessage }: OrderThankYouViewPr
     order.paymentMethod === "PAYSTATION"
       ? "PayStation Online Gateway"
       : order.paymentMethod === "MOBILE_BANKING"
-      ? "bKash / Nagad Mobile Banking (Verification Queued)"
-      : "Cash on Delivery (COD)";
+        ? "bKash / Nagad Mobile Banking (Verification Queued)"
+        : "Cash on Delivery (COD)";
 
   const handleCopyOrderNumber = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -197,27 +198,24 @@ export function OrderThankYouView({ order, warningMessage }: OrderThankYouViewPr
             {FULFILLMENT_ROADMAP.map((step, index) => (
               <div
                 key={step.title}
-                className={`rounded-2xl p-3.5 border ${
-                  step.done
+                className={`rounded-2xl p-3.5 border ${step.done
                     ? "bg-emerald-500/15 border-emerald-400/35"
                     : "bg-white/5 border-white/10"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span
-                    className={`w-6 h-6 rounded-lg text-[11px] font-black flex items-center justify-center tabular-nums ${
-                      step.done
+                    className={`w-6 h-6 rounded-lg text-[11px] font-black flex items-center justify-center tabular-nums ${step.done
                         ? "bg-emerald-500 text-slate-950"
                         : "bg-white/10 text-slate-300"
-                    }`}
+                      }`}
                     aria-hidden="true"
                   >
                     {step.done ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : `0${index + 1}`}
                   </span>
                   <span
-                    className={`text-xs font-extrabold ${
-                      step.done ? "text-emerald-200" : "text-slate-200"
-                    }`}
+                    className={`text-xs font-extrabold ${step.done ? "text-emerald-200" : "text-slate-200"
+                      }`}
                   >
                     {step.title}
                   </span>

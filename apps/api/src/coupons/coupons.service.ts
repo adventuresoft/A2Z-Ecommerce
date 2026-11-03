@@ -672,7 +672,7 @@ export class CouponsService {
         userId?: string;
         discountApplied: Prisma.Decimal | number;
         usedAt?: Date;
-        user?: { id: string; name: string; email: string };
+        user?: { id: string; name: string; email: string | null };
         order?: {
           id: string;
           orderNumber: string;
@@ -725,7 +725,7 @@ export class CouponsService {
           orderGrandTotal: Number(u.order!.grandTotal),
           userId: u.userId!,
           customerName: u.user!.name,
-          customerEmail: u.user!.email,
+          customerEmail: u.user!.email || '',
           discountApplied: Number(u.discountApplied),
           usedAt: u.usedAt!,
         }));

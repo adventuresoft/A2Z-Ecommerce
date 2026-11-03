@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { useSafeReducedMotion } from "../../lib/useSafeReducedMotion";
 import {
   Trash2,
   Plus,
@@ -135,7 +136,7 @@ interface SyncedCalculation extends CalculationState {
 
 export default function CartPage() {
   const router = useRouter();
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
   const { cart, updateQuantity, removeFromCart, clearCart, totalCartPrice } = useStore();
 
   const [couponCode, setCouponCode] = useState("");
@@ -257,7 +258,7 @@ export default function CartPage() {
   const selectedZone = shippingZones.find((z) => z.id === selectedZoneId);
   const isDhaka = selectedZone
     ? selectedZone.name.toLowerCase().includes("dhaka") &&
-      !selectedZone.name.toLowerCase().includes("outside")
+    !selectedZone.name.toLowerCase().includes("outside")
     : true;
   const methodsForSelectedZone = shippingMethods.filter((m) => m.zoneId === selectedZoneId);
   const selectedMethod =
@@ -382,8 +383,8 @@ export default function CartPage() {
         err instanceof ApiError
           ? err.message
           : err instanceof Error
-          ? err.message
-          : "Invalid coupon code.";
+            ? err.message
+            : "Invalid coupon code.";
       setCouponError(msg);
     } finally {
       setIsApplyingCoupon(false);
@@ -500,11 +501,10 @@ export default function CartPage() {
                   aria-label="Free shipping threshold progress"
                 >
                   <div
-                    className={`h-full rounded-full transition-[width,background-color] duration-300 ${
-                      amountToFreeShipping === 0
+                    className={`h-full rounded-full transition-[width,background-color] duration-300 ${amountToFreeShipping === 0
                         ? "bg-gradient-to-r from-emerald-500 to-teal-500"
                         : "bg-gradient-to-r from-blue-600 to-indigo-600"
-                    }`}
+                      }`}
                     style={{ width: `${freeShippingProgress}%` }}
                   />
                 </div>
@@ -676,11 +676,10 @@ export default function CartPage() {
                       <span>Delivery Zone:</span>
                     </span>
                     <span
-                      className={`font-mono font-black text-xs px-2 py-0.5 rounded-md tabular-nums ${
-                        shippingFee === 0
+                      className={`font-mono font-black text-xs px-2 py-0.5 rounded-md tabular-nums ${shippingFee === 0
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : "bg-blue-50 text-blue-700 border border-blue-100"
-                      }`}
+                        }`}
                     >
                       {shippingFee === 0 ? "FREE" : `+${formatBDT(shippingFee)}`}
                     </span>
@@ -728,17 +727,15 @@ export default function CartPage() {
                               type="button"
                               aria-pressed={isMethodSelected}
                               onClick={() => handleMethodChange(method.id)}
-                              className={`w-full p-2.5 rounded-xl border flex items-center justify-between text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                                isMethodSelected
+                              className={`w-full p-2.5 rounded-xl border flex items-center justify-between text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${isMethodSelected
                                   ? "border-blue-600 bg-blue-50/50 text-blue-950 font-bold shadow-2xs"
                                   : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <div
-                                  className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                    isMethodSelected ? "border-blue-600" : "border-slate-300"
-                                  }`}
+                                  className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${isMethodSelected ? "border-blue-600" : "border-slate-300"
+                                    }`}
                                 >
                                   {isMethodSelected && (
                                     <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
@@ -754,9 +751,8 @@ export default function CartPage() {
                                 </div>
                               </div>
                               <span
-                                className={`text-xs font-black tabular-nums shrink-0 ml-2 ${
-                                  effectiveCost === 0 ? "text-emerald-700 font-black" : "text-slate-900"
-                                }`}
+                                className={`text-xs font-black tabular-nums shrink-0 ml-2 ${effectiveCost === 0 ? "text-emerald-700 font-black" : "text-slate-900"
+                                  }`}
                               >
                                 {effectiveCost === 0 ? "FREE" : formatBDT(effectiveCost)}
                               </span>
@@ -861,11 +857,10 @@ export default function CartPage() {
                   type="button"
                   disabled={!canProceedToCheckout}
                   onClick={() => router.push("/checkout")}
-                  className={`w-full py-3.5 px-5 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white font-black text-sm rounded-2xl flex items-center justify-between shadow-md transition-[background-color,box-shadow,transform,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
-                    !canProceedToCheckout
+                  className={`w-full py-3.5 px-5 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white font-black text-sm rounded-2xl flex items-center justify-between shadow-md transition-[background-color,box-shadow,transform,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${!canProceedToCheckout
                       ? "opacity-50 cursor-not-allowed"
                       : "hover:from-blue-800 hover:to-indigo-800 hover:shadow-lg cursor-pointer group"
-                  }`}
+                    }`}
                 >
                   <span>Proceed to Checkout</span>
                   <div className="flex items-center gap-1.5">

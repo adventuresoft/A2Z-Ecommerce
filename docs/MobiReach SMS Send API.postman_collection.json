@@ -1,0 +1,208 @@
+{
+  "info": {
+    "_postman_id": "ba926c02-648c-4d26-9a0c-87ed9b23358a",
+    "name": "MobiReach SMS Send API",
+    "description": "Postman collection for MobiReach Generate Token, Refresh Token and SMS Send API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "57431075",
+    "_collection_link": "https://go.postman.co/collection/57431075-ba926c02-648c-4d26-9a0c-87ed9b23358a?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "1. Generate Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.token) pm.collectionVariables.set('access_token', json.token);",
+              "if (json.refresh_token) pm.collectionVariables.set('refresh_token', json.refresh_token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/tokens",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "tokens"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Refresh Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.token) pm.collectionVariables.set('access_token', json.token);",
+              "if (json.refresh_token) pm.collectionVariables.set('refresh_token', json.refresh_token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{refresh_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/auth/token/refresh",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "token",
+            "refresh"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. SMS Send API",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sender\": \"{{sender}}\",\n  \"receiver\": [\"{{receiver}}\"],\n  \"content\": \"{{content}}\",\n  \"msgType\": \"{{msgType}}\",\n  \"requestType\": \"{{requestType}}\",\n  \"contentType\": \"{{contentType}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/sms/send",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "sms",
+            "send"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api.mobireach.com.bd"
+    },
+    {
+      "key": "username",
+      "value": "YOUR_USERNAME"
+    },
+    {
+      "key": "password",
+      "value": "YOUR_PASSWORD"
+    },
+    {
+      "key": "sender",
+      "value": "YOUR_SENDER_ID"
+    },
+    {
+      "key": "receiver",
+      "value": "8801XXXXXXXXX"
+    },
+    {
+      "key": "content",
+      "value": "Your OTP is 123456"
+    },
+    {
+      "key": "msgType",
+      "value": "T"
+    },
+    {
+      "key": "requestType",
+      "value": "S"
+    },
+    {
+      "key": "contentType",
+      "value": "1"
+    },
+    {
+      "key": "access_token",
+      "secret": true
+    },
+    {
+      "key": "refresh_token",
+      "secret": true
+    }
+  ]
+}

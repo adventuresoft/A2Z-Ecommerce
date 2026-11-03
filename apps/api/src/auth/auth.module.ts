@@ -4,6 +4,7 @@ import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
 import { PasswordService } from './password.service.js';
 import { TokenService } from './token.service.js';
+import { MobiReachSmsService } from './sms/mobireach-sms.service.js';
 import { UsersModule } from '../users/users.module.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
@@ -15,6 +16,7 @@ import { RolesGuard } from './guards/roles.guard.js';
     AuthService,
     PasswordService,
     TokenService,
+    MobiReachSmsService,
     JwtAuthGuard,
     RolesGuard,
   ],
@@ -22,6 +24,7 @@ import { RolesGuard } from './guards/roles.guard.js';
     AuthService,
     PasswordService,
     TokenService,
+    MobiReachSmsService,
     JwtAuthGuard,
     RolesGuard,
   ],

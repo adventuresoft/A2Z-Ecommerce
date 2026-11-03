@@ -25,8 +25,8 @@ export class UserResponseDto {
   @ApiProperty()
   id!: string;
 
-  @ApiProperty()
-  email!: string;
+  @ApiPropertyOptional()
+  email?: string | null;
 
   @ApiProperty()
   name!: string;

@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Star, ShoppingCart, Heart, Check, Flame, ShieldCheck, Eye } from "lucide-react";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { useSafeReducedMotion } from "../../lib/useSafeReducedMotion";
 import { Product, formatBDT } from "../../data/mock-catalog";
 
 export interface ProductCardProps {
@@ -33,14 +34,14 @@ export function ProductCard({
   index = 0,
 }: ProductCardProps) {
   const [isAdded, setIsAdded] = useState(false);
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
 
   const soldPercent =
     product.soldCount && product.stockTotal
       ? Math.round((product.soldCount / product.stockTotal) * 100)
       : product.soldCount
-      ? Math.min(Math.round((product.soldCount / 300) * 100), 92)
-      : null;
+        ? Math.min(Math.round((product.soldCount / 300) * 100), 92)
+        : null;
 
   const computedSaveBDT =
     product.saveBDT ||
@@ -113,11 +114,10 @@ export function ProductCard({
             type="button"
             onClick={handleToggleWishlist}
             aria-pressed={isWishlisted}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,border-color,color,transform] duration-200 cursor-pointer backdrop-blur-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${
-              isWishlisted
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,border-color,color,transform] duration-200 cursor-pointer backdrop-blur-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${isWishlisted
                 ? "bg-rose-50 border-rose-200 text-rose-600 shadow-2xs"
                 : "bg-white/95 hover:bg-rose-50/60 border-slate-200/90 hover:border-rose-300 text-slate-400 hover:text-rose-600 shadow-2xs"
-            }`}
+              }`}
             aria-label={
               isWishlisted
                 ? `Remove ${product.title} from wishlist`
@@ -125,9 +125,8 @@ export function ProductCard({
             }
           >
             <Heart
-              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${
-                isWishlisted ? "fill-current text-rose-600 scale-110" : ""
-              }`}
+              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${isWishlisted ? "fill-current text-rose-600 scale-110" : ""
+                }`}
               aria-hidden="true"
             />
           </button>
@@ -278,11 +277,10 @@ export function ProductCard({
                 whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
                 onClick={handleAddToCart}
                 disabled={product.inStock === false}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-[background-color,color,box-shadow] duration-200 cursor-pointer shadow-2xs shrink-0 disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 ${
-                  isAdded
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-[background-color,color,box-shadow] duration-200 cursor-pointer shadow-2xs shrink-0 disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 ${isAdded
                     ? "bg-emerald-600 text-white ring-2 ring-emerald-400"
                     : "bg-blue-50 text-blue-700 hover:bg-blue-700 hover:text-white hover:shadow-md focus-visible:ring-blue-600"
-                }`}
+                  }`}
                 aria-label={
                   isAdded ? `Added ${product.title} to cart` : `Add ${product.title} to cart`
                 }
@@ -317,11 +315,10 @@ export function ProductCard({
                 whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
                 onClick={handleAddToCart}
                 disabled={product.inStock === false}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-2xs transition-[background-color,box-shadow] duration-200 cursor-pointer shrink-0 disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 ${
-                  isAdded
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-2xs transition-[background-color,box-shadow] duration-200 cursor-pointer shrink-0 disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 ${isAdded
                     ? "bg-emerald-600 text-white ring-2 ring-emerald-400 shadow-md"
                     : "bg-blue-700 hover:bg-blue-800 text-white hover:shadow-md focus-visible:ring-blue-600"
-                }`}
+                  }`}
                 aria-label={
                   isAdded ? `Added ${product.title} to cart` : `Add ${product.title} to cart`
                 }
