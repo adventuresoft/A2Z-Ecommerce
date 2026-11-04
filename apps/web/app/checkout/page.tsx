@@ -74,6 +74,14 @@ const DISTRICT_SUGGESTIONS: Record<string, string[]> = {
   Mymensingh: ["Mymensingh City", "Jamalpur", "Netrokona"],
 };
 
+interface LocationItem {
+  id: number;
+  name: string;
+  bnName?: string | null;
+  divisionId?: number;
+  districtId?: number;
+}
+
 interface UserAddress {
   id: string;
   label?: string | null;
@@ -82,10 +90,17 @@ interface UserAddress {
   streetAddress: string;
   city: string;
   state?: string | null;
+  thana?: string | null;
+  divisionId?: number | null;
+  districtId?: number | null;
+  thanaId?: number | null;
   postalCode: string;
   country?: string;
   isDefaultShipping: boolean;
   isDefaultBilling: boolean;
+  division?: { id: number; name: string; bnName?: string | null } | null;
+  district?: { id: number; name: string; bnName?: string | null } | null;
+  thanaRel?: { id: number; name: string; bnName?: string | null } | null;
 }
 
 export interface ShippingZoneItem {
@@ -255,11 +270,22 @@ export default function CheckoutPage() {
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedDivision, setSelectedDivision] = useState("Dhaka");
-  const [selectedDistrict, setSelectedDistrict] = useState("Dhaka City (North)");
+  const [selectedDistrict, setSelectedDistrict] = useState("Dhaka");
+  const [selectedThana, setSelectedThana] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [postalCode, setPostalCode] = useState("1212");
   const [orderNotes, setOrderNotes] = useState("");
   const [saveAddressToBook, setSaveAddressToBook] = useState(false);
+
+  // Dynamic Location Tables State (from backend database)
+  const [divisions, setDivisions] = useState<LocationItem[]>([]);
+  const [districts, setDistricts] = useState<LocationItem[]>([]);
+  const [thanas, setThanas] = useState<LocationItem[]>([]);
+  const [selectedDivisionId, setSelectedDivisionId] = useState<number | "">("");
+  const [selectedDistrictId, setSelectedDistrictId] = useState<number | "">("");
+  const [selectedThanaId, setSelectedThanaId] = useState<number | "">("");
+  const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
+  const [isLoadingThanas, setIsLoadingThanas] = useState(false);
 
   // Available Shipping Zones and Methods from backend
   const [shippingZones, setShippingZones] = useState<ShippingZoneItem[]>([]);
@@ -293,6 +319,99 @@ export default function CheckoutPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [placedOrder, setPlacedOrder] = useState<ThankYouOrderData | null>(null);
 
+  const loadDistricts = React.useCallback(async (divId: number, targetDistrictId?: number) => {
+    setIsLoadingDistricts(true);
+    try {
+      const data = await apiClient.get<LocationItem[]>(`/locations/districts?divisionId=${divId}`);
+      const list = Array.isArray(data) ? data : [];
+      setDistricts(list);
+      const chosen = targetDistrictId
+        ? list.find((d) => d.id === targetDistrictId) || list[0]
+        : list[0];
+      if (chosen) {
+        setSelectedDistrictId(chosen.id);
+        setSelectedDistrict(chosen.name);
+        return chosen.id;
+      } else {
+        setSelectedDistrictId("");
+        setSelectedDistrict("");
+      }
+    } catch (err) {
+      console.error("Failed to fetch districts:", err);
+      setDistricts([]);
+      setSelectedDistrictId("");
+      setSelectedDistrict("");
+    } finally {
+      setIsLoadingDistricts(false);
+    }
+    return undefined;
+  }, []);
+
+  const loadThanas = React.useCallback(async (distId: number, targetThanaId?: number) => {
+    setIsLoadingThanas(true);
+    try {
+      const data = await apiClient.get<LocationItem[]>(`/locations/thanas?districtId=${distId}`);
+      const list = Array.isArray(data) ? data : [];
+      setThanas(list);
+      const chosen = targetThanaId
+        ? list.find((t) => t.id === targetThanaId) || list[0]
+        : list[0];
+      if (chosen) {
+        setSelectedThanaId(chosen.id);
+        setSelectedThana(chosen.name);
+      } else {
+        setSelectedThanaId("");
+        setSelectedThana("");
+      }
+    } catch (err) {
+      console.error("Failed to fetch thanas:", err);
+      setThanas([]);
+      setSelectedThanaId("");
+      setSelectedThana("");
+    } finally {
+      setIsLoadingThanas(false);
+    }
+  }, []);
+
+  const handleDivisionSelect = async (divId: number) => {
+    setSelectedDivisionId(divId);
+    const divObj = divisions.find((d) => d.id === divId);
+    const divName = divObj?.name || "Dhaka";
+    setSelectedDivision(divName);
+    try {
+      window.localStorage.setItem(
+        "az_shipping_zone",
+        divName.toLowerCase().includes("dhaka") ? "inside" : "outside"
+      );
+    } catch {}
+
+    const nextDistId = await loadDistricts(divId);
+    if (nextDistId) {
+      await loadThanas(nextDistId);
+    } else {
+      setThanas([]);
+      setSelectedThanaId("");
+      setSelectedThana("");
+    }
+  };
+
+  const handleDistrictSelect = async (distId: number) => {
+    setSelectedDistrictId(distId);
+    const distObj = districts.find((d) => d.id === distId);
+    setSelectedDistrict(distObj?.name || "");
+    await loadThanas(distId);
+  };
+
+  const handleThanaSelect = (thId: number | "") => {
+    setSelectedThanaId(thId);
+    if (!thId) {
+      setSelectedThana("");
+    } else {
+      const thObj = thanas.find((t) => t.id === thId);
+      setSelectedThana(thObj?.name || "");
+    }
+  };
+
   // 1. Enforce Authentication Guard
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -309,7 +428,15 @@ export default function CheckoutPage() {
       apiClient.get<UserAddress[]>("/account/addresses"),
       apiClient.get<ShippingZoneItem[]>("/shipping/zones"),
       apiClient.get<ShippingMethodItem[]>("/shipping/methods"),
-    ]).then(([addrRes, zonesRes, methodsRes]) => {
+      apiClient.get<LocationItem[]>("/locations/divisions"),
+    ]).then(async ([addrRes, zonesRes, methodsRes, divRes]) => {
+      if (!isMounted) return;
+
+      let loadedDivisions: LocationItem[] = [];
+      if (divRes.status === "fulfilled" && Array.isArray(divRes.value)) {
+        loadedDivisions = divRes.value;
+        setDivisions(loadedDivisions);
+      }
       if (!isMounted) return;
 
       if (
@@ -325,19 +452,46 @@ export default function CheckoutPage() {
           setFullName(defaultShipping.recipientName);
           setPhoneNumber(defaultShipping.phone.replace(/^\+880/, ""));
           setStreetAddress(defaultShipping.streetAddress);
-          setSelectedDistrict(defaultShipping.city || "Dhaka City (North)");
-          if (
-            defaultShipping.state &&
-            BANGLADESH_DIVISIONS.includes(defaultShipping.state)
-          ) {
-            setSelectedDivision(defaultShipping.state);
-          }
           setPostalCode(defaultShipping.postalCode || "1212");
+
+          const targetDiv = loadedDivisions.find(
+            (d) =>
+              (defaultShipping.divisionId && d.id === defaultShipping.divisionId) ||
+              (defaultShipping.state && d.name.toLowerCase() === defaultShipping.state.toLowerCase())
+          ) || loadedDivisions[0];
+
+          if (targetDiv) {
+            setSelectedDivisionId(targetDiv.id);
+            setSelectedDivision(targetDiv.name);
+            const distId = await loadDistricts(targetDiv.id, defaultShipping.districtId ?? undefined);
+            if (distId) {
+              await loadThanas(distId, defaultShipping.thanaId ?? undefined);
+            }
+          }
+        } else if (loadedDivisions.length > 0) {
+          const firstDiv = loadedDivisions.find(d => d.name.toLowerCase().includes("dhaka")) || loadedDivisions[0];
+          if (firstDiv) {
+            setSelectedDivisionId(firstDiv.id);
+            setSelectedDivision(firstDiv.name);
+            const distId = await loadDistricts(firstDiv.id);
+            if (distId) await loadThanas(distId);
+          }
         }
-      } else if (user) {
-        setFullName(user.name || "");
-        if (user.phone) {
-          setPhoneNumber(user.phone.replace(/^\+880/, ""));
+      } else {
+        if (user) {
+          setFullName(user.name || "");
+          if (user.phone) {
+            setPhoneNumber(user.phone.replace(/^\+880/, ""));
+          }
+        }
+        if (loadedDivisions.length > 0) {
+          const firstDiv = loadedDivisions.find(d => d.name.toLowerCase().includes("dhaka")) || loadedDivisions[0];
+          if (firstDiv) {
+            setSelectedDivisionId(firstDiv.id);
+            setSelectedDivision(firstDiv.name);
+            const distId = await loadDistricts(firstDiv.id);
+            if (distId) await loadThanas(distId);
+          }
         }
       }
 
@@ -454,19 +608,30 @@ export default function CheckoutPage() {
     };
   }, []);
 
-  const handleSelectAddressCard = (addr: UserAddress) => {
+  const handleSelectAddressCard = async (addr: UserAddress) => {
     setSelectedAddressId(addr.id);
     setFullName(addr.recipientName);
     setPhoneNumber(addr.phone.replace(/^\+880/, ""));
     setStreetAddress(addr.streetAddress);
-    setSelectedDistrict(addr.city);
-    if (addr.state && BANGLADESH_DIVISIONS.includes(addr.state)) {
-      setSelectedDivision(addr.state);
-    }
     setPostalCode(addr.postalCode || "1212");
+
+    const targetDiv = divisions.find(
+      (d) =>
+        (addr.divisionId && d.id === addr.divisionId) ||
+        (addr.state && d.name.toLowerCase() === addr.state.toLowerCase())
+    ) || divisions[0];
+
+    if (targetDiv) {
+      setSelectedDivisionId(targetDiv.id);
+      setSelectedDivision(targetDiv.name);
+      const distId = await loadDistricts(targetDiv.id, addr.districtId ?? undefined);
+      if (distId) {
+        await loadThanas(distId, addr.thanaId ?? undefined);
+      }
+    }
   };
 
-  const handleSelectNewAddress = () => {
+  const handleSelectNewAddress = async () => {
     setSelectedAddressId("new");
     if (user) {
       setFullName(user.name || "");
@@ -476,9 +641,16 @@ export default function CheckoutPage() {
       setPhoneNumber("");
     }
     setStreetAddress("");
-    setSelectedDivision("Dhaka");
-    setSelectedDistrict("Dhaka City (North)");
     setPostalCode("1212");
+    if (divisions.length > 0) {
+      const defaultDiv = divisions.find((d) => d.name.toLowerCase().includes("dhaka")) || divisions[0];
+      if (defaultDiv) {
+        setSelectedDivisionId(defaultDiv.id);
+        setSelectedDivision(defaultDiv.name);
+        const distId = await loadDistricts(defaultDiv.id);
+        if (distId) await loadThanas(distId);
+      }
+    }
   };
 
   // 3. Resolve active shipping method matching selected zone
@@ -677,8 +849,12 @@ export default function CheckoutPage() {
             recipientName: fullName.trim(),
             phone: formattedPhone,
             streetAddress: streetAddress.trim(),
-            city: selectedDistrict,
-            state: selectedDivision,
+            city: selectedDistrict || "Dhaka",
+            state: selectedDivision || "Dhaka",
+            thana: selectedThana || undefined,
+            divisionId: selectedDivisionId ? Number(selectedDivisionId) : undefined,
+            districtId: selectedDistrictId ? Number(selectedDistrictId) : undefined,
+            thanaId: selectedThanaId ? Number(selectedThanaId) : undefined,
             postalCode: postalCode.trim() || "1212",
             label: "Home",
           });
@@ -696,8 +872,12 @@ export default function CheckoutPage() {
         recipientName: fullName.trim(),
         recipientPhone: formattedPhone,
         shippingStreet: streetAddress.trim(),
-        shippingCity: selectedDistrict,
-        shippingState: selectedDivision,
+        shippingCity: selectedDistrict || "Dhaka",
+        shippingState: selectedDivision || "Dhaka",
+        shippingThana: selectedThana || undefined,
+        shippingDivisionId: selectedDivisionId ? Number(selectedDivisionId) : undefined,
+        shippingDistrictId: selectedDistrictId ? Number(selectedDistrictId) : undefined,
+        shippingThanaId: selectedThanaId ? Number(selectedThanaId) : undefined,
         shippingPostalCode: postalCode.trim() || "1212",
         customerNotes: orderNotes.trim() || undefined,
         shippingMethodId: matchingShippingMethod?.id || undefined,
@@ -967,7 +1147,7 @@ export default function CheckoutPage() {
                               {addr.phone}
                             </div>
                             <div className="text-[11px] text-slate-600 mt-1 line-clamp-2">
-                              {addr.streetAddress}, {addr.city}
+                              {addr.streetAddress}, {addr.thana ? `${addr.thana}, ` : ""}{addr.city}{addr.state && addr.state !== addr.city ? `, ${addr.state}` : ""}
                             </div>
                           </button>
                         );
@@ -1043,64 +1223,84 @@ export default function CheckoutPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="checkout-division"
-                        className="font-bold text-slate-700 block"
-                      >
-                        Division <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        id="checkout-division"
-                        name="division"
-                        value={selectedDivision}
-                        onChange={(e) => {
-                          const div = e.target.value;
-                          setSelectedDivision(div);
-                          if (DISTRICT_SUGGESTIONS[div]?.[0]) {
-                            setSelectedDistrict(DISTRICT_SUGGESTIONS[div][0]);
-                          }
-                          try {
-                            window.localStorage.setItem(
-                              "az_shipping_zone",
-                              div.toLowerCase().includes("dhaka") ? "inside" : "outside"
-                            );
-                          } catch {
-                            // Ignore
-                          }
-                        }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-900 focus:border-blue-600 focus:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                      >
-                        {BANGLADESH_DIVISIONS.map((div) => (
-                          <option key={div} value={div}>
-                            {div}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="checkout-district"
-                        className="font-bold text-slate-700 block"
-                      >
-                        City / District <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        id="checkout-district"
-                        name="district"
-                        value={selectedDistrict}
-                        onChange={(e) => setSelectedDistrict(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-900 focus:border-blue-600 focus:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                      >
-                        {(DISTRICT_SUGGESTIONS[selectedDivision] || ["District Center"]).map(
-                          (dist) => (
-                            <option key={dist} value={dist}>
-                              {dist}
+                    {/* Cascading Location Selects: Division -> District -> Thana */}
+                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="checkout-division"
+                          className="font-bold text-slate-700 block"
+                        >
+                          Division <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          id="checkout-division"
+                          name="division"
+                          required
+                          value={selectedDivisionId}
+                          onChange={(e) => handleDivisionSelect(Number(e.target.value))}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-900 focus:border-blue-600 focus:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        >
+                          <option value="" disabled>Select Division</option>
+                          {divisions.map((div) => (
+                            <option key={div.id} value={div.id}>
+                              {div.name}
                             </option>
-                          )
-                        )}
-                      </select>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="checkout-district"
+                          className="font-bold text-slate-700 block flex items-center justify-between"
+                        >
+                          <span>District *</span>
+                          {isLoadingDistricts && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
+                        </label>
+                        <select
+                          id="checkout-district"
+                          name="district"
+                          required
+                          disabled={!selectedDivisionId || isLoadingDistricts}
+                          value={selectedDistrictId}
+                          onChange={(e) => handleDistrictSelect(Number(e.target.value))}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-900 focus:border-blue-600 focus:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50"
+                        >
+                          <option value="" disabled>
+                            {isLoadingDistricts ? "Loading..." : "Select District"}
+                          </option>
+                          {districts.map((dist) => (
+                            <option key={dist.id} value={dist.id}>
+                              {dist.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="checkout-thana"
+                          className="font-bold text-slate-700 block flex items-center justify-between"
+                        >
+                          <span>Thana / Upazila</span>
+                          {isLoadingThanas && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
+                        </label>
+                        <select
+                          id="checkout-thana"
+                          name="thana"
+                          disabled={!selectedDistrictId || isLoadingThanas}
+                          value={selectedThanaId}
+                          onChange={(e) => handleThanaSelect(e.target.value ? Number(e.target.value) : "")}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold text-slate-900 focus:border-blue-600 focus:bg-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50"
+                        >
+                          <option value="">Select Thana (Optional)</option>
+                          {thanas.map((th) => (
+                            <option key={th.id} value={th.id}>
+                              {th.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5 sm:col-span-2">

@@ -13,8 +13,17 @@ import {
   Home,
   Check,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { apiClient } from '../../../lib/api-client';
+
+interface LocationItem {
+  id: number;
+  name: string;
+  bnName?: string | null;
+  divisionId?: number;
+  districtId?: number;
+}
 
 interface UserAddress {
   id: string;
@@ -24,11 +33,18 @@ interface UserAddress {
   streetAddress: string;
   city: string;
   state?: string | null;
+  thana?: string | null;
+  divisionId?: number | null;
+  districtId?: number | null;
+  thanaId?: number | null;
   postalCode: string;
   country: string;
   isDefaultShipping: boolean;
   isDefaultBilling: boolean;
   createdAt: string;
+  division?: { id: number; name: string; bnName?: string | null } | null;
+  district?: { id: number; name: string; bnName?: string | null } | null;
+  thanaRel?: { id: number; name: string; bnName?: string | null } | null;
 }
 
 export default function AccountAddressesPage() {
@@ -37,13 +53,20 @@ export default function AccountAddressesPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Location Data State
+  const [divisions, setDivisions] = useState<LocationItem[]>([]);
+  const [districts, setDistricts] = useState<LocationItem[]>([]);
+  const [thanas, setThanas] = useState<LocationItem[]>([]);
+  const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
+  const [isLoadingThanas, setIsLoadingThanas] = useState(false);
+
   // Add/Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  // Delete Confirmation Modal State (replaces window.confirm)
+  // Delete Confirmation Modal State
   const [addressToDelete, setAddressToDelete] = useState<UserAddress | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -52,13 +75,15 @@ export default function AccountAddressesPage() {
   const [recipientName, setRecipientName] = useState('');
   const [phone, setPhone] = useState('');
   const [streetAddress, setStreetAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
+  const [selectedDivisionId, setSelectedDivisionId] = useState<number | ''>('');
+  const [selectedDistrictId, setSelectedDistrictId] = useState<number | ''>('');
+  const [selectedThanaId, setSelectedThanaId] = useState<number | ''>('');
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('Bangladesh');
   const [isDefaultShipping, setIsDefaultShipping] = useState(false);
   const [isDefaultBilling, setIsDefaultBilling] = useState(false);
 
+  // Fetch initial addresses
   const fetchAddresses = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -72,9 +97,82 @@ export default function AccountAddressesPage() {
     }
   }, []);
 
+  // Fetch divisions once on mount
   useEffect(() => {
     fetchAddresses();
+    apiClient
+      .get<LocationItem[]>('/locations/divisions')
+      .then((data) => {
+        if (Array.isArray(data)) setDivisions(data);
+      })
+      .catch((err) => {
+        console.error('Failed to load divisions:', err);
+      });
   }, [fetchAddresses]);
+
+  // Load districts when selectedDivisionId changes
+  const loadDistrictsForDivision = useCallback(async (divId: number, targetDistrictId?: number) => {
+    setIsLoadingDistricts(true);
+    try {
+      const data = await apiClient.get<LocationItem[]>(`/locations/districts?divisionId=${divId}`);
+      const districtList = Array.isArray(data) ? data : [];
+      setDistricts(districtList);
+
+      if (targetDistrictId && districtList.some((d) => d.id === targetDistrictId)) {
+        setSelectedDistrictId(targetDistrictId);
+      } else if (districtList.length > 0 && districtList[0]) {
+        setSelectedDistrictId(districtList[0].id);
+      } else {
+        setSelectedDistrictId('');
+      }
+    } catch (err) {
+      console.error('Failed to load districts:', err);
+      setDistricts([]);
+      setSelectedDistrictId('');
+    } finally {
+      setIsLoadingDistricts(false);
+    }
+  }, []);
+
+  // Load thanas when selectedDistrictId changes
+  const loadThanasForDistrict = useCallback(async (distId: number, targetThanaId?: number) => {
+    setIsLoadingThanas(true);
+    try {
+      const data = await apiClient.get<LocationItem[]>(`/locations/thanas?districtId=${distId}`);
+      const thanaList = Array.isArray(data) ? data : [];
+      setThanas(thanaList);
+
+      if (targetThanaId && thanaList.some((t) => t.id === targetThanaId)) {
+        setSelectedThanaId(targetThanaId);
+      } else if (thanaList.length > 0 && thanaList[0]) {
+        setSelectedThanaId(thanaList[0].id);
+      } else {
+        setSelectedThanaId('');
+      }
+    } catch (err) {
+      console.error('Failed to load thanas:', err);
+      setThanas([]);
+      setSelectedThanaId('');
+    } finally {
+      setIsLoadingThanas(false);
+    }
+  }, []);
+
+  // Handle Division Selection in Form
+  const handleDivisionChange = (divId: number) => {
+    setSelectedDivisionId(divId);
+    setSelectedDistrictId('');
+    setSelectedThanaId('');
+    setThanas([]);
+    loadDistrictsForDivision(divId);
+  };
+
+  // Handle District Selection in Form
+  const handleDistrictChange = (distId: number) => {
+    setSelectedDistrictId(distId);
+    setSelectedThanaId('');
+    loadThanasForDistrict(distId);
+  };
 
   // Handle Escape key for modals
   useEffect(() => {
@@ -93,46 +191,109 @@ export default function AccountAddressesPage() {
     setTimeout(() => setSuccessMessage(null), 4000);
   };
 
-  const openCreateModal = () => {
+  const openCreateModal = async () => {
     setEditingAddress(null);
     setLabel('Home');
     setRecipientName('');
     setPhone('');
     setStreetAddress('');
-    setCity('Dhaka');
-    setState('');
     setPostalCode('');
     setCountry('Bangladesh');
     setIsDefaultShipping(addresses.length === 0);
     setIsDefaultBilling(addresses.length === 0);
     setModalError(null);
-    setIsModalOpen(true);
+
+    // Default to Dhaka division if available
+    const dhakaDiv = divisions.find((d) => d.name.toLowerCase().includes('dhaka')) || divisions[0];
+    if (dhakaDiv) {
+      setSelectedDivisionId(dhakaDiv.id);
+      setIsModalOpen(true);
+      await loadDistrictsForDivision(dhakaDiv.id);
+    } else {
+      setSelectedDivisionId('');
+      setSelectedDistrictId('');
+      setSelectedThanaId('');
+      setIsModalOpen(true);
+    }
   };
 
-  const openEditModal = (addr: UserAddress) => {
+  const openEditModal = async (addr: UserAddress) => {
     setEditingAddress(addr);
     setLabel(addr.label || '');
     setRecipientName(addr.recipientName);
     setPhone(addr.phone);
     setStreetAddress(addr.streetAddress);
-    setCity(addr.city);
-    setState(addr.state || '');
     setPostalCode(addr.postalCode);
     setCountry(addr.country || 'Bangladesh');
     setIsDefaultShipping(addr.isDefaultShipping);
     setIsDefaultBilling(addr.isDefaultBilling);
     setModalError(null);
+
+    // Resolve Division
+    const divId =
+      addr.divisionId ||
+      divisions.find((d) => addr.state && d.name.toLowerCase() === addr.state.toLowerCase())?.id ||
+      divisions[0]?.id ||
+      '';
+
+    setSelectedDivisionId(divId);
     setIsModalOpen(true);
+
+    if (divId) {
+      setIsLoadingDistricts(true);
+      try {
+        const distData = await apiClient.get<LocationItem[]>(`/locations/districts?divisionId=${divId}`);
+        const distList = Array.isArray(distData) ? distData : [];
+        setDistricts(distList);
+
+        const distId =
+          addr.districtId ||
+          distList.find((d) => addr.city && d.name.toLowerCase() === addr.city.toLowerCase())?.id ||
+          distList[0]?.id ||
+          '';
+
+        setSelectedDistrictId(distId);
+
+        if (distId) {
+          setIsLoadingThanas(true);
+          const thanaData = await apiClient.get<LocationItem[]>(`/locations/thanas?districtId=${distId}`);
+          const thanaList = Array.isArray(thanaData) ? thanaData : [];
+          setThanas(thanaList);
+
+          const thId =
+            addr.thanaId ||
+            thanaList.find((t) => addr.thana && t.name.toLowerCase() === addr.thana.toLowerCase())?.id ||
+            thanaList[0]?.id ||
+            '';
+
+          setSelectedThanaId(thId);
+        }
+      } catch (err) {
+        console.error('Error prefilling locations:', err);
+      } finally {
+        setIsLoadingDistricts(false);
+        setIsLoadingThanas(false);
+      }
+    }
   };
 
   const handleModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
 
-    if (!recipientName.trim() || !phone.trim() || !streetAddress.trim() || !city.trim() || !postalCode.trim()) {
+    if (!recipientName.trim() || !phone.trim() || !streetAddress.trim() || !postalCode.trim()) {
       setModalError('Please fill in all required fields marked with *');
       return;
     }
+
+    if (!selectedDivisionId || !selectedDistrictId) {
+      setModalError('Please select your Division and District.');
+      return;
+    }
+
+    const divisionObj = divisions.find((d) => d.id === selectedDivisionId);
+    const districtObj = districts.find((d) => d.id === selectedDistrictId);
+    const thanaObj = thanas.find((t) => t.id === selectedThanaId);
 
     try {
       setModalSubmitting(true);
@@ -141,8 +302,12 @@ export default function AccountAddressesPage() {
         recipientName: recipientName.trim(),
         phone: phone.trim(),
         streetAddress: streetAddress.trim(),
-        city: city.trim(),
-        state: state.trim() || undefined,
+        divisionId: Number(selectedDivisionId),
+        districtId: Number(selectedDistrictId),
+        thanaId: selectedThanaId ? Number(selectedThanaId) : undefined,
+        city: districtObj?.name || 'Dhaka',
+        state: divisionObj?.name || 'Dhaka',
+        thana: thanaObj?.name || undefined,
         postalCode: postalCode.trim(),
         country: country.trim() || 'Bangladesh',
         isDefaultShipping,
@@ -216,7 +381,7 @@ export default function AccountAddressesPage() {
             </h1>
           </div>
           <p className="text-xs text-slate-500">
-            Manage your delivery and billing locations for seamless, instant checkout
+            Manage your delivery destinations with Division, District, and Thana selection
           </p>
         </div>
 
@@ -264,8 +429,8 @@ export default function AccountAddressesPage() {
           </div>
           <h3 className="text-base font-bold text-slate-900">No Addresses Saved</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-6">
-            You don't have any saved delivery destinations yet. Add your home or
-            work address to speed up order checkout.
+            You don't have any saved delivery destinations yet. Add your address with Division,
+            District, and Thana to speed up order checkout.
           </p>
           <button
             type="button"
@@ -277,102 +442,110 @@ export default function AccountAddressesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {addresses.map((addr) => (
-            <div
-              key={addr.id}
-              className={`surface-3d rounded-3xl border p-6 flex flex-col justify-between transition-all duration-200 ${
-                addr.isDefaultShipping
-                  ? 'border-blue-600 shadow-md shadow-blue-600/10 ring-2 ring-blue-50'
-                  : 'border-slate-200/90 shadow-sm hover:border-slate-300'
-              }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 text-slate-700">
-                      {addr.label?.toLowerCase().includes('office') ||
-                      addr.label?.toLowerCase().includes('work') ? (
-                        <Building className="w-4 h-4" />
-                      ) : (
-                        <Home className="w-4 h-4" />
+          {addresses.map((addr) => {
+            const displayThana = addr.thanaRel?.name || addr.thana;
+            const displayDistrict = addr.district?.name || addr.city;
+            const displayDivision = addr.division?.name || addr.state;
+
+            return (
+              <div
+                key={addr.id}
+                className={`surface-3d rounded-3xl border p-6 flex flex-col justify-between transition-all duration-200 ${
+                  addr.isDefaultShipping
+                    ? 'border-blue-600 shadow-md shadow-blue-600/10 ring-2 ring-blue-50'
+                    : 'border-slate-200/90 shadow-sm hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 text-slate-700">
+                        {addr.label?.toLowerCase().includes('office') ||
+                        addr.label?.toLowerCase().includes('work') ? (
+                          <Building className="w-4 h-4" />
+                        ) : (
+                          <Home className="w-4 h-4" />
+                        )}
+                      </span>
+                      <span className="font-bold text-slate-900 text-sm">
+                        {addr.label || 'Delivery Address'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 justify-end">
+                      {addr.isDefaultShipping && (
+                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full">
+                          Default Shipping
+                        </span>
                       )}
-                    </span>
-                    <span className="font-bold text-slate-900 text-sm">
-                      {addr.label || 'Delivery Address'}
-                    </span>
+                      {addr.isDefaultBilling && (
+                        <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full">
+                          Default Billing
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 justify-end">
-                    {addr.isDefaultShipping && (
-                      <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full">
-                        Default Shipping
-                      </span>
-                    )}
-                    {addr.isDefaultBilling && (
-                      <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full">
-                        Default Billing
-                      </span>
-                    )}
+                  <div className="space-y-1 text-xs text-slate-600 mt-3">
+                    <p className="font-bold text-slate-900 text-sm">{addr.recipientName}</p>
+                    <p className="font-mono text-slate-500">{addr.phone}</p>
+                    <p className="text-slate-700 mt-2 font-medium leading-relaxed">{addr.streetAddress}</p>
+                    <p className="text-slate-800 font-semibold">
+                      {displayThana ? `${displayThana}, ` : ''}
+                      {displayDistrict}
+                      {displayDivision && displayDivision !== displayDistrict ? `, ${displayDivision}` : ''} -{' '}
+                      <span className="font-mono">{addr.postalCode}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-semibold">{addr.country}</p>
                   </div>
                 </div>
 
-                <div className="space-y-1 text-xs text-slate-600 mt-3">
-                  <p className="font-bold text-slate-900 text-sm">{addr.recipientName}</p>
-                  <p className="font-mono text-slate-500">{addr.phone}</p>
-                  <p className="text-slate-700 mt-2 font-medium leading-relaxed">{addr.streetAddress}</p>
-                  <p className="text-slate-700 font-medium">
-                    {addr.city}
-                    {addr.state ? `, ${addr.state}` : ''} - <span className="font-mono">{addr.postalCode}</span>
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-semibold">{addr.country}</p>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => openEditModal(addr)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" /> <span>Edit</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAddressToDelete(addr)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> <span>Delete</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {!addr.isDefaultShipping && (
+                <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => handleSetDefaultShipping(addr.id)}
-                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline underline-offset-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-xs"
+                      onClick={() => openEditModal(addr)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     >
-                      Set Shipping
+                      <Edit2 className="w-3.5 h-3.5" /> <span>Edit</span>
                     </button>
-                  )}
-                  {!addr.isDefaultBilling && (
                     <button
                       type="button"
-                      onClick={() => handleSetDefaultBilling(addr.id)}
-                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 rounded-xs"
+                      onClick={() => setAddressToDelete(addr)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                     >
-                      Set Billing
+                      <Trash2 className="w-3.5 h-3.5" /> <span>Delete</span>
                     </button>
-                  )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {!addr.isDefaultShipping && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetDefaultShipping(addr.id)}
+                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline underline-offset-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-xs"
+                      >
+                        Set Shipping
+                      </button>
+                    )}
+                    {!addr.isDefaultBilling && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetDefaultBilling(addr.id)}
+                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 rounded-xs"
+                      >
+                        Set Billing
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Accessible Delete Confirmation Modal Dialog */}
+      {/* Delete Confirmation Modal Dialog */}
       {addressToDelete && (
         <div
           role="alertdialog"
@@ -532,24 +705,80 @@ export default function AccountAddressesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Cascading Location Selects: Division -> District -> Thana */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label htmlFor="city-input" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    City *
+                  <label htmlFor="division-select" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Division *
                   </label>
-                  <input
-                    id="city-input"
-                    name="city"
-                    type="text"
+                  <select
+                    id="division-select"
+                    name="division"
                     required
-                    autoComplete="address-level2"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="Dhaka"
-                    className="w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-colors"
-                  />
+                    value={selectedDivisionId}
+                    onChange={(e) => handleDivisionChange(Number(e.target.value))}
+                    className="w-full px-3 py-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-slate-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-colors"
+                  >
+                    <option value="" disabled>
+                      Select Division
+                    </option>
+                    {divisions.map((div) => (
+                      <option key={div.id} value={div.id}>
+                        {div.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
+                <div>
+                  <label htmlFor="district-select" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                    <span>District *</span>
+                    {isLoadingDistricts && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
+                  </label>
+                  <select
+                    id="district-select"
+                    name="district"
+                    required
+                    disabled={!selectedDivisionId || isLoadingDistricts}
+                    value={selectedDistrictId}
+                    onChange={(e) => handleDistrictChange(Number(e.target.value))}
+                    className="w-full px-3 py-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-slate-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <option value="" disabled>
+                      {isLoadingDistricts ? 'Loading...' : 'Select District'}
+                    </option>
+                    {districts.map((dist) => (
+                      <option key={dist.id} value={dist.id}>
+                        {dist.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="thana-select" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                    <span>Thana</span>
+                    {isLoadingThanas && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
+                  </label>
+                  <select
+                    id="thana-select"
+                    name="thana"
+                    disabled={!selectedDistrictId || isLoadingThanas}
+                    value={selectedThanaId}
+                    onChange={(e) => setSelectedThanaId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-slate-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <option value="">Select Thana (Optional)</option>
+                    {thanas.map((th) => (
+                      <option key={th.id} value={th.id}>
+                        {th.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="postal-code-input" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                     Postal Code *
@@ -564,24 +793,6 @@ export default function AccountAddressesPage() {
                     onChange={(e) => setPostalCode(e.target.value)}
                     placeholder="1230"
                     className="w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-colors font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="state-input" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    State / Division
-                  </label>
-                  <input
-                    id="state-input"
-                    name="state"
-                    type="text"
-                    autoComplete="address-level1"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    placeholder="Dhaka Division"
-                    className="w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200 rounded-xl text-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-colors"
                   />
                 </div>
 

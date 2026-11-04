@@ -61,6 +61,10 @@ model UserAddress {
   streetAddress     String   @db.VarChar(255)
   city              String   @db.VarChar(100)
   state             String?  @db.VarChar(100)
+  thana             String?  @db.VarChar(100)
+  divisionId        Int?     @map("division_id")
+  districtId        Int?     @map("district_id")
+  thanaId           Int?     @map("thana_id")
   postalCode        String   @db.VarChar(20)
   country           String   @default("Bangladesh") @db.VarChar(100)
   isDefaultShipping Boolean  @default(false)
@@ -68,9 +72,15 @@ model UserAddress {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  division          Division? @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+  district          District? @relation(fields: [districtId], references: [id], onDelete: SetNull)
+  thanaRel          Thana?    @relation(fields: [thanaId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([divisionId])
+  @@index([districtId])
+  @@index([thanaId])
   @@map("UserAddress")
 }
 
@@ -407,6 +417,10 @@ model Order {
   shippingStreet     String               @db.VarChar(255)
   shippingCity       String               @db.VarChar(100)
   shippingState      String?              @db.VarChar(100)
+  shippingThana      String?              @db.VarChar(100)
+  shippingDivisionId Int?                 @map("shipping_division_id")
+  shippingDistrictId Int?                 @map("shipping_district_id")
+  shippingThanaId    Int?                 @map("shipping_thana_id")
   shippingPostalCode String               @db.VarChar(20)
   customerNotes      String?              @db.Text
   shippingMethodId   String?
@@ -415,6 +429,9 @@ model Order {
 
   user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   shippingMethod     ShippingMethod?      @relation(fields: [shippingMethodId], references: [id], onDelete: SetNull)
+  division           Division?            @relation(fields: [shippingDivisionId], references: [id], onDelete: SetNull)
+  district           District?            @relation(fields: [shippingDistrictId], references: [id], onDelete: SetNull)
+  thana              Thana?               @relation(fields: [shippingThanaId], references: [id], onDelete: SetNull)
   items              OrderItem[]
   statusHistory      OrderStatusHistory[]
   shipments          Shipment[]
@@ -425,6 +442,9 @@ model Order {
 
   @@index([userId])
   @@index([shippingMethodId])
+  @@index([shippingDivisionId])
+  @@index([shippingDistrictId])
+  @@index([shippingThanaId])
   @@index([orderStatus])
   @@index([paymentStatus])
   @@index([shipmentStatus])
@@ -904,4 +924,117 @@ model OtpCode {
 
   @@index([phone])
   @@map("OtpCode")
+}
+
+
+// -----------------------------------------------------------------------------
+// Location Models (Bangladesh Divisions, Districts, Thanas, Unions, etc.)
+// -----------------------------------------------------------------------------
+
+model Division {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique @db.VarChar(255)
+  bnName    String     @unique @map("bn_name") @db.VarChar(255)
+  status    Boolean    @default(true)
+  createdAt DateTime?  @default(now()) @map("created_at")
+  updatedAt DateTime?  @updatedAt @map("updated_at")
+
+  districts     District[]
+  userAddresses UserAddress[]
+  orders        Order[]
+
+  @@map("divisions")
+}
+
+model District {
+  id               Int               @id @default(autoincrement())
+  divisionId       Int               @map("division_id")
+  name             String            @db.VarChar(255)
+  bnName           String?           @map("bn_name") @db.VarChar(255)
+  status           Boolean           @default(true)
+  createdAt        DateTime?         @default(now()) @map("created_at")
+  updatedAt        DateTime?         @updatedAt @map("updated_at")
+
+  division         Division          @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  thanas           Thana[]
+  cityCorporations CityCorporation[]
+  upazilas         Upazila[]
+  userAddresses    UserAddress[]
+  orders           Order[]
+
+  @@index([divisionId])
+  @@map("districts")
+}
+
+model CityCorporation {
+  id         Int       @id @default(autoincrement())
+  districtId Int       @map("district_id")
+  name       String    @db.VarChar(255)
+  bnName     String?   @map("bn_name") @db.VarChar(255)
+  status     Boolean   @default(true)
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @updatedAt @map("updated_at")
+
+  district   District  @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@index([districtId])
+  @@map("city_corporations")
+}
+
+model Thana {
+  id         Int       @id @default(autoincrement())
+  districtId Int       @map("district_id")
+  name       String    @db.VarChar(255)
+  bnName     String?   @map("bn_name") @db.VarChar(255)
+  status     Boolean   @default(true)
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @updatedAt @map("updated_at")
+
+  district   District  @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  unions        Union[]
+  userAddresses UserAddress[]
+  orders        Order[]
+
+  @@index([districtId])
+  @@map("thanas")
+}
+
+model Union {
+  id        Int       @id @default(autoincrement())
+  thanaId   Int       @map("thana_id")
+  name      String    @db.VarChar(255)
+  bnName    String?   @map("bn_name") @db.VarChar(255)
+  status    Boolean   @default(true)
+  createdAt DateTime? @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  thana     Thana     @relation(fields: [thanaId], references: [id], onDelete: Cascade)
+
+  @@index([thanaId])
+  @@map("unions")
+}
+
+model Upazila {
+  id         Int       @id @default(autoincrement())
+  districtId Int?      @map("district_id")
+  name       String    @db.VarChar(255)
+  bnName     String?   @map("bn_name") @db.VarChar(255)
+  status     Boolean   @default(true)
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @updatedAt @map("updated_at")
+
+  district   District? @relation(fields: [districtId], references: [id], onDelete: SetNull)
+
+  @@index([districtId])
+  @@map("upazilas")
+}
+
+model Ward {
+  id        Int       @id @default(autoincrement())
+  name      String?   @db.VarChar(255)
+  bnName    String?   @map("bn_name") @db.VarChar(255)
+  createdAt DateTime? @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  @@map("wards")
 }

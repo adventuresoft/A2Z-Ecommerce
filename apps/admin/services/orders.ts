@@ -28,6 +28,9 @@ export interface AdminOrderItem {
   unitPrice: number;
   quantity: number;
   totalPrice: number;
+  taxRate?: number;
+  taxAmount?: number;
+  taxClassName?: string | null;
   thumbnailUrl: string | null;
 }
 
@@ -89,6 +92,12 @@ export interface AdminOrder {
   shippingStreet: string;
   shippingCity: string;
   shippingState: string | null;
+  shippingThana?: string | null;
+  shippingDivisionId?: number | null;
+  shippingDistrictId?: number | null;
+  shippingThanaId?: number | null;
+  totalTaxAmount?: number;
+  couponCode?: string | null;
   shippingPostalCode: string;
   customerNotes: string | null;
   items: AdminOrderItem[];

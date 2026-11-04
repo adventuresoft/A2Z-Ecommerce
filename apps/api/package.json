@@ -26,6 +26,7 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "db:seed": "node --no-warnings prisma/seed.ts",
+    "db:seed:locations": "node --no-warnings prisma/seed-locations.ts",
     "inventory:backfill": "node --no-warnings prisma/backfill-inventory.ts"
   },
   "dependencies": {

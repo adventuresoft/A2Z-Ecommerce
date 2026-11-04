@@ -183,8 +183,20 @@ export class OrderResponseDto {
   @ApiProperty({ example: 'Dhaka' })
   shippingCity: string;
 
-  @ApiPropertyOptional({ example: 'Dhaka Division' })
+  @ApiPropertyOptional({ example: 'Dhaka' })
   shippingState?: string | null;
+
+  @ApiPropertyOptional({ example: 'Savar' })
+  shippingThana?: string | null;
+
+  @ApiPropertyOptional({ example: 4 })
+  shippingDivisionId?: number | null;
+
+  @ApiPropertyOptional({ example: 14 })
+  shippingDistrictId?: number | null;
+
+  @ApiPropertyOptional({ example: 365 })
+  shippingThanaId?: number | null;
 
   @ApiProperty({ example: '1213' })
   shippingPostalCode: string;

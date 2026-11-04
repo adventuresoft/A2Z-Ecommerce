@@ -11,6 +11,8 @@ import {
 } from "../../../services/orders";
 import { createShipment } from "../../../services/shipments";
 import { PaymentMethod, paymentsService } from "../../../services/payments";
+import { OrderPrintModal, PrintMode } from "../../../components/orders/OrderPrintModal";
+import { taxesApi, TaxClassItem } from "../../../services/taxes";
 
 export default function OrderDetailPage({
   params,
@@ -22,10 +24,31 @@ export default function OrderDetailPage({
 
   const [order, setOrder] = useState<AdminOrder | null>(null);
   const [loading, setLoading] = useState(true);
+  const [defaultTaxClass, setDefaultTaxClass] = useState<TaxClassItem | null>(null);
   const [alert, setAlert] = useState<{
     type: "success" | "danger" | "info";
     text: string;
   } | null>(null);
+
+  // Load active tax configuration from system/taxes
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSystemTaxes() {
+      try {
+        const res = await taxesApi.getTaxes({ isActive: true, limit: 20 });
+        if (isMounted && res.items && res.items.length > 0) {
+          const defaultTax = res.items.find((t) => t.isDefault) || res.items[0];
+          setDefaultTaxClass(defaultTax);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch system taxes for order details:", err);
+      }
+    }
+    loadSystemTaxes();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Status Update Modal State
   const [showModal, setShowModal] = useState(false);
@@ -51,6 +74,11 @@ export default function OrderDetailPage({
   const [paymentRef, setPaymentRef] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [recordingPayment, setRecordingPayment] = useState(false);
+
+  // Print Modal State
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printMode, setPrintMode] = useState<PrintMode>("invoice");
+  const [isPrintMenuOpen, setIsPrintMenuOpen] = useState(false);
 
   // Issue Refund Modal State
   const [showRefundModal, setShowRefundModal] = useState(false);
@@ -82,6 +110,17 @@ export default function OrderDetailPage({
   useEffect(() => {
     fetchOrder();
   }, [fetchOrder]);
+
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest("#order-detail-print-menu")) {
+        setIsPrintMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, []);
 
   const handleStatusUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,6 +328,48 @@ export default function OrderDetailPage({
     );
   }
 
+  // Priority Tax Resolution from system/taxes and order data
+  const recordedTax = Number(order.totalTaxAmount) || 0;
+  const subtotal = Number(order.subtotal) || 0;
+  const itemWithTax = order.items?.find((i) => i.taxRate !== undefined && i.taxRate > 0);
+  const itemTaxRate = itemWithTax?.taxRate;
+  const itemTaxClassName = itemWithTax?.taxClassName;
+
+  let taxLabel = "VAT";
+  let taxRatePercent = defaultTaxClass ? Number(defaultTaxClass.rate) : 15;
+  let effectiveTaxAmount = recordedTax;
+
+  if (itemTaxClassName) {
+    taxLabel = "VAT";
+  }
+
+  if (recordedTax > 0 && subtotal > 0) {
+    if (itemTaxRate !== undefined && itemTaxRate > 0) {
+      taxRatePercent = itemTaxRate;
+    } else {
+      taxRatePercent = Math.round((recordedTax / subtotal) * 100);
+    }
+    effectiveTaxAmount = recordedTax;
+  } else if (recordedTax === 0 && subtotal > 0) {
+    if (itemTaxRate !== undefined && itemTaxRate > 0) {
+      taxRatePercent = itemTaxRate;
+      effectiveTaxAmount = Number(((subtotal * taxRatePercent) / 100).toFixed(2));
+    } else if (defaultTaxClass) {
+      taxRatePercent = Number(defaultTaxClass.rate);
+      effectiveTaxAmount = Number(((subtotal * taxRatePercent) / 100).toFixed(2));
+    } else {
+      taxRatePercent = 15;
+      effectiveTaxAmount = Number((subtotal * 0.15).toFixed(2));
+    }
+  }
+
+  const computedGrandTotal = Number(
+    Math.max(
+      0,
+      subtotal - (Number(order.discountAmount) || 0) + (Number(order.shippingFee) || 0) + effectiveTaxAmount
+    ).toFixed(2)
+  );
+
   return (
     <div className="container-fluid p-3">
       {/* Header and Breadcrumbs */}
@@ -307,7 +388,76 @@ export default function OrderDetailPage({
             Placed on {new Date(order.createdAt).toLocaleString()} · ID: <span className="font-monospace">{order.id}</span>
           </p>
         </div>
-        <div className="col-sm-4 text-sm-end mt-2 mt-sm-0">
+        <div className="col-sm-4 text-sm-end mt-2 mt-sm-0 d-flex align-items-center justify-content-sm-end gap-2 flex-wrap">
+          {/* Print Options Dropdown */}
+          <div className="btn-group position-relative" id="order-detail-print-menu">
+            <button
+              type="button"
+              className="btn btn-outline-dark btn-sm d-flex align-items-center gap-1.5"
+              onClick={() => {
+                setPrintMode("invoice");
+                setShowPrintModal(true);
+                setIsPrintMenuOpen(false);
+              }}
+            >
+              <i className="bi bi-printer"></i>
+              <span>Print Invoice</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-dark btn-sm dropdown-toggle dropdown-toggle-split"
+              aria-expanded={isPrintMenuOpen}
+              onClick={() => setIsPrintMenuOpen((prev) => !prev)}
+              title="More print documents"
+            >
+              <span className="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul className={`dropdown-menu dropdown-menu-end shadow-sm ${isPrintMenuOpen ? "show d-block" : ""}`}>
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item d-flex align-items-center gap-2 small py-2"
+                  onClick={() => {
+                    setPrintMode("invoice");
+                    setShowPrintModal(true);
+                    setIsPrintMenuOpen(false);
+                  }}
+                >
+                  <i className="bi bi-receipt text-primary"></i>
+                  <span>Order Invoice / Receipt</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item d-flex align-items-center gap-2 small py-2"
+                  onClick={() => {
+                    setPrintMode("address");
+                    setShowPrintModal(true);
+                    setIsPrintMenuOpen(false);
+                  }}
+                >
+                  <i className="bi bi-geo-alt text-success"></i>
+                  <span>Delivery Address &amp; Label</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item d-flex align-items-center gap-2 small py-2"
+                  onClick={() => {
+                    setPrintMode("shipment");
+                    setShowPrintModal(true);
+                    setIsPrintMenuOpen(false);
+                  }}
+                >
+                  <i className="bi bi-truck text-info"></i>
+                  <span>Shipment Dispatch Voucher</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
           <button
             onClick={() => {
               setNewOrderStatus(order.orderStatus);
@@ -315,7 +465,7 @@ export default function OrderDetailPage({
               setNewShipmentStatus(order.shipmentStatus);
               setShowModal(true);
             }}
-            className="btn btn-primary btn-sm me-2"
+            className="btn btn-primary btn-sm"
           >
             <i className="bi bi-pencil-square me-1"></i> Update Status
           </button>
@@ -410,11 +560,17 @@ export default function OrderDetailPage({
                       <span className="font-monospace fw-semibold">-৳{order.discountAmount.toFixed(2)}</span>
                     </div>
                   )}
+                  <div className="d-flex justify-content-between mb-1 small text-muted">
+                    <span>VAT ({taxRatePercent}%):</span>
+                    <span className="font-monospace fw-semibold text-dark">
+                      ৳{effectiveTaxAmount.toFixed(2)}
+                    </span>
+                  </div>
                   <hr className="my-2" />
                   <div className="d-flex justify-content-between align-items-center">
                     <span className="h6 mb-0 text-dark fw-bold">Grand Total:</span>
                     <span className="h5 mb-0 text-primary font-monospace fw-bold">
-                      ৳{order.grandTotal.toFixed(2)}
+                      ৳{computedGrandTotal.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -705,10 +861,22 @@ export default function OrderDetailPage({
 
           {/* Delivery & Recipient Snapshot Card */}
           <div className="card shadow-sm border-0 mb-4">
-            <div className="card-header bg-white border-bottom py-3">
+            <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
               <h6 className="card-title mb-0 font-weight-bold text-dark">
                 <i className="bi bi-geo-alt me-2 text-primary"></i>Delivery Address Snapshot
               </h6>
+              <button
+                type="button"
+                className="btn btn-outline-success btn-sm py-0 px-2 d-flex align-items-center gap-1"
+                style={{ fontSize: "0.8rem" }}
+                onClick={() => {
+                  setPrintMode("address");
+                  setShowPrintModal(true);
+                }}
+              >
+                <i className="bi bi-printer"></i>
+                <span>Print Label</span>
+              </button>
             </div>
             <div className="card-body">
               <div className="mb-2">
@@ -724,10 +892,12 @@ export default function OrderDetailPage({
                 <div className="text-dark">{order.shippingStreet}</div>
               </div>
               <div className="mb-2">
-                <div className="small text-muted text-uppercase">City & Postal Code:</div>
+                <div className="small text-muted text-uppercase">Destination &amp; Thana:</div>
                 <div className="text-dark">
-                  {order.shippingCity} - {order.shippingPostalCode}
-                  {order.shippingState ? `, ${order.shippingState}` : ""}
+                  {order.shippingThana ? `${order.shippingThana}, ` : ""}
+                  {order.shippingCity}
+                  {order.shippingState && order.shippingState !== order.shippingCity ? `, ${order.shippingState}` : ""}
+                  {" - "}{order.shippingPostalCode}
                 </div>
               </div>
               {order.customerEmail && (
@@ -947,6 +1117,14 @@ export default function OrderDetailPage({
           </div>
         </div>
       )}
+      {/* Professional Order Print Modal */}
+      <OrderPrintModal
+        order={order}
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        initialMode={printMode}
+      />
+
       {/* Record Payment Modal */}
       {showPaymentModal && (
         <div

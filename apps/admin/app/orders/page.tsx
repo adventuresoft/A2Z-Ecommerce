@@ -9,6 +9,7 @@ import {
   ShipmentStatus,
   ordersService,
 } from "../../services/orders";
+import { OrderPrintModal, PrintMode } from "../../components/orders/OrderPrintModal";
 
 export default function OrdersListPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -24,6 +25,30 @@ export default function OrdersListPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | "">("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatus | "">("");
   const [shipmentStatusFilter, setShipmentStatusFilter] = useState<ShipmentStatus | "">("");
+
+  // Print Modal State
+  const [selectedPrintOrder, setSelectedPrintOrder] = useState<AdminOrder | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printMode, setPrintMode] = useState<PrintMode>("invoice");
+  const [activeDropdownOrderId, setActiveDropdownOrderId] = useState<string | null>(null);
+
+  const openPrintModal = (order: AdminOrder, mode: PrintMode) => {
+    setSelectedPrintOrder(order);
+    setPrintMode(mode);
+    setShowPrintModal(true);
+    setActiveDropdownOrderId(null);
+  };
+
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest(".order-row-print-menu")) {
+        setActiveDropdownOrderId(null);
+      }
+    };
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, []);
 
   // Alert
   const [alert, setAlert] = useState<{
@@ -428,13 +453,63 @@ export default function OrdersListPage() {
                       </td>
                       <td className="text-center">{getShipmentStatusBadge(order.shipmentStatus)}</td>
                       <td className="text-end pe-3">
-                        <Link
-                          href={`/orders/${order.id}`}
-                          className="btn btn-sm btn-outline-primary"
-                          aria-label={`View details for order ${order.orderNumber}`}
-                        >
-                          <i className="bi bi-eye me-1" aria-hidden="true"></i> Details
-                        </Link>
+                        <div className="btn-group position-relative order-row-print-menu">
+                          <Link
+                            href={`/orders/${order.id}`}
+                            className="btn btn-sm btn-outline-primary"
+                            aria-label={`View details for order ${order.orderNumber}`}
+                          >
+                            <i className="bi bi-eye me-1" aria-hidden="true"></i> Details
+                          </Link>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
+                            aria-expanded={activeDropdownOrderId === order.id}
+                            onClick={() =>
+                              setActiveDropdownOrderId((prev) => (prev === order.id ? null : order.id))
+                            }
+                            title="Print options"
+                          >
+                            <i className="bi bi-printer" aria-hidden="true"></i>
+                            <span className="visually-hidden">Toggle print menu</span>
+                          </button>
+                          <ul
+                            className={`dropdown-menu dropdown-menu-end shadow-sm ${
+                              activeDropdownOrderId === order.id ? "show d-block" : ""
+                            }`}
+                          >
+                            <li>
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 small py-2"
+                                onClick={() => openPrintModal(order, "invoice")}
+                              >
+                                <i className="bi bi-receipt text-primary"></i>
+                                <span>Print Invoice</span>
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 small py-2"
+                                onClick={() => openPrintModal(order, "address")}
+                              >
+                                <i className="bi bi-geo-alt text-success"></i>
+                                <span>Print Delivery Address</span>
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 small py-2"
+                                onClick={() => openPrintModal(order, "shipment")}
+                              >
+                                <i className="bi bi-truck text-info"></i>
+                                <span>Print Shipment Slip</span>
+                              </button>
+                            </li>
+                          </ul>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -444,7 +519,15 @@ export default function OrdersListPage() {
           </div>
         </div>
 
-        {/* Card Footer with Pagination */}
+        {/* Professional Order Print Modal */}
+      <OrderPrintModal
+        order={selectedPrintOrder}
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        initialMode={printMode}
+      />
+
+      {/* Card Footer with Pagination */}
         {!loading && totalPages > 1 && (
           <div className="card-footer bg-white border-top py-3">
             <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">

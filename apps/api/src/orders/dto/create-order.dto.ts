@@ -67,7 +67,7 @@ export class CreateOrderDto {
   shippingStreet: string;
 
   @ApiProperty({
-    description: 'City / Municipality',
+    description: 'City / District name',
     example: 'Dhaka',
     maxLength: 100,
   })
@@ -77,14 +77,51 @@ export class CreateOrderDto {
   shippingCity: string;
 
   @ApiPropertyOptional({
-    description: 'State / Division / Province',
-    example: 'Dhaka Division',
+    description: 'State / Division name',
+    example: 'Dhaka',
     maxLength: 100,
   })
   @IsString()
   @IsOptional()
   @MaxLength(100)
   shippingState?: string;
+
+  @ApiPropertyOptional({
+    description: 'Thana / Upazila name',
+    example: 'Savar',
+    maxLength: 100,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  shippingThana?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping division ID',
+    example: 4,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  shippingDivisionId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Shipping district ID',
+    example: 14,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  shippingDistrictId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Shipping thana ID',
+    example: 365,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  shippingThanaId?: number;
 
   @ApiProperty({
     description: 'Postal / ZIP code',
@@ -149,4 +186,3 @@ export class CreateOrderDto {
   @Type(() => OrderItemInputDto)
   items: OrderItemInputDto[];
 }
-

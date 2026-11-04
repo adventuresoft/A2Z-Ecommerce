@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -32,17 +34,41 @@ export class CreateAddressDto {
   @MaxLength(255, { message: 'Street address cannot exceed 255 characters' })
   streetAddress!: string;
 
-  @ApiProperty({ example: 'Dhaka', description: 'City' })
+  @ApiProperty({ example: 'Dhaka', description: 'City / District name' })
   @IsString({ message: 'City must be a string' })
   @IsNotEmpty({ message: 'City is required' })
   @MaxLength(100, { message: 'City cannot exceed 100 characters' })
   city!: string;
 
-  @ApiPropertyOptional({ example: 'Dhaka Division', description: 'State / Division' })
+  @ApiPropertyOptional({ example: 'Dhaka', description: 'State / Division name' })
   @IsOptional()
   @IsString({ message: 'State must be a string' })
   @MaxLength(100, { message: 'State cannot exceed 100 characters' })
   state?: string;
+
+  @ApiPropertyOptional({ example: 'Savar', description: 'Thana / Upazila name' })
+  @IsOptional()
+  @IsString({ message: 'Thana must be a string' })
+  @MaxLength(100, { message: 'Thana cannot exceed 100 characters' })
+  thana?: string;
+
+  @ApiPropertyOptional({ example: 4, description: 'Division ID' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'divisionId must be an integer' })
+  divisionId?: number;
+
+  @ApiPropertyOptional({ example: 14, description: 'District ID' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'districtId must be an integer' })
+  districtId?: number;
+
+  @ApiPropertyOptional({ example: 365, description: 'Thana ID' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'thanaId must be an integer' })
+  thanaId?: number;
 
   @ApiProperty({ example: '1230', description: 'Postal code' })
   @IsString({ message: 'Postal code must be a string' })
