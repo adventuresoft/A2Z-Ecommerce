@@ -39,3 +39,20 @@ export class ThanaDto {
   bnName?: string | null;
 }
 
+export class PostOfficeDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 365 })
+  thanaId!: number;
+
+  @ApiProperty({ example: 'Savar' })
+  name!: string | null;
+
+  @ApiPropertyOptional({ example: 'সাভার' })
+  bnName?: string | null;
+
+  @ApiPropertyOptional({ example: '1340' })
+  postalCode?: string | null;
+}
+

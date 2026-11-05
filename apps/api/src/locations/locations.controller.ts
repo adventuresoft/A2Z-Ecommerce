@@ -1,6 +1,14 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { DistrictQueryDto, DistrictDto, DivisionDto, ThanaDto, ThanaQueryDto } from './dto/index.js';
+import {
+  DistrictQueryDto,
+  DistrictDto,
+  DivisionDto,
+  ThanaDto,
+  ThanaQueryDto,
+  PostOfficeDto,
+  PostOfficeQueryDto,
+} from './dto/index.js';
 import { LocationsService } from './locations.service.js';
 
 @ApiTags('Locations')
@@ -39,6 +47,17 @@ export class LocationsController {
   })
   async getThanas(@Query() query: ThanaQueryDto): Promise<ThanaDto[]> {
     return this.locationsService.getThanas(query);
+  }
+
+  @Get('post-offices')
+  @ApiOperation({ summary: 'List active Bangladesh post offices (optionally filtered by thanaId)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of post offices',
+    type: [PostOfficeDto],
+  })
+  async getPostOffices(@Query() query: PostOfficeQueryDto): Promise<PostOfficeDto[]> {
+    return this.locationsService.getPostOffices(query);
   }
 }
 

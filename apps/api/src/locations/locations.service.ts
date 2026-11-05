@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { DistrictQueryDto, ThanaQueryDto } from './dto/index.js';
+import type { DistrictQueryDto, ThanaQueryDto, PostOfficeQueryDto } from './dto/index.js';
 
 @Injectable()
 export class LocationsService {
@@ -45,6 +45,23 @@ export class LocationsService {
         districtId: true,
         name: true,
         bnName: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async getPostOffices(query?: PostOfficeQueryDto) {
+    return this.prisma.postOffice.findMany({
+      where: {
+        status: true,
+        ...(query?.thanaId ? { thanaId: query.thanaId } : {}),
+      },
+      select: {
+        id: true,
+        thanaId: true,
+        name: true,
+        bnName: true,
+        postalCode: true,
       },
       orderBy: { name: 'asc' },
     });

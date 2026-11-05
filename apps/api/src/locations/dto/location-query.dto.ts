@@ -18,3 +18,11 @@ export class ThanaQueryDto {
   districtId?: number;
 }
 
+export class PostOfficeQueryDto {
+  @ApiPropertyOptional({ example: 365, description: 'Thana ID filter' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  thanaId?: number;
+}
+
