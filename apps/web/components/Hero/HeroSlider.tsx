@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -25,23 +25,39 @@ export interface HeroSideBanner {
   variant?: "dark" | "light";
 }
 
+export const FREELANCER_HERO_SLIDE: HeroSlide = {
+  id: "hero-freelancers",
+  tagline: "VERIFIED LOCAL TALENT & SERVICES",
+  title: "Hire Top Verified Freelancers & Professionals",
+  subtitle:
+    "Direct contact with certified local technicians, electricians, web developers, and creative experts across Bangladesh. 100% NID verified with zero platform commission.",
+  primaryCtaText: "Hire a Professional",
+  primaryCtaLink: "/hire",
+  secondaryCtaText: "Join as Freelancer",
+  secondaryCtaLink: "/freelancer/onboarding",
+  badgeText: "VERIFIED TALENT",
+  image:
+    "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=85",
+  bgColor: "from-slate-950 via-slate-900 to-slate-950",
+};
+
 const DEFAULT_SIDE_BANNERS: HeroSideBanner[] = [
   {
-    id: "side-banner-1",
-    title: "Premium Sound.\nImmersive Experience.",
-    subtitle: "Elevate every moment with high-fidelity audio.",
+    id: "side-banner-flash-sale",
+    title: "Mega Flash Deals\nUp to 60% Off",
+    subtitle: "Limited time savings on trending electronics & gear.",
     imageUrl:
-      "https://images.unsplash.com/photo-1593640408182-31c70c8268f5?auto=format&fit=crop&w=900&q=85",
+      "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=900&q=85",
     linkUrl: "/flash-sale",
     variant: "dark",
   },
   {
-    id: "side-banner-2",
-    title: "Smart Tech.\nSeamless Life.",
-    subtitle: "Innovative electronics for modern living.",
+    id: "side-banner-freelance-finder",
+    title: "Need Expert Help?\nFind Local Pros",
+    subtitle: "Connect with certified technicians, electricians & developers.",
     imageUrl:
-      "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=900&q=85",
-    linkUrl: "/shop",
+      "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=900&q=85",
+    linkUrl: "/hire",
     variant: "light",
   },
 ];
@@ -57,24 +73,35 @@ export function HeroSlider({
 }: HeroSliderProps = {}) {
   const prefersReducedMotion = useSafeReducedMotion();
 
-  const slides: HeroSlide[] =
+  const baseSlides: HeroSlide[] =
     banners && banners.length > 0
       ? banners.map((b, idx) => ({
-        id: b.id || `banner-${idx}`,
-        tagline: b.badgeText || "IMMERSIVE TECH EXPERIENCE",
-        title: b.title,
-        subtitle:
-          b.subtitle ||
-          "Experience studio-grade acoustic clarity, precision performance, and all-day reliability with our curated flagship selection.",
-        primaryCtaText: "Explore Now",
-        primaryCtaLink: b.linkUrl || "/shop",
-        secondaryCtaText: "Top Rated",
-        secondaryCtaLink: "/flash-sale",
-        badgeText: b.badgeText || "STUDIO GRADE",
-        image: b.imageUrl || "/placeholder.png",
-        bgColor: "from-slate-950 via-slate-900 to-slate-950",
-      }))
+          id: b.id || `banner-${idx}`,
+          tagline: b.badgeText || "IMMERSIVE TECH EXPERIENCE",
+          title: b.title,
+          subtitle:
+            b.subtitle ||
+            "Experience studio-grade acoustic clarity, precision performance, and all-day reliability with our curated flagship selection.",
+          primaryCtaText: "Explore Now",
+          primaryCtaLink: b.linkUrl || "/shop",
+          secondaryCtaText: "Top Rated",
+          secondaryCtaLink: "/flash-sale",
+          badgeText: b.badgeText || "STUDIO GRADE",
+          image: b.imageUrl || "/placeholder.png",
+          bgColor: "from-slate-950 via-slate-900 to-slate-950",
+        }))
       : HERO_SLIDES;
+
+  // Insert Freelancer Marketplace slide into the slider rotation
+  const slides: HeroSlide[] = useMemo(() => {
+    const hasFreelancer = baseSlides.some(
+      (s) => s.id === "hero-freelancers" || s.primaryCtaLink === "/hire",
+    );
+    if (hasFreelancer) return baseSlides;
+    return [baseSlides[0]!, FREELANCER_HERO_SLIDE, ...baseSlides.slice(1)].filter(
+      Boolean,
+    ) as HeroSlide[];
+  }, [baseSlides]);
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -102,6 +129,8 @@ export function HeroSlider({
     ? slide.badgeText.replace(/^[^\w\d\s]+\s*/, "").toUpperCase()
     : "FEATURED DEAL";
 
+  const isFreelancerSlide = slide.primaryCtaLink === "/hire";
+
   return (
     <section
       aria-label="Featured promotions"
@@ -109,7 +138,7 @@ export function HeroSlider({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-stretch">
-          {/* Left Column (8 cols): Obsidian Studio Hero Slider (No Hover 3D Tilt) */}
+          {/* Left Column (8 cols): Obsidian Studio Hero Slider */}
           <div
             className="lg:col-span-8 min-h-[360px] sm:min-h-[400px] lg:h-[435px]"
             onMouseEnter={() => setIsPaused(true)}
@@ -151,20 +180,24 @@ export function HeroSlider({
                 </motion.div>
               </AnimatePresence>
 
-              {/* Top-Right Official Store Pill */}
+              {/* Top-Right Pill */}
               <div className="relative z-20 flex justify-end px-5 pt-4 sm:px-7 sm:pt-5 pointer-events-none">
                 <div className="inline-flex items-center gap-2 bg-[#161B22]/90 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold tracking-tight shadow-md">
                   <span
                     className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]"
                     aria-hidden="true"
                   />
-                  <span className="text-slate-100">Official Store</span>
+                  <span className="text-slate-100">
+                    {isFreelancerSlide ? "Freelancer Network" : "Official Store"}
+                  </span>
                   <span className="text-slate-500">•</span>
-                  <span className="text-emerald-400 font-bold">Ready Stock</span>
+                  <span className="text-emerald-400 font-bold">
+                    {isFreelancerSlide ? "Verified Pros" : "Ready Stock"}
+                  </span>
                 </div>
               </div>
 
-              {/* Main Left-Aligned Editorial Content (Smaller & Compact Typography) */}
+              {/* Main Left-Aligned Editorial Content */}
               <div className="relative z-20 px-6 sm:px-9 lg:px-11 my-auto py-2 max-w-lg">
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -189,34 +222,54 @@ export function HeroSlider({
                       )}
                     </div>
 
-                    {/* Smaller Compact Headline */}
+                    {/* Headline */}
                     <h1 className="text-base sm:text-lg lg:text-[22px] font-extrabold tracking-tight text-white leading-snug text-balance max-w-sm">
                       {slide.title}
                     </h1>
 
-                    {/* Smaller Editorial Subtitle */}
+                    {/* Editorial Subtitle */}
                     <p className="text-slate-300/85 text-[11px] sm:text-xs max-w-[360px] leading-relaxed line-clamp-2 font-normal">
                       {slide.subtitle}
                     </p>
 
                     {/* Inline Trust Highlights with Vertical Divider */}
-                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 pt-0.5 text-[10px] sm:text-[11px] font-semibold text-slate-200">
-                      <div className="inline-flex items-center gap-1.5">
-                        <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-400 shrink-0">
-                          <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
-                        </span>
-                        <span>100% Official Warranty</span>
-                      </div>
+                    {isFreelancerSlide ? (
+                      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 pt-0.5 text-[10px] sm:text-[11px] font-semibold text-slate-200">
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
+                            <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
+                          </span>
+                          <span>100% NID Verified</span>
+                        </div>
 
-                      <span className="h-3 w-px bg-white/15" aria-hidden="true" />
+                        <span className="h-3 w-px bg-white/15" aria-hidden="true" />
 
-                      <div className="inline-flex items-center gap-1.5">
-                        <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
-                          <Truck className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
-                        </span>
-                        <span>Fast Express Delivery</span>
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-400 shrink-0">
+                            <Truck className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
+                          </span>
+                          <span>Direct Hire • 0% Commission</span>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 pt-0.5 text-[10px] sm:text-[11px] font-semibold text-slate-200">
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-400 shrink-0">
+                            <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
+                          </span>
+                          <span>100% Official Warranty</span>
+                        </div>
+
+                        <span className="h-3 w-px bg-white/15" aria-hidden="true" />
+
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
+                            <Truck className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
+                          </span>
+                          <span>Fast Express Delivery</span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* CTA Buttons */}
                     <div className="flex flex-wrap items-center gap-2.5 pt-1">
@@ -241,10 +294,10 @@ export function HeroSlider({
                 </AnimatePresence>
               </div>
 
-              {/* Bottom-Left Tactile 3D Control Cluster: [<] [• — • •] [>] */}
+              {/* Bottom Tactile Control Cluster: [<] [• — • •] [>] */}
               {slides.length > 1 && (
                 <div className="relative z-20 px-6 pb-4 sm:px-9 sm:pb-5 lg:px-11 flex items-center gap-2.5">
-                  {/* 3D Tactile Prev Button */}
+                  {/* Prev Button */}
                   <button
                     type="button"
                     onClick={handlePrev}
@@ -254,24 +307,24 @@ export function HeroSlider({
                     <ChevronLeft className="w-4 h-4 stroke-[2.2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" aria-hidden="true" />
                   </button>
 
-                  {/* 3D Recessed Glass Capsule Pagination */}
+                  {/* Recessed Capsule Pagination */}
                   <div className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-gradient-to-b from-slate-950/90 to-slate-900/90 border border-white/12 backdrop-blur-md shadow-[0_6px_16px_rgba(0,0,0,0.55),inset_0_2px_4px_rgba(0,0,0,0.7),inset_0_-1px_0_rgba(255,255,255,0.12)]">
                     {slides.map((_, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => setCurrentSlide(idx)}
-                        className={`h-2 rounded-full cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${currentSlide === idx
-                            ? "w-6 bg-gradient-to-b from-blue-400 to-blue-600 shadow-[0_0_10px_rgba(59,130,246,0.95),inset_0_1px_0_rgba(255,255,255,0.5)]"
-                            : "w-2 bg-gradient-to-b from-slate-500 to-slate-700 hover:from-slate-300 hover:to-slate-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.6)]"
-                          }`}
+                        className={`h-2 rounded-full cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                          currentSlide === idx
+                            ? "w-7 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9),inset_0_1px_1px_rgba(255,255,255,0.4)]"
+                            : "w-2 bg-slate-600/70 hover:bg-slate-400/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.8)]"
+                        }`}
                         aria-label={`Go to slide ${idx + 1}`}
-                        aria-current={currentSlide === idx ? "true" : undefined}
                       />
                     ))}
                   </div>
 
-                  {/* 3D Tactile Next Button */}
+                  {/* Next Button */}
                   <button
                     type="button"
                     onClick={handleNext}
@@ -297,7 +350,7 @@ export function HeroSlider({
                   className="w-full h-[185px] sm:h-[200px] lg:h-full rounded-[22px]"
                 >
                   {isLightCard ? (
-                    /* Bottom Card: Light Silver Studio Product Card */
+                    /* Bottom Card: Light Silver Studio Freelance Finder Card */
                     <Link
                       href={banner.linkUrl}
                       className="group relative w-full h-full rounded-[22px] overflow-hidden bg-gradient-to-br from-[#F1F3F6] via-[#E9ECF0] to-[#DFE3E8] shadow-[0_18px_36px_-12px_rgba(15,23,42,0.14),0_4px_12px_-2px_rgba(15,23,42,0.06)] hover:shadow-[0_22px_44px_-12px_rgba(15,23,42,0.22)] transition-all duration-300 flex items-center justify-between p-5 sm:p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
@@ -328,7 +381,7 @@ export function HeroSlider({
                       </div>
                     </Link>
                   ) : (
-                    /* Top Card: Dark Immersive Hardware Card */
+                    /* Top Card: Dark Immersive Flash Sale Card */
                     <Link
                       href={banner.linkUrl}
                       className="group relative w-full h-full rounded-[22px] overflow-hidden bg-[#0E1117] text-white shadow-[0_18px_36px_-12px_rgba(15,23,42,0.28),0_4px_12px_-2px_rgba(15,23,42,0.12)] hover:shadow-[0_22px_44px_-12px_rgba(15,23,42,0.38)] transition-all duration-300 flex flex-col justify-end p-5 sm:p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
