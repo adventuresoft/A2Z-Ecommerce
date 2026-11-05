@@ -1,4 +1,4 @@
-# Freelancer Marketplace ("Hire a Professional") – Design
+op# Freelancer Marketplace ("Hire a Professional") – Design
 
 Status: design agreed through the grill-me interview (15 decisions). No code written yet.
 Stack: NestJS + Prisma 7 (PostgreSQL) API (`apps/api`), Next.js storefront (`apps/web`), admin (`apps/admin`).

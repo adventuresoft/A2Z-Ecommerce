@@ -340,7 +340,7 @@ async function seedLocations() {
   await prisma.union.deleteMany();
   await prisma.thana.deleteMany();
   await prisma.cityCorporation.deleteMany();
-  await prisma.upazila.deleteMany();
+  await prisma.paurashava.deleteMany();
   await prisma.district.deleteMany();
   await prisma.division.deleteMany();
   await prisma.ward.deleteMany();
@@ -413,11 +413,11 @@ async function seedLocations() {
     });
   }
 
-  // 6. Upazilas (43)
-  await prisma.upazila.createMany({
+  // 6. Paurashavas (43)
+  await prisma.paurashava.createMany({
     data: dataset.upazilas.map((r) => ({
       id: r.id,
-      districtId: r.districtId,
+      districtId: r.districtId ?? 14,
       name: r.name,
       bnName: r.bnName,
       status: r.status,
@@ -428,8 +428,10 @@ async function seedLocations() {
 
   // 7. Wards (20)
   await prisma.ward.createMany({
-    data: dataset.wards.map((r) => ({
+    data: dataset.wards.map((r, idx) => ({
       id: r.id,
+      cityCorporationId: 1, // Default sample to City Corp 1 (Dhaka North)
+      wardNo: idx + 1,
       name: r.name,
       bnName: r.bnName,
       createdAt: r.createdAt ? new Date(r.createdAt) : now,
@@ -444,7 +446,7 @@ async function seedLocations() {
     'city_corporations',
     'thanas',
     'unions',
-    'upazilas',
+    'paurashavas',
     'wards',
   ];
 
@@ -460,7 +462,7 @@ async function seedLocations() {
     cityCorporationsCount,
     thanasCount,
     unionsCount,
-    upazilasCount,
+    paurashavasCount,
     wardsCount,
   ] = await Promise.all([
     prisma.division.count(),
@@ -468,7 +470,7 @@ async function seedLocations() {
     prisma.cityCorporation.count(),
     prisma.thana.count(),
     prisma.union.count(),
-    prisma.upazila.count(),
+    prisma.paurashava.count(),
     prisma.ward.count(),
   ]);
 
@@ -478,7 +480,7 @@ async function seedLocations() {
     city_corporations: cityCorporationsCount,
     thanas: thanasCount,
     unions: unionsCount,
-    upazilas: upazilasCount,
+    paurashavas: paurashavasCount,
     wards: wardsCount,
   });
 }

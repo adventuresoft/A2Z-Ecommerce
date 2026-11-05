@@ -56,3 +56,62 @@ export class PostOfficeDto {
   postalCode?: string | null;
 }
 
+export class CityCorporationDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 14 })
+  districtId!: number;
+
+  @ApiProperty({ example: 'Dhaka North' })
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'ঢাকা উত্তর' })
+  bnName?: string | null;
+}
+
+export class PaurashavaDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 14 })
+  districtId!: number;
+
+  @ApiProperty({ example: 'Savar' })
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'সাভার' })
+  bnName?: string | null;
+}
+
+export class UnionDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 365 })
+  thanaId!: number;
+
+  @ApiProperty({ example: 'Amin Bazar' })
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'আমিন বাজার' })
+  bnName?: string | null;
+}
+
+export class WardDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 1 })
+  cityCorporationId!: number;
+
+  @ApiProperty({ example: 1 })
+  wardNo!: number;
+
+  @ApiPropertyOptional({ example: 'Ward 1' })
+  name?: string | null;
+
+  @ApiPropertyOptional({ example: 'ওয়ার্ড ১' })
+  bnName?: string | null;
+}
+

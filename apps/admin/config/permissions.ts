@@ -15,6 +15,7 @@ export type AppModule =
   | 'engagement'
   | 'reports'
   | 'settings'
+  | 'freelancers'
   | 'users';
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'SHOP_MANAGER' | 'CUSTOMER';
@@ -34,6 +35,7 @@ const ALL_MODULES: AppModule[] = [
   'engagement',
   'reports',
   'settings',
+  'freelancers',
   'users',
 ];
 

@@ -330,6 +330,43 @@ export const navigationConfig: NavItem[] = [
     ],
   },
   {
+    id: "nav-marketplace-header",
+    title: "FREELANCER MARKETPLACE",
+    isHeader: true,
+  },
+  {
+    id: "marketplace-freelancers",
+    title: "Freelancers",
+    icon: "bi bi-person-badge",
+    phase: 1,
+    children: [
+      {
+        id: "freelancers-all",
+        title: "All Freelancers",
+        href: "/freelancers",
+        icon: "bi bi-people",
+        phase: 1,
+        badge: { text: "Live", variant: "success" },
+      },
+      {
+        id: "freelancers-approvals",
+        title: "Approvals Queue",
+        href: "/freelancers/approvals",
+        icon: "bi bi-check2-circle",
+        phase: 1,
+        badge: { text: "Pending", variant: "warning" },
+      },
+      {
+        id: "freelancers-revisions",
+        title: "Revision Reviews",
+        href: "/freelancers/revisions",
+        icon: "bi bi-arrow-repeat",
+        phase: 1,
+        badge: { text: "Diff", variant: "info" },
+      },
+    ],
+  },
+  {
     id: "nav-system-header",
     title: "SYSTEM & SETTINGS",
     isHeader: true,

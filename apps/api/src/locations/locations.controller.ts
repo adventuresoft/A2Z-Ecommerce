@@ -8,6 +8,14 @@ import {
   ThanaQueryDto,
   PostOfficeDto,
   PostOfficeQueryDto,
+  CityCorporationDto,
+  CityCorporationQueryDto,
+  PaurashavaDto,
+  PaurashavaQueryDto,
+  UnionDto,
+  UnionQueryDto,
+  WardDto,
+  WardQueryDto,
 } from './dto/index.js';
 import { LocationsService } from './locations.service.js';
 
@@ -39,7 +47,7 @@ export class LocationsController {
   }
 
   @Get('thanas')
-  @ApiOperation({ summary: 'List active Bangladesh thanas/upazilas (optionally filtered by districtId)' })
+  @ApiOperation({ summary: 'List active Bangladesh thanas (optionally filtered by districtId)' })
   @ApiResponse({
     status: 200,
     description: 'List of thanas',
@@ -58,6 +66,50 @@ export class LocationsController {
   })
   async getPostOffices(@Query() query: PostOfficeQueryDto): Promise<PostOfficeDto[]> {
     return this.locationsService.getPostOffices(query);
+  }
+
+  @Get('city-corporations')
+  @ApiOperation({ summary: 'List active Bangladesh city corporations (optionally filtered by districtId)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of city corporations',
+    type: [CityCorporationDto],
+  })
+  async getCityCorporations(@Query() query: CityCorporationQueryDto): Promise<CityCorporationDto[]> {
+    return this.locationsService.getCityCorporations(query);
+  }
+
+  @Get('paurashavas')
+  @ApiOperation({ summary: 'List active Bangladesh paurashavas/municipalities (optionally filtered by districtId)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of paurashavas',
+    type: [PaurashavaDto],
+  })
+  async getPaurashavas(@Query() query: PaurashavaQueryDto): Promise<PaurashavaDto[]> {
+    return this.locationsService.getPaurashavas(query);
+  }
+
+  @Get('unions')
+  @ApiOperation({ summary: 'List active Bangladesh unions (optionally filtered by thanaId)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of unions',
+    type: [UnionDto],
+  })
+  async getUnions(@Query() query: UnionQueryDto): Promise<UnionDto[]> {
+    return this.locationsService.getUnions(query);
+  }
+
+  @Get('wards')
+  @ApiOperation({ summary: 'List city corporation wards (optionally filtered by cityCorporationId)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of wards',
+    type: [WardDto],
+  })
+  async getWards(@Query() query: WardQueryDto): Promise<WardDto[]> {
+    return this.locationsService.getWards(query);
   }
 }
 

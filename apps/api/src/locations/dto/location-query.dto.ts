@@ -26,3 +26,35 @@ export class PostOfficeQueryDto {
   thanaId?: number;
 }
 
+export class CityCorporationQueryDto {
+  @ApiPropertyOptional({ example: 14, description: 'District ID filter' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  districtId?: number;
+}
+
+export class PaurashavaQueryDto {
+  @ApiPropertyOptional({ example: 14, description: 'District ID filter' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  districtId?: number;
+}
+
+export class UnionQueryDto {
+  @ApiPropertyOptional({ example: 365, description: 'Thana ID filter' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  thanaId?: number;
+}
+
+export class WardQueryDto {
+  @ApiPropertyOptional({ example: 1, description: 'City Corporation ID filter' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  cityCorporationId?: number;
+}
+

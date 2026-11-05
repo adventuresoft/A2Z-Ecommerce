@@ -29,6 +29,9 @@ import { WishlistModule } from './wishlist/wishlist.module.js';
 import { TagsModule } from './tags/tags.module.js';
 import { CollectionsModule } from './collections/collections.module.js';
 import { LocationsModule } from './locations/locations.module.js';
+import { TaxonomyModule } from './taxonomy/taxonomy.module.js';
+import { FreelancersModule } from './freelancers/freelancers.module.js';
+import { MembershipsModule } from './memberships/memberships.module.js';
 
 @Module({
   imports: [
@@ -62,6 +65,9 @@ import { LocationsModule } from './locations/locations.module.js';
     TagsModule,
     CollectionsModule,
     LocationsModule,
+    TaxonomyModule,
+    FreelancersModule,
+    MembershipsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
