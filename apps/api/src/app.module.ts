@@ -32,6 +32,8 @@ import { LocationsModule } from './locations/locations.module.js';
 import { TaxonomyModule } from './taxonomy/taxonomy.module.js';
 import { FreelancersModule } from './freelancers/freelancers.module.js';
 import { MembershipsModule } from './memberships/memberships.module.js';
+import { MarketplaceModule } from './marketplace/marketplace.module.js';
+import { MessagingModule } from './messaging/messaging.module.js';
 
 @Module({
   imports: [
@@ -68,6 +70,8 @@ import { MembershipsModule } from './memberships/memberships.module.js';
     TaxonomyModule,
     FreelancersModule,
     MembershipsModule,
+    MarketplaceModule,
+    MessagingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

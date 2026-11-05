@@ -99,5 +99,11 @@ export class FreelancerProfileController {
   async submitProfile(@CurrentUser() user: AccessPayload) {
     return this.profileService.submitProfile(user.sub);
   }
+
+  @Get('reveals')
+  @ApiOperation({ summary: 'List clients who revealed this freelancer phone number' })
+  async getReveals(@CurrentUser() user: AccessPayload) {
+    return this.profileService.getReveals(user.sub);
+  }
 }
 

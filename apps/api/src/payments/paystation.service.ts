@@ -399,4 +399,65 @@ export class PaystationService {
 
     return (await response.json()) as PaystationRawStatusResponse;
   }
+
+  /**
+   * Initiate PayStation Hosted Gateway Checkout for arbitrary/membership charges
+   */
+  async createCustomCharge(params: {
+    invoiceNumber: string;
+    amount: number;
+    reference: string;
+    customerName: string;
+    customerPhone: string;
+    customerEmail?: string;
+    customerAddress?: string;
+    callbackUrl: string;
+    checkoutItems: string;
+  }): Promise<PaystationInitiateResponseDto> {
+    const { merchantId, password, baseUrl } = await this.getCredentials();
+    const rawPhone = params.customerPhone || '01712345678';
+    const sanitizedPhone = rawPhone.replace(/^\+?880?/, '0');
+
+    const formData = new FormData();
+    formData.append('invoice_number', params.invoiceNumber);
+    formData.append('currency', 'BDT');
+    formData.append('payment_amount', params.amount.toString());
+    formData.append('reference', params.reference);
+    formData.append('cust_name', params.customerName || 'A2Z Member');
+    formData.append('cust_phone', sanitizedPhone);
+    formData.append('cust_email', params.customerEmail || 'member@example.com');
+    formData.append('cust_address', params.customerAddress || 'Dhaka, Bangladesh');
+    formData.append('callback_url', params.callbackUrl);
+    formData.append('checkout_items', params.checkoutItems);
+    formData.append('merchantId', merchantId);
+    formData.append('password', password);
+
+    this.logger.log(
+      `Initiating PayStation Online Gateway custom charge for Invoice: ${params.invoiceNumber}, Amount: ${params.amount} BDT`,
+    );
+
+    const response = await fetch(`${baseUrl}/initiate-payment`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`PayStation gateway returned HTTP ${response.status}`);
+    }
+
+    const result = (await response.json()) as PaystationRawInitiateResponse;
+
+    if (result.status !== 'success' || !result.payment_url) {
+      throw new BadRequestException(
+        result.message || 'PayStation failed to generate payment link',
+      );
+    }
+
+    return {
+      status: 'success',
+      payment_url: result.payment_url,
+      invoice_number: result.invoice_number || params.invoiceNumber,
+      message: result.message || 'Payment link generated successfully',
+    };
+  }
 }

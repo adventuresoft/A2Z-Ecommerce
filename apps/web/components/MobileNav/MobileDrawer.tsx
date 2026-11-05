@@ -19,6 +19,8 @@ import {
   Layers,
   Flame,
   Sparkles,
+  Briefcase,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -339,6 +341,22 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             >
               <Tag className="w-4 h-4 text-purple-600" />
               <span>Archive & Clearance Deals</span>
+            </Link>
+            <Link
+              href="/hire"
+              onClick={onClose}
+              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-700 text-xs font-bold transition-colors"
+            >
+              <Briefcase className="w-4 h-4 text-blue-600" />
+              <span>Hire a Professional</span>
+            </Link>
+            <Link
+              href="/membership"
+              onClick={onClose}
+              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-700 text-xs font-bold transition-colors"
+            >
+              <CreditCard className="w-4 h-4 text-blue-600" />
+              <span>Membership Plans</span>
             </Link>
           </div>
         </div>

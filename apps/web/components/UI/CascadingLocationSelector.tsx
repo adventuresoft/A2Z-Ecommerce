@@ -7,8 +7,8 @@ import {
   useLocationCascade,
   type LocationSelectionState,
   type AreaType,
-} from '../../lib/useLocationCascade.js';
-import { useSafeReducedMotion } from '../../lib/useSafeReducedMotion.js';
+} from '../../lib/useLocationCascade';
+import { useSafeReducedMotion } from '../../lib/useSafeReducedMotion';
 
 export interface CascadingLocationSelectorProps {
   value?: Partial<LocationSelectionState>;

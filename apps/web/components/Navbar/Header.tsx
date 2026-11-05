@@ -18,6 +18,7 @@ import {
   LogOut,
   Package,
   Loader2,
+  MessageSquare,
 } from "lucide-react";
 import { formatBDT } from "../../data/mock-catalog";
 import { useAuth } from "../../context/AuthContext";
@@ -477,6 +478,14 @@ export function Header({
                       >
                         <Package className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         My Orders
+                      </Link>
+                      <Link
+                        href="/messages"
+                        onClick={() => setIsAccountDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                      >
+                        <MessageSquare className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                        Messages
                       </Link>
                       <Link
                         href="/wishlist"

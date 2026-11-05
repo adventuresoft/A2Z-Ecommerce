@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import type { LocationSelectionState, AreaType } from './useLocationCascade.js';
+import type { LocationSelectionState, AreaType } from './useLocationCascade';
 
 describe('LocationCascade state transitions', () => {
   it('resets downstream selections when division is changed', () => {

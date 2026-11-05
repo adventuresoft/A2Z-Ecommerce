@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { request } from './api-client.js';
+import { request } from './api-client';
 
 export type AreaType = 'city_corporation' | 'paurashava' | 'union';
 

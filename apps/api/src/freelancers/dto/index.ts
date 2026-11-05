@@ -1,8 +1,8 @@
-export * from './freelancer-registration.dto';
-export * from './freelancer-profile.dto';
-export * from './freelancer-locations.dto';
-export * from './freelancer-services.dto';
-export * from './freelancer-skills.dto';
-export * from './freelancer-portfolio.dto';
-export * from './freelancer-admin.dto';
+export * from './freelancer-registration.dto.js';
+export * from './freelancer-profile.dto.js';
+export * from './freelancer-locations.dto.js';
+export * from './freelancer-services.dto.js';
+export * from './freelancer-skills.dto.js';
+export * from './freelancer-portfolio.dto.js';
+export * from './freelancer-admin.dto.js';
 

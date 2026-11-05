@@ -50,7 +50,20 @@ describe('MembershipsService', () => {
       }),
     };
 
-    service = new MembershipsService(prismaMock, configMock);
+    const paystationMock = {
+      createCustomCharge: vi.fn().mockResolvedValue({
+        status: 'success',
+        payment_url: 'https://sandbox.paystation.com.bd/checkout/mock-url',
+        invoice_number: 'MEM-TEST',
+        message: 'Payment link generated',
+      }),
+      getTransactionDetails: vi.fn().mockResolvedValue({
+        status: 'success',
+        data: { trx_id: 'PS-TXN-12345' },
+      }),
+    };
+
+    service = new MembershipsService(prismaMock, configMock, paystationMock as any);
   });
 
   describe('getPlans', () => {
@@ -116,7 +129,7 @@ describe('MembershipsService', () => {
       const res = await service.initiateCheckout('user-1', { planId: 'plan-1' });
       expect(res.paymentId).toBe('pay-123');
       expect(res.amount).toBe(299);
-      expect(res.paymentUrl).toContain('status=Success');
+      expect(res.paymentUrl).toContain('paystation.com.bd');
     });
 
     it('throws BadRequestException if plan is inactive', async () => {

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PaystationService } from '../payments/paystation.service.js';
 import {
   CreateMembershipCheckoutDto,
   CreateMembershipPlanDto,
@@ -26,6 +27,7 @@ export class MembershipsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly paystationService: PaystationService,
   ) {}
 
   /**
@@ -198,10 +200,30 @@ export class MembershipsService {
       process.env.STORE_URL ||
       process.env.FRONTEND_URL ||
       'http://localhost:3000';
-    const callbackUrl = `${webBaseUrl}/freelancer/membership/callback?paymentId=${payment.id}`;
+    const callbackUrl = `${webBaseUrl}/membership/callback?paymentId=${payment.id}`;
 
-    // Generate redirect payment URL. For mock/sandbox or local dev, simulate gateway payment URL
-    const paymentUrl = `${callbackUrl}&status=Success&invoice_number=${invoiceNumber}&trx_id=PS-TXN-${randomUUID().slice(0, 8).toUpperCase()}`;
+    let paymentUrl = '';
+    try {
+      const charge = await this.paystationService.createCustomCharge({
+        invoiceNumber,
+        amount: plan.price,
+        reference: payment.id,
+        customerName: user.name || 'A2Z Member',
+        customerPhone: user.phone || '01712345678',
+        customerEmail: user.email || undefined,
+        callbackUrl,
+        checkoutItems: `Membership - ${plan.name}`,
+      });
+      paymentUrl = charge.payment_url;
+      this.logger.log(
+        `Generated PayStation Online Gateway checkout URL for payment ${payment.id}: ${paymentUrl}`,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to generate PayStation hosted link: ${err?.message}. Falling back to sandbox callback simulator.`,
+      );
+      paymentUrl = `${callbackUrl}&status=Success&invoice_number=${invoiceNumber}&trx_id=PS-TXN-${randomUUID().slice(0, 8).toUpperCase()}`;
+    }
 
     return {
       paymentId: payment.id,
@@ -257,7 +279,20 @@ export class MembershipsService {
     }
 
     const now = new Date();
-    const gatewayTxnId = query.trx_id || `TXN-${randomUUID().slice(0, 8)}`;
+    let gatewayTxnId = query.trx_id;
+    if (query.invoice_number) {
+      try {
+        const details = await this.paystationService.getTransactionDetails(query.invoice_number);
+        if (details?.data?.trx_id) {
+          gatewayTxnId = details.data.trx_id;
+        }
+      } catch {
+        // Fall back to query.trx_id
+      }
+    }
+    if (!gatewayTxnId) {
+      gatewayTxnId = `TXN-${randomUUID().slice(0, 8)}`;
+    }
 
     // Check for existing active subscription to stack renewal duration
     const latestActiveSub = await this.prisma.subscription.findFirst({

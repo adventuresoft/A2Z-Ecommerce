@@ -1,4 +1,4 @@
-import { request } from './api-client.js';
+import { request } from './api-client';
 
 export type FreelancerStatus =
   | 'DRAFT'
@@ -211,6 +211,12 @@ export const freelancerClient = {
     return request<Array<{ id: string; name: string; bnName?: string; professionId: string }>>(
       `/taxonomy/skills?professionId=${encodeURIComponent(professionId)}`,
       { skipAuth: true },
+    );
+  },
+
+  async getReveals() {
+    return request<Array<{ id: string; revealedAt: string; client: { id: string; name: string } }>>(
+      '/freelancer/reveals',
     );
   },
 };

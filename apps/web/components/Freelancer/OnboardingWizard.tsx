@@ -22,8 +22,8 @@ import {
   FreelancerLocationData,
   FreelancerServiceData,
   ServicePriceType,
-} from '../../lib/freelancer-client.js';
-import { CascadingLocationSelector } from '../UI/CascadingLocationSelector.js';
+} from '../../lib/freelancer-client';
+import { CascadingLocationSelector } from '../UI/CascadingLocationSelector';
 
 interface StepProps {
   profile: FreelancerProfileData | null;

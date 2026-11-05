@@ -1,4 +1,4 @@
-import { FreelancerDashboard } from '../../../components/Freelancer/FreelancerDashboard.js';
+import { FreelancerDashboard } from '../../../components/Freelancer/FreelancerDashboard';
 
 export const metadata = {
   title: 'পেশাদার ড্যাশবোর্ড | Freelancer Dashboard | A to Z',

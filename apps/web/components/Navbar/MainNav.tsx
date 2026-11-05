@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Package,
+  Briefcase,
 } from "lucide-react";
 import {
   CategoryTreeNode,
@@ -402,6 +403,13 @@ export function MainNav() {
             <Link href="/collections/archive" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
               <Tag className="w-3 h-3 text-blue-600" />
               <span>Archive & Clearance</span>
+            </Link>
+            <Link href="/hire" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+              <Briefcase className="w-3 h-3 text-blue-600" />
+              <span>Hire a Professional</span>
+            </Link>
+            <Link href="/membership" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+              <span>Membership</span>
             </Link>
           </div>
         </div>

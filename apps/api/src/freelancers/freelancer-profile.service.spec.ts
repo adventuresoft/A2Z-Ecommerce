@@ -91,7 +91,7 @@ describe('FreelancerProfileService', () => {
         displayName: 'New Name',
       });
 
-      expect(res.profile.displayName).toBe('New Name');
+      expect(res.profile?.displayName).toBe('New Name');
       expect(prismaMock.profileRevision.create).not.toHaveBeenCalled();
     });
 

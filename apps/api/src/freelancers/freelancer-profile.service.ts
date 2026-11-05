@@ -456,5 +456,42 @@ export class FreelancerProfileService {
       status: updated.status,
     };
   }
+
+  /**
+   * List clients who viewed/revealed this freelancer's phone number
+   */
+  async getReveals(userId: string) {
+    const profile = await this.prisma.freelancerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Freelancer profile not found');
+    }
+
+    const reveals = await this.prisma.contactReveal.findMany({
+      where: { freelancerId: profile.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return reveals.map((r) => ({
+      id: r.id,
+      revealedAt: r.createdAt,
+      client: {
+        id: r.user.id,
+        name: r.user.name,
+      },
+    }));
+  }
 }
 

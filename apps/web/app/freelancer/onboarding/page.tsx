@@ -1,4 +1,4 @@
-import { OnboardingWizard } from '../../../components/Freelancer/OnboardingWizard.js';
+import { OnboardingWizard } from '../../../components/Freelancer/OnboardingWizard';
 
 export const metadata = {
   title: 'পেশাদার নিবন্ধন | Freelancer Onboarding | A to Z',

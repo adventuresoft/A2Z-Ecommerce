@@ -13,15 +13,19 @@ import {
   ExternalLink,
   Edit3,
   ShieldAlert,
+  PhoneCall,
+  Eye,
+  MessageSquare,
 } from 'lucide-react';
 import {
   freelancerClient,
   FreelancerProfileData,
   FreelancerAvailability,
-} from '../../lib/freelancer-client.js';
+} from '../../lib/freelancer-client';
 
 export function FreelancerDashboard() {
   const [profile, setProfile] = useState<FreelancerProfileData | null>(null);
+  const [reveals, setReveals] = useState<Array<{ id: string; revealedAt: string; client: { id: string; name: string } }>>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
@@ -32,6 +36,9 @@ export function FreelancerDashboard() {
       setErrorMsg(null);
       const data = await freelancerClient.getProfile();
       setProfile(data);
+      if (data?.status === 'APPROVED') {
+        freelancerClient.getReveals().then(setReveals).catch(() => setReveals([]));
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'প্রোফাইল লোড করা সম্ভব হয়নি');
     } finally {
@@ -258,9 +265,9 @@ export function FreelancerDashboard() {
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-500">কাজের অভিজ্ঞতা</span>
-          <p className="text-xl font-bold text-slate-900 mt-1">
-            {profile.experienceYears} বছর
+          <span className="text-xs font-semibold text-slate-500">নম্বর আনলক (Phone Unlocks)</span>
+          <p className="text-xl font-bold text-blue-600 mt-1">
+            {reveals.length} বার
           </p>
         </div>
       </div>
@@ -280,26 +287,94 @@ export function FreelancerDashboard() {
           </p>
         </Link>
 
-        <div className="p-5 bg-white rounded-2xl border border-slate-200 space-y-2">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
-            <MapPin className="w-5 h-5" />
+        <Link
+          href="/messages"
+          className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-blue-400 hover:shadow-xs transition-all group cursor-pointer"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+            <MessageSquare className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-bold text-slate-900">মূল সেবার এলাকা</h3>
-          <p className="text-xs text-slate-600">
-            {profile.locations?.find((l) => l.isPrimary)?.localityText || 'এলাকা নির্ধারিত'}
+          <h3 className="text-sm font-bold text-slate-900">মেসেজ ও বার্তালাপ (Messages)</h3>
+          <p className="text-xs text-slate-500 mt-1">
+            গ্রাহকদের সাথে সরাসরি ইনবক্সে যোগাযোগ করুন ও প্রস্তাব দিন।
           </p>
-        </div>
+        </Link>
 
-        <div className="p-5 bg-white rounded-2xl border border-slate-200 space-y-2">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
-            <Star className="w-5 h-5" />
+        {profile.status === 'APPROVED' ? (
+          <Link
+            href={`/hire/${profile.id}`}
+            className="p-5 bg-white rounded-2xl border border-slate-200 hover:border-blue-400 hover:shadow-xs transition-all group cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <Eye className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">পাবলিক প্রোফাইল প্রিভিউ</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              মার্কেটপ্লেসে আপনার প্রোফাইল ক্লায়েন্টরা যেভাবে দেখছেন।
+            </p>
+          </Link>
+        ) : (
+          <div className="p-5 bg-white rounded-2xl border border-slate-200 opacity-60 cursor-not-allowed">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+              <Eye className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">পাবলিক প্রোফাইল প্রিভিউ</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              প্রোফাইল অনুমোদিত হওয়ার পর এটি উন্মুক্ত হবে।
+            </p>
           </div>
-          <h3 className="text-sm font-bold text-slate-900">দক্ষতাসমূহ</h3>
-          <p className="text-xs text-slate-600">
-            {profile.skills?.length || 0} টি সক্রিয় দক্ষতা যুক্ত রয়েছে।
-          </p>
-        </div>
+        )}
       </div>
+
+      {/* Reveals History: Who viewed my contact number */}
+      {profile.status === 'APPROVED' && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                <PhoneCall className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">কারা আপনার নম্বর দেখেছেন (Contact Reveals)</h3>
+                <p className="text-xs text-slate-500">মেম্বারশিপ থাকা ক্লায়েন্টরা যারা আপনার ফোন নম্বর আনলক করেছেন</p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full">
+              মোট {reveals.length} জন
+            </span>
+          </div>
+
+          {reveals.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-500 text-sm">
+              এখনো কোনো ক্লায়েন্ট আপনার নম্বর আনলক করেনি। প্রোফাইল ও কাজের বিবরণ সমৃদ্ধ রাখুন যাতে আগ্রহ বৃদ্ধি পায়।
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {reveals.map((rev) => (
+                <div key={rev.id} className="py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center">
+                      {(rev.client.name || 'C').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{rev.client.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {new Date(rev.revealedAt).toLocaleString('bn-BD', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                    আনলক সম্পন্ন
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
