@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   CheckCircle2,
   AlertCircle,
@@ -15,6 +16,10 @@ import {
   ChevronLeft,
   Star,
   ShieldCheck,
+  Upload,
+  Loader2,
+  Camera,
+  X,
 } from 'lucide-react';
 import {
   freelancerClient,
@@ -45,9 +50,8 @@ export function OnboardingWizard() {
       const data = await freelancerClient.getProfile();
       setProfile(data);
     } catch (err: any) {
-      if (err.status === 404) {
-        // No profile yet, will create via Step 1 OTP
-        setProfile(null);
+      if (err.status === 401) {
+        setErrorMsg('AUTH_REQUIRED');
       } else {
         setErrorMsg(err.message || 'Failed to load profile');
       }
@@ -74,6 +78,29 @@ export function OnboardingWizard() {
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
           <p className="text-slate-600 font-medium text-sm">প্রোফাইল লোড হচ্ছে... / Loading Profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMsg === 'AUTH_REQUIRED') {
+    return (
+      <div className="w-full max-w-md mx-auto py-16 px-4 text-center">
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900">লগইন বা সাইন আপ প্রয়োজন</h2>
+          <p className="text-xs text-slate-600 mt-1.5 mb-6 leading-relaxed">
+            পেশাদার নিবন্ধন শুরু করার জন্য অনুগ্রহ করে আপনার অ্যাকাউন্টে সাইন ইন করুন অথবা প্রফেশনাল হিসেবে সাইন আপ করুন।
+          </p>
+          <Link
+            href="/register?role=freelancer&redirect=/freelancer/onboarding"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-xs font-bold text-white hover:bg-primary-hover transition"
+          >
+            <span>সাইন আপ / লগইন করুন</span>
+            <ChevronRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
     );
@@ -192,58 +219,71 @@ export function OnboardingWizard() {
 }
 
 // -----------------------------------------------------------------------------
-// Step 1: Identity & Contact Verification
+// Step 1: Identity & Profile Details (Phone already verified at signup/login)
 // -----------------------------------------------------------------------------
 function StepIdentity({ profile, onRefresh, onNext }: StepProps) {
-  const [phone, setPhone] = useState(profile?.user?.phone || '');
-  const [otpCode, setOtpCode] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
+  const [nidNumber, setNidNumber] = useState(profile?.nidNumber || '');
   const [title, setTitle] = useState(profile?.title || '');
   const [experienceYears, setExperienceYears] = useState(profile?.experienceYears ?? 1);
   const [about, setAbout] = useState(profile?.about || '');
   const [photoUrl, setPhotoUrl] = useState(profile?.photoUrl || '');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setIsSubmitting(true);
-      setMsg(null);
-      const res = await freelancerClient.requestOtp(phone);
-      setIsOtpSent(true);
-      setMsg({ type: 'success', text: `OTP পাঠানো হয়েছে ${res.phone} নম্বরে। (Valid for 5 mins)` });
-    } catch (err: any) {
-      setMsg({ type: 'error', text: err.message || 'OTP পাঠাতে ব্যর্থ হয়েছে' });
-    } finally {
-      setIsSubmitting(false);
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMsg({ type: 'error', text: 'ছবির সাইজ সর্বোচ্চ ৫ MB হতে পারবে।' });
+      return;
     }
-  };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
     try {
-      setIsSubmitting(true);
+      setIsUploadingPhoto(true);
       setMsg(null);
-      await freelancerClient.verifyOtp(phone, otpCode);
-      await onRefresh();
-      setMsg({ type: 'success', text: 'মোবাইল নম্বর যাচাই সফল হয়েছে!' });
+      const res = await freelancerClient.uploadPhoto(file);
+      setPhotoUrl(res.photoUrl);
+      setMsg({ type: 'success', text: 'প্রোফাইল ছবি সফলভাবে আপলোড হয়েছে!' });
     } catch (err: any) {
-      setMsg({ type: 'error', text: err.message || 'যাচাই কোড সঠিক নয়' });
+      setMsg({ type: 'error', text: err?.message || 'ছবি আপলোড করতে ব্যর্থ হয়েছে।' });
     } finally {
-      setIsSubmitting(false);
+      setIsUploadingPhoto(false);
+      e.target.value = '';
     }
   };
 
   const handleSaveIdentity = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanNid = nidNumber.trim();
+    if (!cleanNid) {
+      setMsg({ type: 'error', text: 'জাতীয় পরিচয়পত্র নম্বর (NID Number) প্রদান করা আবশ্যক।' });
+      return;
+    }
+
+    // Convert Bengali numerals to ASCII digits and remove spaces/dashes
+    const normalizedNid = cleanNid
+      .replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d).toString())
+      .replace(/[\s-]/g, '');
+
+    // Bangladeshi NID: 10 digits (Smart Card), 13 digits (Old), or 17 digits (with birth year)
+    if (!/^\d{10}$|^\d{13}$|^\d{17}$/.test(normalizedNid)) {
+      setMsg({
+        type: 'error',
+        text: 'অনুগ্রহ করে ১০ (স্মার্ট কার্ড), ১৩ অথবা ১৭ ডিজিটের সঠিক জাতীয় পরিচয়পত্র (NID) নম্বর দিন।',
+      });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setMsg(null);
       await freelancerClient.updateProfile({
         displayName,
+        nidNumber: normalizedNid,
         title,
         experienceYears: Number(experienceYears),
         about,
@@ -262,10 +302,10 @@ function StepIdentity({ profile, onRefresh, onNext }: StepProps) {
     <div className="space-y-6">
       <div className="border-b border-slate-100 pb-4">
         <h2 className="text-lg font-bold text-slate-900">
-          ধাপ ১: ব্যক্তিগত তথ্য ও মোবাইল যাচাই (Personal Identity & Verification)
+          ধাপ ১: ব্যক্তিগত তথ্য ও পরিচিতি (Personal Identity & Profile Details)
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          বিশ্বস্ততা ও নিরাপত্তার জন্য প্রতিটি প্রফেশনাল প্রোফাইল যাচাইকৃত মোবাইল নম্বরের সাথে যুক্ত থাকে।
+          আপনার পেশাগত নাম, কাজের পদবী ও অভিজ্ঞতা যুক্ত করুন যাতে গ্রাহকরা আপনাকে সহজে খুঁজে পান।
         </p>
       </div>
 
@@ -283,115 +323,148 @@ function StepIdentity({ profile, onRefresh, onNext }: StepProps) {
         </div>
       )}
 
-      {/* If profile does not exist yet or phone unverified */}
-      {!profile && (
-        <div className="p-5 bg-blue-50/50 rounded-xl border border-blue-200">
-          <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-blue-600" />
-            মোবাইল নম্বর দিয়ে শুরু করুন (Start with Verified Phone)
-          </h3>
-          {!isOtpSent ? (
-            <form onSubmit={handleSendOtp} className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="tel"
-                placeholder="01712345678"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] bg-white text-sm"
-              />
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition-colors min-h-[44px] cursor-pointer disabled:opacity-50"
-              >
-                {isSubmitting ? 'পাঠানো হচ্ছে...' : 'ওটিপি পাঠান / Send OTP'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOtp} className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text"
-                placeholder="৪ ডিজিটের ওটিপি / 4-digit code"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                maxLength={4}
-                required
-                className="w-48 px-4 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] bg-white text-sm tracking-widest text-center font-bold"
-              />
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition-colors min-h-[44px] cursor-pointer disabled:opacity-50"
-              >
-                {isSubmitting ? 'যাচাই হচ্ছে...' : 'যাচাই করুন / Verify'}
-              </button>
-            </form>
-          )}
+      {/* Verified Phone Badge */}
+      <div className="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/80 flex items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+            <ShieldCheck className="w-5 h-5" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-800">যাচাইকৃত মোবাইল নম্বর (Verified Phone)</p>
+            <p className="text-sm font-mono font-bold text-emerald-900 tabular-nums">
+              {profile?.user?.phone || 'Verified'}
+            </p>
+          </div>
         </div>
-      )}
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 ring-1 ring-inset ring-emerald-600/20">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+          Verified
+        </span>
+      </div>
 
       {/* Identity Form */}
-      {profile && (
-        <form onSubmit={handleSaveIdentity} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                পূর্ণ নাম (Full Name) *
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                পেশাগত পদবী (Professional Title) *
-              </label>
-              <input
-                type="text"
-                placeholder="যেমন: সিনিয়র ইলেকট্রিশিয়ান"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] text-sm"
-              />
-            </div>
+      <form onSubmit={handleSaveIdentity} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              পূর্ণ নাম (Full Name) *
+            </label>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              required
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] text-sm"
+            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                কাজের অভিজ্ঞতা (Years of Experience) *
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={50}
-                value={experienceYears}
-                onChange={(e) => setExperienceYears(Number(e.target.value))}
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                প্রোফাইল ছবির লিংক (Photo URL)
-              </label>
-              <input
-                type="url"
-                placeholder="https://..."
-                value={photoUrl}
-                onChange={(e) => setPhotoUrl(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] text-sm"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              জাতীয় পরিচয়পত্র নম্বর (NID Number) *
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="১০, ১৩ অথবা ১৭ ডিজিটের NID নম্বর"
+              value={nidNumber}
+              onChange={(e) => setNidNumber(e.target.value)}
+              required
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] text-sm font-mono"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              স্মার্ট কার্ড (১০ ডিজিট), পুরাতন NID (১৩ ডিজিট) বা জন্মসালসহ (১৭ ডিজিট)
+            </p>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              পেশাগত পদবী (Professional Title) *
+            </label>
+            <input
+              type="text"
+              placeholder="যেমন: সিনিয়র ইলেকট্রিশিয়ান"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              কাজের অভিজ্ঞতা (Years of Experience) *
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={50}
+              value={experienceYears}
+              onChange={(e) => setExperienceYears(Number(e.target.value))}
+              required
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] text-sm"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">
+            প্রোফাইল ছবি (Profile Photo)
+          </label>
+              
+              <div className="flex items-center gap-3.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="relative w-14 h-14 rounded-full overflow-hidden bg-slate-200 shrink-0 border-2 border-white shadow-xs">
+                  {photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoUrl}
+                      alt="Profile preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">
+                      <Camera className="w-6 h-6" />
+                    </div>
+                  )}
+                  {isUploadingPhoto && (
+                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center text-white">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-semibold text-slate-700 cursor-pointer shadow-2xs transition focus-within:ring-2 focus-within:ring-blue-600">
+                      <Upload className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{photoUrl ? 'ছবি পরিবর্তন করুন' : 'ছবি আপলোড করুন'}</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/jpg"
+                        className="sr-only"
+                        disabled={isUploadingPhoto}
+                        onChange={handlePhotoFileUpload}
+                      />
+                    </label>
+
+                    {photoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setPhotoUrl('')}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>মুছুন</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    JPG, PNG, WEBP (সর্বোচ্চ ৫ MB)
+                  </p>
+                </div>
+              </div>
+            </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -418,7 +491,6 @@ function StepIdentity({ profile, onRefresh, onNext }: StepProps) {
             </button>
           </div>
         </form>
-      )}
     </div>
   );
 }
@@ -789,16 +861,37 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
 
   // Buffer state for adding a new location
   const [currentSelection, setCurrentSelection] = useState<any>(null);
-  const [isPrimaryForNew, setIsPrimaryForNew] = useState<boolean>(locations.length === 0);
-  const [localityText, setLocalityText] = useState<string>('');
+
+  const handleSelectionChange = React.useCallback((sel: any) => {
+    setCurrentSelection(sel);
+  }, []);
+
+  const isSelectionComplete = Boolean(
+    currentSelection?.divisionId &&
+    currentSelection?.districtId &&
+    currentSelection?.thanaId &&
+    currentSelection?.postOfficeId,
+  );
 
   const handleAddLocation = () => {
-    if (!currentSelection || !currentSelection.isValid) {
-      alert('দয়া করে পূর্ণ লোকেশন নির্বাচন করুন / Please complete the full location cascade');
+    if (!isSelectionComplete) {
+      alert('দয়া করে বিভাগ, জেলা, থানা এবং ডাকঘর নির্বাচন করুন / Please select division, district, thana and post office');
       return;
     }
     if (locations.length >= 5) {
       alert('সর্বোচ্চ ৫টি এলাকা যুক্ত করা যাবে / Maximum 5 locations allowed');
+      return;
+    }
+
+    const isDuplicate = locations.some(
+      (l) =>
+        l.divisionId === currentSelection.divisionId &&
+        l.districtId === currentSelection.districtId &&
+        l.thanaId === currentSelection.thanaId &&
+        l.postOfficeId === currentSelection.postOfficeId,
+    );
+    if (isDuplicate) {
+      alert('এই এলাকাটি ইতিমধ্যে যুক্ত করা হয়েছে / This location is already added');
       return;
     }
 
@@ -807,22 +900,15 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
       districtId: currentSelection.districtId,
       thanaId: currentSelection.thanaId,
       postOfficeId: currentSelection.postOfficeId,
-      cityCorporationId: currentSelection.cityCorporationId || null,
-      wardId: currentSelection.wardId || null,
-      paurashavaId: currentSelection.paurashavaId || null,
-      unionId: currentSelection.unionId || null,
-      localityText: localityText || null,
-      isPrimary: locations.length === 0 ? true : isPrimaryForNew,
+      cityCorporationId: null,
+      wardId: null,
+      paurashavaId: null,
+      unionId: null,
+      localityText: null,
+      isPrimary: locations.length === 0,
     };
 
-    // If new one is primary, unmark others
-    const updated = locations.map((l) => ({
-      ...l,
-      isPrimary: newLoc.isPrimary ? false : l.isPrimary,
-    }));
-
-    setLocations([...updated, newLoc]);
-    setLocalityText('');
+    setLocations((prev) => [...prev, newLoc]);
     setCurrentSelection(null);
   };
 
@@ -836,7 +922,6 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
 
   const handleRemoveLocation = (idx: number) => {
     const remaining = locations.filter((_, i) => i !== idx);
-    // If we removed the primary, mark first as primary
     if (remaining.length > 0 && !remaining.some((l) => l.isPrimary)) {
       if (remaining[0]) {
         remaining[0].isPrimary = true;
@@ -847,18 +932,42 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (locations.length < 1) {
-      setMsg('কমপক্ষে ১টি সেবা এলাকা থাকা আবশ্যক / At least 1 service location is required');
+    let finalLocations = [...locations];
+
+    // If no locations were explicitly added to list, but user completed the current selector:
+    if (finalLocations.length === 0 && isSelectionComplete) {
+      finalLocations = [
+        {
+          divisionId: currentSelection.divisionId,
+          districtId: currentSelection.districtId,
+          thanaId: currentSelection.thanaId,
+          postOfficeId: currentSelection.postOfficeId,
+          cityCorporationId: null,
+          wardId: null,
+          paurashavaId: null,
+          unionId: null,
+          localityText: null,
+          isPrimary: true,
+        },
+      ];
+      setLocations(finalLocations);
+    }
+
+    if (finalLocations.length < 1) {
+      setMsg('কমপক্ষে ১টি সেবা এলাকা নির্বাচন করুন / Please select at least 1 service location');
       return;
     }
-    if (!locations.some((l) => l.isPrimary)) {
-      setMsg('একটি এলাকাকে মূল এলাকা হিসেবে চিহ্নিত করুন / Please designate a primary location');
-      return;
+
+    if (!finalLocations.some((l) => l.isPrimary)) {
+      if (finalLocations[0]) {
+        finalLocations[0].isPrimary = true;
+      }
     }
+
     try {
       setIsSubmitting(true);
       setMsg(null);
-      await freelancerClient.updateLocations(locations);
+      await freelancerClient.updateLocations(finalLocations);
       await onRefresh();
       onNext();
     } catch (err: any) {
@@ -868,6 +977,9 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
     }
   };
 
+  // Can proceed if at least 1 location is in list OR 1 location is currently selected in form
+  const canProceed = locations.length > 0 || isSelectionComplete;
+
   return (
     <form onSubmit={handleSave} className="space-y-6">
       <div className="border-b border-slate-100 pb-4">
@@ -875,7 +987,7 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
           ধাপ ৪: সেবার আওতাভুক্ত এলাকা (Service Locations)
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          আপনি যে যে এলাকায় সেবা প্রদান করেন তা যুক্ত করুন (১ থেকে ৫টি এলাকা, একটি মূল এলাকা)।
+          আপনার সেবার এলাকা নির্বাচন করুন (১টি এলাকা নির্বাচন করলেই যথেষ্ট, প্রয়োজনে সর্বোচ্চ ৫টি এলাকা যুক্ত করতে পারেন)।
         </p>
       </div>
 
@@ -888,9 +1000,15 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
       {/* Existing Location Cards */}
       {locations.length > 0 && (
         <div className="space-y-2.5">
-          <label className="block text-xs font-semibold text-slate-700">
-            সংযোজিত এলাকা সমূহ ({locations.length} / 5)
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-slate-700">
+              সংযোজিত এলাকা সমূহ ({locations.length} / 5)
+            </label>
+            <span className="text-[11px] text-emerald-600 font-medium">
+              ✓ এলাকা যুক্ত হয়েছে, চাইলে সরাসরি পরবর্তী ধাপে যেতে পারেন
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {locations.map((loc, idx) => (
               <div
@@ -905,7 +1023,9 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
                   <div className="flex items-center gap-2 mb-1">
                     <MapPin className="w-4 h-4 text-blue-600 shrink-0" />
                     <span className="text-xs font-bold text-slate-900">
-                      {loc.localityText || `এলাকা #${idx + 1}`}
+                      {loc.thana?.name
+                        ? `${loc.thana.name}, ${loc.district?.name || ''}`
+                        : `এলাকা #${idx + 1}`}
                     </span>
                     {loc.isPrimary && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white">
@@ -914,7 +1034,9 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
                     )}
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    Division: {loc.divisionId}, District: {loc.districtId}, Thana: {loc.thanaId}
+                    {loc.division?.name && loc.postOffice?.name
+                      ? `${loc.division.name} • ডাকঘর: ${loc.postOffice.name} ${loc.postOffice.postalCode ? `(${loc.postOffice.postalCode})` : ''}`
+                      : `Division: ${loc.divisionId}, District: ${loc.districtId}, Thana: ${loc.thanaId}, Post Office: ${loc.postOfficeId}`}
                   </p>
                 </div>
 
@@ -942,31 +1064,24 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
         </div>
       )}
 
-      {/* Add New Location Form (Max 5) */}
+      {/* Add New Location Form (1 to 5 locations) */}
       {locations.length < 5 && (
         <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
           <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
             <Plus className="w-4 h-4 text-blue-600" />
-            নতুন এলাকা নির্বাচন করুন / Add Location
+            {locations.length === 0
+              ? 'আপনার সেবার এলাকা নির্বাচন করুন / Select Service Location'
+              : 'অতিরিক্ত এলাকা যোগ করুন / Add More Location (ঐচ্ছিক)'}
           </h3>
 
-          <CascadingLocationSelector
-            onChange={(sel) => setCurrentSelection(sel)}
-          />
+          <CascadingLocationSelector onChange={handleSelectionChange} />
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-            <input
-              type="text"
-              placeholder="পাড়া / মহল্লা / রোড নম্বর (ঐচ্ছিক)"
-              value={localityText}
-              onChange={(e) => setLocalityText(e.target.value)}
-              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 min-h-[44px] bg-white text-xs"
-            />
+          <div className="flex justify-end pt-2">
             <button
               type="button"
               onClick={handleAddLocation}
-              disabled={!currentSelection?.isValid}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors min-h-[44px] cursor-pointer disabled:opacity-40"
+              disabled={!isSelectionComplete}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors min-h-[44px] cursor-pointer disabled:opacity-40"
             >
               যোগ করুন / Add to List
             </button>
@@ -985,7 +1100,7 @@ function StepLocations({ profile, onRefresh, onNext, onPrev }: StepProps) {
         </button>
         <button
           type="submit"
-          disabled={isSubmitting || locations.length === 0}
+          disabled={isSubmitting || !canProceed}
           className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors min-h-[44px] cursor-pointer disabled:opacity-50"
         >
           পরবর্তী ধাপ / Next Step
@@ -1004,7 +1119,42 @@ function StepSubmit({ profile, onRefresh, onPrev }: StepProps) {
   const [imageUrl, setImageUrl] = useState('');
   const [caption, setCaption] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingPortfolio, setIsUploadingPortfolio] = useState(false);
   const [msg, setMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+  const handlePortfolioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMsg({ type: 'error', text: 'ছবির সাইজ সর্বোচ্চ ৫ MB হতে পারবে।' });
+      return;
+    }
+    if (portfolio.length >= 10) {
+      setMsg({ type: 'error', text: 'সর্বোচ্চ ১০টি পোর্টফোলিও ছবি যুক্ত করতে পারবেন।' });
+      return;
+    }
+
+    try {
+      setIsUploadingPortfolio(true);
+      setMsg(null);
+      const res = await freelancerClient.uploadPortfolioImage(file);
+      const updated = [
+        ...portfolio,
+        { imageUrl: res.imageUrl, caption: caption.trim() || undefined, sortOrder: portfolio.length },
+      ];
+      setPortfolio(updated);
+      setCaption('');
+      await freelancerClient.updatePortfolio(updated);
+      await onRefresh();
+      setMsg({ type: 'success', text: 'পোর্টফোলিও ছবি সফলভাবে যুক্ত হয়েছে!' });
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err?.message || 'ছবি আপলোড করতে ব্যর্থ হয়েছে।' });
+    } finally {
+      setIsUploadingPortfolio(false);
+      e.target.value = '';
+    }
+  };
 
   const handleAddPortfolio = async () => {
     if (!imageUrl) return;
@@ -1061,6 +1211,7 @@ function StepSubmit({ profile, onRefresh, onPrev }: StepProps) {
 
   const isComplete =
     Boolean(profile?.displayName) &&
+    Boolean(profile?.nidNumber) &&
     Boolean(profile?.professionId) &&
     (profile?.locations?.length || 0) > 0 &&
     (profile?.services?.length || 0) > 0;
@@ -1125,29 +1276,60 @@ function StepSubmit({ profile, onRefresh, onPrev }: StepProps) {
         )}
 
         {portfolio.length < 10 && (
-          <div className="flex flex-col sm:flex-row items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-            <input
-              type="url"
-              placeholder="ছবির লিংক / Image URL (https://...)"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 min-h-[44px] bg-white text-xs"
-            />
-            <input
-              type="text"
-              placeholder="ক্যাপশন (ঐচ্ছিক)"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              className="w-full sm:w-48 px-3.5 py-2 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 min-h-[44px] bg-white text-xs"
-            />
-            <button
-              type="button"
-              onClick={handleAddPortfolio}
-              disabled={!imageUrl || isSubmitting}
-              className="w-full sm:w-auto px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs min-h-[44px] cursor-pointer disabled:opacity-50"
-            >
-              যোগ করুন
-            </button>
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <input
+                type="text"
+                placeholder="ক্যাপশন যেমন: 'বাসার ডেকোরেশন কাজ' (ঐচ্ছিক)"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none min-h-[44px] bg-white text-xs"
+              />
+
+              <label className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs min-h-[44px] cursor-pointer shadow-xs transition disabled:opacity-50">
+                {isUploadingPortfolio ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>আপলোড হচ্ছে...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>ছবি আপলোড করুন</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
+                  className="sr-only"
+                  disabled={isUploadingPortfolio || isSubmitting}
+                  onChange={handlePortfolioFileUpload}
+                />
+              </label>
+            </div>
+
+            <details className="text-[11px] text-slate-500 cursor-pointer pt-1">
+              <summary className="hover:text-slate-700 font-medium select-none">
+                অথবা অনলাইন ছবির লিঙ্ক (Image URL) ব্যবহার করুন...
+              </summary>
+              <div className="mt-2 flex flex-col sm:flex-row items-center gap-2">
+                <input
+                  type="url"
+                  placeholder="https://example.com/image.jpg"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddPortfolio}
+                  disabled={!imageUrl || isSubmitting}
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-medium text-xs disabled:opacity-50 cursor-pointer"
+                >
+                  লিঙ্ক যুক্ত করুন
+                </button>
+              </div>
+            </details>
           </div>
         )}
       </div>
@@ -1164,7 +1346,15 @@ function StepSubmit({ profile, onRefresh, onPrev }: StepProps) {
             ) : (
               <AlertCircle className="w-4 h-4 text-red-500" />
             )}
-            <span>পূর্ণ নাম ও পরিচয় (Full Name)</span>
+            <span>পূর্ণ নাম (Full Name)</span>
+          </li>
+          <li className="flex items-center gap-2">
+            {profile?.nidNumber ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-500" />
+            )}
+            <span>জাতীয় পরিচয়পত্র নম্বর (NID Number)</span>
           </li>
           <li className="flex items-center gap-2">
             {profile?.professionId ? (

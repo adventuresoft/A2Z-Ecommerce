@@ -34,6 +34,7 @@ import { FreelancersModule } from './freelancers/freelancers.module.js';
 import { MembershipsModule } from './memberships/memberships.module.js';
 import { MarketplaceModule } from './marketplace/marketplace.module.js';
 import { MessagingModule } from './messaging/messaging.module.js';
+import { FreelancerReviewsModule } from './freelancer-reviews/freelancer-reviews.module.js';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { MessagingModule } from './messaging/messaging.module.js';
     MembershipsModule,
     MarketplaceModule,
     MessagingModule,
+    FreelancerReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

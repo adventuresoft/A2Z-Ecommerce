@@ -57,10 +57,20 @@ export class UsersService {
       : cleaned.startsWith('1')
       ? `0${cleaned}`
       : cleaned;
+    const withoutZero = local.startsWith('0') ? local.slice(1) : local;
 
     return this.prisma.user.findFirst({
       where: {
-        OR: [{ phone: local }, { phone: `88${local}` }, { phone }],
+        OR: [
+          { phone: local },
+          { phone: `88${local}` },
+          { phone: `+88${local}` },
+          { phone: `+880${withoutZero}` },
+          { phone: `880${withoutZero}` },
+          { phone: `0${withoutZero}` },
+          { phone: withoutZero },
+          { phone },
+        ],
       },
       include: {
         roleDefinition: true,
@@ -74,7 +84,7 @@ export class UsersService {
         email: data.email ? data.email.toLowerCase().trim() : null,
         passwordHash: data.passwordHash,
         name: data.name,
-        phone: data.phone?.trim() || null,
+        phone: data.phone ? data.phone.trim() : undefined,
         role: data.role ?? 'CUSTOMER',
       },
     });

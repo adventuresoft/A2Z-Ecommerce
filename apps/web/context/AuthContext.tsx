@@ -45,6 +45,7 @@ export interface AuthContextType {
     expiresInSeconds: number;
     resendInSeconds: number;
     message?: string;
+    devOtp?: string;
   }>;
   phoneVerifyOtp: (
     phone: string,
@@ -208,6 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       expiresInSeconds: number;
       resendInSeconds: number;
       message?: string;
+      devOtp?: string;
     }> => {
       return apiClient.post('/auth/phone/send-otp', { phone, purpose }, { skipAuth: true });
     },

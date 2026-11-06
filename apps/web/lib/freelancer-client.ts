@@ -76,6 +76,7 @@ export interface FreelancerProfileData {
   } | null;
   status: FreelancerStatus;
   displayName: string;
+  nidNumber?: string | null;
   photoUrl?: string | null;
   professionId?: string | null;
   title?: string | null;
@@ -132,6 +133,24 @@ export const freelancerClient = {
     return request<FreelancerProfileData>('/freelancer/profile');
   },
 
+  async uploadPhoto(file: File): Promise<{ photoUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<{ photoUrl: string }>('/freelancer/profile/upload-photo', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  async uploadPortfolioImage(file: File): Promise<{ imageUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<{ imageUrl: string }>('/freelancer/profile/upload-portfolio', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
   async updateProfile(data: Partial<FreelancerProfileData>) {
     return request<{ message: string; profile?: FreelancerProfileData; isRevisionPending?: boolean }>(
       '/freelancer/profile',
@@ -153,16 +172,40 @@ export const freelancerClient = {
   },
 
   async updateLocations(locations: FreelancerLocationData[]) {
+    const sanitized = locations.map((loc) => {
+      const item: Record<string, any> = {
+        divisionId: Number(loc.divisionId),
+        districtId: Number(loc.districtId),
+        thanaId: Number(loc.thanaId),
+        postOfficeId: Number(loc.postOfficeId),
+        isPrimary: Boolean(loc.isPrimary),
+      };
+      if (loc.cityCorporationId) item.cityCorporationId = Number(loc.cityCorporationId);
+      if (loc.wardId) item.wardId = Number(loc.wardId);
+      if (loc.paurashavaId) item.paurashavaId = Number(loc.paurashavaId);
+      if (loc.unionId) item.unionId = Number(loc.unionId);
+      if (loc.localityText) item.localityText = String(loc.localityText);
+      return item;
+    });
+
     return request<{ message: string }>('/freelancer/locations', {
       method: 'PUT',
-      body: JSON.stringify({ locations }),
+      body: JSON.stringify({ locations: sanitized }),
     });
   },
 
   async updateServices(services: FreelancerServiceData[]) {
+    const sanitized = services.map((s) => ({
+      ...(s.id ? { id: s.id } : {}),
+      title: s.title,
+      description: s.description || undefined,
+      priceType: s.priceType,
+      amount: s.priceType === 'NEGOTIABLE' ? undefined : s.amount ? Number(s.amount) : undefined,
+    }));
+
     return request<{ message: string; startingPrice?: number | null }>('/freelancer/services', {
       method: 'PUT',
-      body: JSON.stringify({ services }),
+      body: JSON.stringify({ services: sanitized }),
     });
   },
 
@@ -174,11 +217,18 @@ export const freelancerClient = {
   },
 
   async updatePortfolio(items: PortfolioItemData[]) {
+    const sanitized = items.map((item, idx) => ({
+      ...(item.id ? { id: item.id } : {}),
+      imageUrl: item.imageUrl,
+      caption: item.caption || undefined,
+      sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : idx,
+    }));
+
     return request<{ message: string; itemCount?: number; isRevisionPending?: boolean }>(
       '/freelancer/portfolio',
       {
         method: 'PUT',
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items: sanitized }),
       },
     );
   },

@@ -1,6 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   AdminFreelancerItem,
@@ -9,24 +10,42 @@ import {
   adminFreelancersService,
 } from "../../services/freelancers";
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+const ASSET_BASE = API_BASE.replace("/api/v1", "");
+
 export default function FreelancersManagementPage() {
   const [freelancers, setFreelancers] = useState<AdminFreelancerItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(15);
+  const [limit, setLimit] = useState(15);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Filters
+  // Summary Metrics Counters
+  const [metrics, setMetrics] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    revisions: 0,
+    suspended: 0,
+  });
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  // Filters & Sorting
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<"createdAt" | "experience" | "price" | "name">("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Selection & Modals
+  // Selection & Detail Modal
   const [selectedDetail, setSelectedDetail] = useState<AdminFreelancerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [activeDetailTab, setActiveDetailTab] = useState<"overview" | "locations" | "services" | "portfolio" | "moderation">("overview");
 
+  // Action Modals State
   const [targetFreelancer, setTargetFreelancer] = useState<AdminFreelancerItem | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -34,8 +53,12 @@ export default function FreelancersManagementPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [suspendReason, setSuspendReason] = useState("");
 
+  // Copy feedback state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Global Notification Alert
   const [notification, setNotification] = useState<{
-    type: "success" | "danger" | "info";
+    type: "success" | "danger" | "info" | "warning";
     text: string;
   } | null>(null);
 
@@ -44,25 +67,53 @@ export default function FreelancersManagementPage() {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
       setPage(1);
-    }, 400);
+    }, 350);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
+  // Load Metrics
+  const loadMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    try {
+      const [allRes, pendingRes, approvedRes, suspendedRes, revisionsRes] = await Promise.allSettled([
+        adminFreelancersService.getFreelancers({ limit: 1 }),
+        adminFreelancersService.getFreelancers({ status: "PENDING", limit: 1 }),
+        adminFreelancersService.getFreelancers({ status: "APPROVED", limit: 1 }),
+        adminFreelancersService.getFreelancers({ status: "SUSPENDED", limit: 1 }),
+        adminFreelancersService.getRevisions({ status: "PENDING", limit: 1 }),
+      ]);
+
+      setMetrics({
+        total: allRes.status === "fulfilled" ? allRes.value.total : 0,
+        pending: pendingRes.status === "fulfilled" ? pendingRes.value.total : 0,
+        approved: approvedRes.status === "fulfilled" ? approvedRes.value.total : 0,
+        suspended: suspendedRes.status === "fulfilled" ? suspendedRes.value.total : 0,
+        revisions: revisionsRes.status === "fulfilled" ? revisionsRes.value.total : 0,
+      });
+    } catch {
+      // Non-fatal
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
+
+  // Load Freelancers List
   const loadFreelancers = useCallback(async () => {
     setLoading(true);
     try {
       const data = await adminFreelancersService.getFreelancers({
         status: statusFilter === "ALL" ? undefined : statusFilter,
-        search: debouncedSearch || undefined,
+        search: debouncedSearch.trim() || undefined,
         limit,
         offset: (page - 1) * limit,
       });
       setFreelancers(data.items);
       setTotal(data.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load freelancers list";
       setNotification({
         type: "danger",
-        text: err.message || "Failed to load freelancers list",
+        text: msg,
       });
     } finally {
       setLoading(false);
@@ -73,16 +124,23 @@ export default function FreelancersManagementPage() {
     loadFreelancers();
   }, [loadFreelancers]);
 
+  useEffect(() => {
+    loadMetrics();
+  }, [loadMetrics]);
+
+  // Open Full Detail Modal
   const handleOpenDetail = async (freelancer: AdminFreelancerItem) => {
     setDetailLoading(true);
     setShowDetailModal(true);
+    setActiveDetailTab("overview");
     try {
       const detail = await adminFreelancersService.getFreelancerById(freelancer.id);
       setSelectedDetail(detail);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load freelancer profile detail";
       setNotification({
         type: "danger",
-        text: err.message || "Failed to load freelancer profile detail",
+        text: msg,
       });
       setShowDetailModal(false);
     } finally {
@@ -90,6 +148,7 @@ export default function FreelancersManagementPage() {
     }
   };
 
+  // Moderation Actions
   const handleApprove = async () => {
     if (!targetFreelancer) return;
     setActionLoading(true);
@@ -97,19 +156,18 @@ export default function FreelancersManagementPage() {
       await adminFreelancersService.approveFreelancer(targetFreelancer.id);
       setNotification({
         type: "success",
-        text: `Freelancer "${targetFreelancer.displayName}" has been approved!`,
+        text: `Freelancer "${targetFreelancer.displayName}" was approved successfully and is now active on the marketplace!`,
       });
       setShowApproveModal(false);
       setTargetFreelancer(null);
       loadFreelancers();
+      loadMetrics();
       if (selectedDetail && selectedDetail.id === targetFreelancer.id) {
         setShowDetailModal(false);
       }
-    } catch (err: any) {
-      setNotification({
-        type: "danger",
-        text: err.message || "Approval failed",
-      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Approval failed";
+      setNotification({ type: "danger", text: msg });
     } finally {
       setActionLoading(false);
     }
@@ -122,20 +180,19 @@ export default function FreelancersManagementPage() {
       await adminFreelancersService.rejectFreelancer(targetFreelancer.id, rejectReason.trim());
       setNotification({
         type: "info",
-        text: `Freelancer "${targetFreelancer.displayName}" was rejected. Feedback recorded.`,
+        text: `Application for "${targetFreelancer.displayName}" was rejected with feedback recorded.`,
       });
       setShowRejectModal(false);
       setRejectReason("");
       setTargetFreelancer(null);
       loadFreelancers();
+      loadMetrics();
       if (selectedDetail && selectedDetail.id === targetFreelancer.id) {
         setShowDetailModal(false);
       }
-    } catch (err: any) {
-      setNotification({
-        type: "danger",
-        text: err.message || "Rejection failed",
-      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Rejection failed";
+      setNotification({ type: "danger", text: msg });
     } finally {
       setActionLoading(false);
     }
@@ -147,18 +204,20 @@ export default function FreelancersManagementPage() {
     try {
       await adminFreelancersService.suspendFreelancer(targetFreelancer.id, suspendReason.trim());
       setNotification({
-        type: "info",
-        text: `Freelancer profile suspended.`,
+        type: "warning",
+        text: `Freelancer profile for "${targetFreelancer.displayName}" has been suspended from marketplace visibility.`,
       });
       setShowSuspendModal(false);
       setSuspendReason("");
       setTargetFreelancer(null);
       loadFreelancers();
-    } catch (err: any) {
-      setNotification({
-        type: "danger",
-        text: err.message || "Suspension failed",
-      });
+      loadMetrics();
+      if (selectedDetail && selectedDetail.id === targetFreelancer.id) {
+        setShowDetailModal(false);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Suspension failed";
+      setNotification({ type: "danger", text: msg });
     } finally {
       setActionLoading(false);
     }
@@ -170,249 +229,762 @@ export default function FreelancersManagementPage() {
       await adminFreelancersService.reinstateFreelancer(freelancer.id);
       setNotification({
         type: "success",
-        text: `Freelancer "${freelancer.displayName}" has been reinstated to approved!`,
+        text: `Freelancer "${freelancer.displayName}" has been reinstated to Approved status.`,
       });
       loadFreelancers();
-    } catch (err: any) {
-      setNotification({
-        type: "danger",
-        text: err.message || "Reinstate failed",
-      });
+      loadMetrics();
+      if (selectedDetail && selectedDetail.id === freelancer.id) {
+        setSelectedDetail({ ...selectedDetail, status: "APPROVED" });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Reinstate failed";
+      setNotification({ type: "danger", text: msg });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const totalPages = Math.ceil(total / limit) || 1;
-
-  const getStatusBadge = (status: FreelancerStatus) => {
-    switch (status) {
-      case "APPROVED":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Approved</span>;
-      case "PENDING":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 animate-pulse">Pending Review</span>;
-      case "REJECTED":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">Rejected</span>;
-      case "SUSPENDED":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-800">Suspended</span>;
-      case "DRAFT":
-      default:
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Draft</span>;
+  const handleCopyPhone = (phone: string, id: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(phone);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
     }
   };
 
+  const resolveImageUrl = (path: string | null | undefined): string | null => {
+    if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    return `${ASSET_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
+  };
+
+  const totalPages = Math.ceil(total / limit) || 1;
+
+  // Sorting
+  const sortedFreelancers = useMemo(() => {
+    const list = [...freelancers];
+    return list.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === "name") {
+        comparison = (a.displayName || "").localeCompare(b.displayName || "");
+      } else if (sortBy === "experience") {
+        comparison = (a.experienceYears || 0) - (b.experienceYears || 0);
+      } else if (sortBy === "price") {
+        comparison = (a.startingPrice || 0) - (b.startingPrice || 0);
+      } else {
+        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+  }, [freelancers, sortBy, sortOrder]);
+
+  const renderStatusBadge = (status: FreelancerStatus) => {
+    switch (status) {
+      case "APPROVED":
+        return (
+          <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 d-inline-flex align-items-center gap-1">
+            <i className="bi bi-patch-check-fill text-success" aria-hidden="true"></i>
+            Approved
+          </span>
+        );
+      case "PENDING":
+        return (
+          <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 d-inline-flex align-items-center gap-1">
+            <span
+              className="spinner-grow spinner-grow-sm text-warning"
+              style={{ width: "0.55rem", height: "0.55rem" }}
+              role="status"
+              aria-hidden="true"
+            ></span>
+            Pending Review
+          </span>
+        );
+      case "REJECTED":
+        return (
+          <span className="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 d-inline-flex align-items-center gap-1">
+            <i className="bi bi-x-circle-fill text-danger" aria-hidden="true"></i>
+            Rejected
+          </span>
+        );
+      case "SUSPENDED":
+        return (
+          <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 d-inline-flex align-items-center gap-1">
+            <i className="bi bi-slash-circle-fill" aria-hidden="true"></i>
+            Suspended
+          </span>
+        );
+      case "DRAFT":
+      default:
+        return (
+          <span className="badge bg-light text-dark border px-2 py-1 d-inline-flex align-items-center gap-1">
+            <i className="bi bi-file-earmark-text" aria-hidden="true"></i>
+            Draft
+          </span>
+        );
+    }
+  };
+
+  const renderAvailabilityPill = (avail: string) => {
+    switch (avail) {
+      case "AVAILABLE":
+        return (
+          <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill font-monospace" style={{ fontSize: "0.68rem" }}>
+            ● Available
+          </span>
+        );
+      case "BUSY":
+        return (
+          <span className="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle rounded-pill font-monospace" style={{ fontSize: "0.68rem" }}>
+            ● Busy
+          </span>
+        );
+      case "UNAVAILABLE":
+      default:
+        return (
+          <span className="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill font-monospace" style={{ fontSize: "0.68rem" }}>
+            ● Unavailable
+          </span>
+        );
+    }
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "FP";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const rejectionPresets = [
+    "Clear, well-lit portrait photo is required for marketplace trust.",
+    "Please add at least 1 verified service title with an accurate starting rate.",
+    "Provided phone number could not be reached or verified.",
+    "Primary coverage address is incomplete; please select your district and thana.",
+    "Bio text is insufficient; please describe your professional background and tools.",
+  ];
+
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Freelancers Directory & Moderation</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Review applicant credentials, verify coverage areas, and approve or reject marketplace professionals.
-          </p>
+    <div className="container-fluid py-3 px-3 px-md-4">
+      {/* Breadcrumb & Navigation Bar */}
+      <div className="row align-items-center mb-3 g-2">
+        <div className="col-12 col-md-7">
+          <nav aria-label="breadcrumb">
+            <ol className="breadcrumb mb-1">
+              <li className="breadcrumb-item">
+                <Link href="/" className="text-decoration-none">
+                  Dashboard
+                </Link>
+              </li>
+              <li className="breadcrumb-item">Marketplace</li>
+              <li className="breadcrumb-item active" aria-current="page">
+                Freelancers Directory
+              </li>
+            </ol>
+          </nav>
+          <div className="d-flex align-items-center gap-2">
+            <div
+              className="d-inline-flex align-items-center justify-content-center text-primary bg-primary bg-opacity-10 rounded-3 p-2"
+              style={{ width: "38px", height: "38px" }}
+            >
+              <i className="bi bi-person-badge fs-5" aria-hidden="true"></i>
+            </div>
+            <div>
+              <h1 className="h4 fw-bold text-dark mb-0 tracking-tight">
+                Freelancers Directory & Moderation
+              </h1>
+              <p className="text-secondary small mb-0">
+                Review verified professional profiles, manage Bangladesh service areas, and moderate applications.
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="col-12 col-md-5 text-md-end d-flex flex-wrap align-items-center justify-content-md-end gap-2 mt-2 mt-md-0">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary shadow-sm"
+            onClick={() => {
+              loadFreelancers();
+              loadMetrics();
+            }}
+            disabled={loading}
+            title="Refresh list and metrics"
+          >
+            <i className={`bi bi-arrow-clockwise me-1 ${loading ? "spinner-border spinner-border-sm" : ""}`}></i>
+            Refresh
+          </button>
           <Link
             href="/freelancers/approvals"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition"
+            className="btn btn-sm btn-outline-warning text-dark shadow-sm position-relative d-inline-flex align-items-center gap-1"
           >
-            <i className="bi bi-clock-history"></i>
-            Pending Queue
+            <i className="bi bi-hourglass-split text-warning me-1"></i>
+            Approvals Queue
+            {metrics.pending > 0 && (
+              <span className="badge rounded-pill bg-warning text-dark ms-1">
+                {metrics.pending}
+              </span>
+            )}
           </Link>
           <Link
             href="/freelancers/revisions"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-900 bg-blue-100 rounded-lg hover:bg-blue-200 transition"
+            className="btn btn-sm btn-outline-info text-dark shadow-sm position-relative d-inline-flex align-items-center gap-1"
           >
-            <i className="bi bi-arrow-repeat"></i>
+            <i className="bi bi-arrow-repeat text-info me-1"></i>
             Revisions Queue
+            {metrics.revisions > 0 && (
+              <span className="badge rounded-pill bg-info text-white ms-1">
+                {metrics.revisions}
+              </span>
+            )}
           </Link>
         </div>
       </div>
 
-      {/* Notification Toast */}
+      {/* Global Alert Notification */}
       {notification && (
         <div
-          className={`p-4 rounded-lg flex items-center justify-between text-sm ${
-            notification.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : notification.type === "danger"
-              ? "bg-rose-50 text-rose-800 border border-rose-200"
-              : "bg-blue-50 text-blue-800 border border-blue-200"
-          }`}
+          className={`alert alert-${notification.type} alert-dismissible fade show shadow-sm mb-3`}
+          role="alert"
         >
-          <div className="flex items-center gap-2">
-            <i className={`bi ${notification.type === "success" ? "bi-check-circle" : "bi-exclamation-triangle"}`}></i>
-            <span>{notification.text}</span>
+          <div className="d-flex align-items-center gap-2">
+            <i
+              className={`bi ${
+                notification.type === "success"
+                  ? "bi-check-circle-fill text-success fs-5"
+                  : notification.type === "danger"
+                  ? "bi-exclamation-triangle-fill text-danger fs-5"
+                  : notification.type === "warning"
+                  ? "bi-shield-exclamation text-warning fs-5"
+                  : "bi-info-circle-fill text-info fs-5"
+              }`}
+            ></i>
+            <span className="fw-medium">{notification.text}</span>
           </div>
-          <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-gray-600">
-            <i className="bi bi-x-lg"></i>
-          </button>
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setNotification(null)}
+            aria-label="Close"
+          ></button>
         </div>
       )}
 
-      {/* Filters Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        {/* Status Tabs */}
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          {["ALL", "PENDING", "APPROVED", "REJECTED", "SUSPENDED", "DRAFT"].map((st) => (
-            <button
-              key={st}
-              onClick={() => {
-                setStatusFilter(st);
-                setPage(1);
-              }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                statusFilter === st
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {st === "ALL" ? "All Profiles" : st}
-            </button>
-          ))}
+      {/* Metric Counters (Executive KPI Grid) */}
+      <div className="row g-3 mb-3">
+        {/* Total Profiles */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card shadow-sm border-0 border-start border-primary border-4 h-100 card-glass">
+            <div className="card-body p-3">
+              <div className="d-flex align-items-center justify-content-between">
+                <div>
+                  <div className="text-uppercase fw-bold text-primary small" style={{ fontSize: "0.72rem", letterSpacing: "0.05em" }}>
+                    Total Professionals
+                  </div>
+                  <div className="h4 mb-0 fw-bold text-dark tabular-nums">
+                    {metricsLoading ? "..." : metrics.total}
+                  </div>
+                  <div className="text-secondary small mt-1">
+                    Registered accounts across Bangladesh
+                  </div>
+                </div>
+                <div
+                  className="rounded-3 bg-primary bg-opacity-10 p-3 text-primary d-flex align-items-center justify-content-center"
+                  style={{ width: "48px", height: "48px" }}
+                >
+                  <i className="bi bi-people-fill fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full md:w-72">
-          <i className="bi bi-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, phone, title..."
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+        {/* Pending Approvals */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div
+            className={`card shadow-sm border-0 border-start border-warning border-4 h-100 card-glass ${
+              metrics.pending > 0 ? "border-warning" : ""
+            }`}
+            style={{ cursor: "pointer" }}
+            onClick={() => {
+              setStatusFilter("PENDING");
+              setPage(1);
+            }}
+            title="Click to filter by Pending"
+          >
+            <div className="card-body p-3">
+              <div className="d-flex align-items-center justify-content-between">
+                <div>
+                  <div className="text-uppercase fw-bold text-warning small" style={{ fontSize: "0.72rem", letterSpacing: "0.05em" }}>
+                    Pending Approvals
+                  </div>
+                  <div className="h4 mb-0 fw-bold text-dark tabular-nums d-flex align-items-center gap-2">
+                    {metricsLoading ? "..." : metrics.pending}
+                    {metrics.pending > 0 && (
+                      <span className="badge rounded-pill bg-warning text-dark font-monospace" style={{ fontSize: "0.68rem" }}>
+                        Action Needed
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-secondary small mt-1">
+                    Awaiting verification review
+                  </div>
+                </div>
+                <div
+                  className="rounded-3 bg-warning bg-opacity-10 p-3 text-warning d-flex align-items-center justify-content-center"
+                  style={{ width: "48px", height: "48px" }}
+                >
+                  <i className="bi bi-hourglass-top fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Approved & Live */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div
+            className="card shadow-sm border-0 border-start border-success border-4 h-100 card-glass"
+            style={{ cursor: "pointer" }}
+            onClick={() => {
+              setStatusFilter("APPROVED");
+              setPage(1);
+            }}
+            title="Click to filter by Approved"
+          >
+            <div className="card-body p-3">
+              <div className="d-flex align-items-center justify-content-between">
+                <div>
+                  <div className="text-uppercase fw-bold text-success small" style={{ fontSize: "0.72rem", letterSpacing: "0.05em" }}>
+                    Approved & Active
+                  </div>
+                  <div className="h4 mb-0 fw-bold text-dark tabular-nums">
+                    {metricsLoading ? "..." : metrics.approved}
+                  </div>
+                  <div className="text-secondary small mt-1">
+                    Publicly visible in hire catalog
+                  </div>
+                </div>
+                <div
+                  className="rounded-3 bg-success bg-opacity-10 p-3 text-success d-flex align-items-center justify-content-center"
+                  style={{ width: "48px", height: "48px" }}
+                >
+                  <i className="bi bi-patch-check-fill fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Revisions & Suspended */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card shadow-sm border-0 border-start border-info border-4 h-100 card-glass">
+            <div className="card-body p-3">
+              <div className="d-flex align-items-center justify-content-between">
+                <div>
+                  <div className="text-uppercase fw-bold text-info small" style={{ fontSize: "0.72rem", letterSpacing: "0.05em" }}>
+                    Revisions & Watchlist
+                  </div>
+                  <div className="h4 mb-0 fw-bold text-dark tabular-nums">
+                    {metricsLoading ? "..." : metrics.revisions}{" "}
+                    <span className="text-secondary fw-normal fs-6">
+                      / {metricsLoading ? "..." : metrics.suspended} susp.
+                    </span>
+                  </div>
+                  <div className="text-secondary small mt-1">
+                    Pending diffs & suspended
+                  </div>
+                </div>
+                <div
+                  className="rounded-3 bg-info bg-opacity-10 p-3 text-info d-flex align-items-center justify-content-center"
+                  style={{ width: "48px", height: "48px" }}
+                >
+                  <i className="bi bi-shield-check fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Main Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+      {/* Control Toolbar: Status Tabs & Filter Bar */}
+      <div className="card shadow-sm border-0 mb-3 card-glass">
+        <div className="card-body p-3">
+          <div className="row g-2 align-items-center">
+            {/* Status Pills */}
+            <div className="col-12 col-lg-7">
+              <div className="d-flex flex-wrap gap-1 align-items-center">
+                <span className="text-secondary small fw-bold me-1 d-none d-sm-inline">
+                  Status:
+                </span>
+                {[
+                  { key: "ALL", label: "All Profiles", icon: "bi-grid" },
+                  { key: "PENDING", label: "Pending", icon: "bi-clock-history", badge: metrics.pending },
+                  { key: "APPROVED", label: "Approved", icon: "bi-patch-check" },
+                  { key: "REJECTED", label: "Rejected", icon: "bi-x-circle" },
+                  { key: "SUSPENDED", label: "Suspended", icon: "bi-slash-circle" },
+                  { key: "DRAFT", label: "Draft", icon: "bi-pencil" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(tab.key);
+                      setPage(1);
+                    }}
+                    className={`btn btn-sm d-inline-flex align-items-center gap-1 ${
+                      statusFilter === tab.key
+                        ? "btn-primary shadow-sm"
+                        : "btn-outline-secondary border-0 bg-body-tertiary text-dark"
+                    }`}
+                    style={{ fontSize: "0.78rem" }}
+                  >
+                    <i className={`bi ${tab.icon}`}></i>
+                    <span>{tab.label}</span>
+                    {tab.badge !== undefined && tab.badge > 0 && (
+                      <span
+                        className={`badge rounded-pill ms-1 ${
+                          statusFilter === tab.key
+                            ? "bg-white text-primary"
+                            : "bg-warning text-dark"
+                        }`}
+                        style={{ fontSize: "0.68rem" }}
+                      >
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Search Input & Sort */}
+            <div className="col-12 col-lg-5">
+              <div className="d-flex gap-2 align-items-center justify-content-lg-end">
+                <div className="input-group input-group-sm flex-grow-1" style={{ maxWidth: "260px" }}>
+                  <span className="input-group-text bg-body-tertiary border-end-0">
+                    <i className="bi bi-search text-secondary"></i>
+                  </span>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search name, phone, title..."
+                    className="form-control border-start-0"
+                    aria-label="Search freelancers"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary border-start-0"
+                      onClick={() => setSearchTerm("")}
+                      title="Clear search"
+                    >
+                      <i className="bi bi-x"></i>
+                    </button>
+                  )}
+                </div>
+
+                <div className="d-flex align-items-center gap-1">
+                  <select
+                    className="form-select form-select-sm"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    style={{ width: "125px", fontSize: "0.78rem" }}
+                    aria-label="Sort by"
+                  >
+                    <option value="createdAt">Date Joined</option>
+                    <option value="name">Name (A-Z)</option>
+                    <option value="experience">Experience</option>
+                    <option value="price">Starting Rate</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                    title={`Sort direction: ${sortOrder === "asc" ? "Ascending" : "Descending"}`}
+                  >
+                    <i className={`bi bi-sort-${sortOrder === "asc" ? "up" : "down"}`}></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Freelancers Directory Table */}
+      <div className="card shadow-sm border-0 card-glass overflow-hidden">
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0">
+            <thead className="table-light text-secondary border-bottom">
               <tr>
-                <th className="px-6 py-4">Professional</th>
-                <th className="px-6 py-4">User & Phone</th>
-                <th className="px-6 py-4">Primary Coverage</th>
-                <th className="px-6 py-4">Experience & Rate</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th scope="col" style={{ minWidth: "240px" }} className="ps-3 py-3">
+                  Professional Identity
+                </th>
+                <th scope="col" style={{ minWidth: "180px" }}>
+                  Contact & Account
+                </th>
+                <th scope="col" style={{ minWidth: "170px" }}>
+                  Primary Coverage
+                </th>
+                <th scope="col" style={{ minWidth: "140px" }}>
+                  Experience & Rate
+                </th>
+                <th scope="col" style={{ minWidth: "125px" }}>
+                  Status
+                </th>
+                <th scope="col" style={{ minWidth: "140px" }} className="text-end pe-3">
+                  Moderation Actions
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mb-2"></div>
-                    <p>Loading professionals...</p>
+                  <td colSpan={6} className="text-center py-5">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading professionals...</span>
+                    </div>
+                    <p className="mt-2 text-secondary small mb-0">
+                      Loading marketplace professionals...
+                    </p>
                   </td>
                 </tr>
-              ) : freelancers.length === 0 ? (
+              ) : sortedFreelancers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    <i className="bi bi-inbox text-3xl text-gray-300 mb-2 block"></i>
-                    No freelancers found matching criteria.
+                  <td colSpan={6} className="text-center py-5">
+                    <div
+                      className="rounded-circle bg-light d-inline-flex align-items-center justify-content-center p-3 text-secondary mb-2"
+                      style={{ width: "54px", height: "54px" }}
+                    >
+                      <i className="bi bi-inbox fs-3"></i>
+                    </div>
+                    <h6 className="fw-bold text-dark mb-1">No Freelancers Found</h6>
+                    <p className="text-secondary small mb-3">
+                      {searchTerm || statusFilter !== "ALL"
+                        ? "No profiles match your current search and filter criteria."
+                        : "There are currently no registered freelancer profiles."}
+                    </p>
+                    {(searchTerm || statusFilter !== "ALL") && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => {
+                          setSearchTerm("");
+                          setStatusFilter("ALL");
+                          setPage(1);
+                        }}
+                      >
+                        <i className="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
-                freelancers.map((f) => {
+                sortedFreelancers.map((f) => {
                   const primaryLoc = f.locations?.find((l) => l.isPrimary);
-                  const locSummary = primaryLoc
-                    ? `${primaryLoc.thana?.name || ""}, ${primaryLoc.district?.name || ""}`
-                    : "Not specified";
+                  const otherLocsCount = (f.locations?.length || 0) - (primaryLoc ? 1 : 0);
+                  const avatarUrl = resolveImageUrl(f.photoUrl);
 
                   return (
-                    <tr key={f.id} className="hover:bg-gray-50/80 transition">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          {f.photoUrl ? (
-                            <img
-                              src={f.photoUrl}
-                              alt={f.displayName}
-                              className="w-10 h-10 rounded-full object-cover border border-gray-200"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-sm">
-                              {f.displayName.slice(0, 2).toUpperCase()}
+                    <tr key={f.id} className="align-middle">
+                      {/* Identity: Photo, Name, Profession */}
+                      <td className="ps-3 py-3">
+                        <div className="d-flex align-items-center gap-2-5">
+                          <div
+                            className="position-relative rounded-circle overflow-hidden flex-shrink-0 border bg-light d-flex align-items-center justify-content-center"
+                            style={{ width: "44px", height: "44px" }}
+                          >
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={f.displayName}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : (
+                              <span className="fw-bold text-primary small">
+                                {getInitials(f.displayName)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="d-flex align-items-center gap-1">
+                              <span
+                                className="fw-bold text-dark text-truncate text-decoration-none"
+                                title={f.displayName}
+                                style={{ maxWidth: "200px" }}
+                              >
+                                {f.displayName}
+                              </span>
+                              {f.status === "APPROVED" && (
+                                <i
+                                  className="bi bi-patch-check-fill text-primary"
+                                  title="Approved Marketplace Professional"
+                                  style={{ fontSize: "0.85rem" }}
+                                ></i>
+                              )}
                             </div>
-                          )}
-                          <div>
-                            <div className="font-semibold text-gray-900">{f.displayName}</div>
-                            <div className="text-xs text-gray-500">{f.profession?.name || f.title || "Specialist"}</div>
+                            <div className="text-secondary small text-truncate" style={{ fontSize: "0.78rem" }}>
+                              {f.profession?.name || f.title || "Specialist"}
+                              {f.profession?.bnName && (
+                                <span className="text-muted ms-1">({f.profession.bnName})</span>
+                              )}
+                            </div>
+                            <div className="d-flex align-items-center gap-1 mt-0-5">
+                              {renderAvailabilityPill(f.availability)}
+                              <span
+                                className="text-muted font-monospace"
+                                style={{ fontSize: "0.68rem" }}
+                                title={`Profile ID: ${f.id}`}
+                              >
+                                #{f.id.slice(0, 8)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-6 py-4">
-                        <div className="text-gray-900 font-medium">{f.user?.phone || "No phone"}</div>
-                        <div className="text-xs text-gray-500">{f.email || f.user?.email || "No email"}</div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="text-xs text-gray-800 font-medium">{locSummary}</div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="text-gray-900 font-medium">{f.experienceYears} yrs exp</div>
-                        <div className="text-xs text-gray-500">
-                          {f.startingPrice ? `From ৳${f.startingPrice}` : "Negotiable"}
+                      {/* Contact & Account */}
+                      <td>
+                        <div className="d-flex align-items-center gap-1">
+                          <span className="fw-semibold text-dark font-monospace small">
+                            {f.user?.phone || "No phone"}
+                          </span>
+                          {f.user?.phone && (
+                            <button
+                              type="button"
+                              className="btn btn-link btn-sm p-0 text-secondary"
+                              onClick={() => handleCopyPhone(f.user.phone!, f.id)}
+                              title="Copy phone number"
+                              style={{ lineHeight: 1 }}
+                            >
+                              <i
+                                className={`bi ${
+                                  copiedId === f.id
+                                    ? "bi-check2 text-success fw-bold"
+                                    : "bi-clipboard"
+                                }`}
+                                style={{ fontSize: "0.78rem" }}
+                              ></i>
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-secondary small text-truncate" style={{ fontSize: "0.75rem", maxWidth: "160px" }}>
+                          {f.email || f.user?.email || "No email registered"}
+                        </div>
+                        <div className="text-muted" style={{ fontSize: "0.7rem" }}>
+                          User: <span className="text-dark">{f.user?.name}</span>
                         </div>
                       </td>
 
-                      <td className="px-6 py-4">{getStatusBadge(f.status)}</td>
+                      {/* Coverage Locations */}
+                      <td>
+                        {primaryLoc ? (
+                          <div>
+                            <div className="fw-medium text-dark small d-flex align-items-center gap-1">
+                              <i className="bi bi-geo-alt-fill text-danger small"></i>
+                              <span className="text-truncate" style={{ maxWidth: "150px" }}>
+                                {primaryLoc.thana?.name || ""}, {primaryLoc.district?.name || ""}
+                              </span>
+                            </div>
+                            <div className="text-secondary" style={{ fontSize: "0.72rem" }}>
+                              {primaryLoc.division?.name || ""}
+                              {otherLocsCount > 0 && (
+                                <span className="badge bg-light text-secondary border rounded-pill ms-1 font-monospace">
+                                  +{otherLocsCount} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted small fst-italic">Not specified</span>
+                        )}
+                      </td>
 
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      {/* Experience & Pricing */}
+                      <td>
+                        <div className="fw-bold text-dark small tabular-nums">
+                          {f.experienceYears} {f.experienceYears === 1 ? "year" : "years"} exp
+                        </div>
+                        <div className="text-primary small fw-semibold tabular-nums">
+                          {f.startingPrice ? `৳${f.startingPrice.toLocaleString()}` : "Negotiable"}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td>
+                        <div>{renderStatusBadge(f.status)}</div>
+                        {f.rejectionCount > 0 && (
+                          <div className="text-danger mt-1" style={{ fontSize: "0.68rem" }}>
+                            <i className="bi bi-arrow-repeat me-1"></i>
+                            {f.rejectionCount} {f.rejectionCount === 1 ? "rejection" : "rejections"}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="text-end pe-3">
+                        <div className="btn-group btn-group-sm" role="group">
                           <button
+                            type="button"
+                            className="btn btn-outline-secondary"
                             onClick={() => handleOpenDetail(f)}
-                            className="px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                            title="Inspect complete application profile"
                           >
-                            Details
+                            <i className="bi bi-eye me-1"></i> Details
                           </button>
 
                           {f.status === "PENDING" && (
                             <>
                               <button
+                                type="button"
+                                className="btn btn-success"
                                 onClick={() => {
                                   setTargetFreelancer(f);
                                   setShowApproveModal(true);
                                 }}
-                                className="px-2.5 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition"
+                                title="Approve candidate application"
                               >
-                                Approve
+                                <i className="bi bi-check-lg"></i>
                               </button>
                               <button
+                                type="button"
+                                className="btn btn-outline-danger"
                                 onClick={() => {
                                   setTargetFreelancer(f);
                                   setRejectReason("");
                                   setShowRejectModal(true);
                                 }}
-                                className="px-2.5 py-1 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
+                                title="Reject candidate with feedback"
                               >
-                                Reject
+                                <i className="bi bi-x-lg"></i>
                               </button>
                             </>
                           )}
 
                           {f.status === "APPROVED" && (
                             <button
+                              type="button"
+                              className="btn btn-outline-warning text-dark"
                               onClick={() => {
                                 setTargetFreelancer(f);
                                 setSuspendReason("");
                                 setShowSuspendModal(true);
                               }}
-                              className="px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition"
+                              title="Suspend this professional"
                             >
-                              Suspend
+                              <i className="bi bi-slash-circle"></i>
                             </button>
                           )}
 
                           {f.status === "SUSPENDED" && (
                             <button
+                              type="button"
+                              className="btn btn-outline-success"
                               onClick={() => handleReinstate(f)}
-                              className="px-2.5 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition"
+                              title="Reinstate to Approved"
                             >
-                              Reinstate
+                              <i className="bi bi-arrow-counterclockwise"></i>
                             </button>
                           )}
                         </div>
@@ -425,350 +997,823 @@ export default function FreelancersManagementPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <span className="text-xs text-gray-500">
-            Showing {freelancers.length > 0 ? (page - 1) * limit + 1 : 0} to{" "}
-            {Math.min(page * limit, total)} of {total} professionals
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-            >
-              Previous
-            </button>
-            <span className="text-xs text-gray-600">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-            >
-              Next
-            </button>
+        {/* Pagination Bar */}
+        <div className="card-footer bg-body-tertiary border-top py-2 px-3">
+          <div className="d-flex flex-column flex-sm-row align-items-center justify-content-between gap-2">
+            <div className="text-secondary small">
+              Showing{" "}
+              <span className="fw-semibold text-dark tabular-nums">
+                {total === 0 ? 0 : (page - 1) * limit + 1}
+              </span>{" "}
+              to{" "}
+              <span className="fw-semibold text-dark tabular-nums">
+                {Math.min(page * limit, total)}
+              </span>{" "}
+              of <span className="fw-semibold text-dark tabular-nums">{total}</span> professionals
+            </div>
+
+            <div className="d-flex align-items-center gap-2">
+              <div className="d-flex align-items-center gap-1">
+                <span className="text-secondary small d-none d-md-inline">Rows:</span>
+                <select
+                  className="form-select form-select-sm"
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  style={{ width: "70px", fontSize: "0.78rem" }}
+                  aria-label="Rows per page"
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              <ul className="pagination pagination-sm mb-0">
+                <li className={`page-item ${page <= 1 ? "disabled" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => setPage(1)}
+                    disabled={page <= 1}
+                    aria-label="First page"
+                  >
+                    <i className="bi bi-chevron-double-left"></i>
+                  </button>
+                </li>
+                <li className={`page-item ${page <= 1 ? "disabled" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    disabled={page <= 1}
+                    aria-label="Previous page"
+                  >
+                    <i className="bi bi-chevron-left"></i>
+                  </button>
+                </li>
+                <li className="page-item disabled">
+                  <span className="page-link text-dark fw-medium px-2">
+                    {page} / {totalPages}
+                  </span>
+                </li>
+                <li className={`page-item ${page >= totalPages ? "disabled" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    disabled={page >= totalPages}
+                    aria-label="Next page"
+                  >
+                    <i className="bi bi-chevron-right"></i>
+                  </button>
+                </li>
+                <li className={`page-item ${page >= totalPages ? "disabled" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => setPage(totalPages)}
+                    disabled={page >= totalPages}
+                    aria-label="Last page"
+                  >
+                    <i className="bi bi-chevron-double-right"></i>
+                  </button>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Profile Detail Modal */}
+      {/* Comprehensive Profile Detail Modal */}
       {showDetailModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            {detailLoading || !selectedDetail ? (
-              <div className="py-20 text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
-                <p className="text-sm text-gray-500 mt-2">Loading profile details...</p>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-start justify-between border-b pb-4">
-                  <div className="flex items-center gap-4">
-                    {selectedDetail.photoUrl ? (
-                      <img
-                        src={selectedDetail.photoUrl}
-                        alt={selectedDetail.displayName}
-                        className="w-16 h-16 rounded-full object-cover border-2 border-indigo-200"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xl">
-                        {selectedDetail.displayName.slice(0, 2).toUpperCase()}
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 1055 }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div className="modal-content shadow-lg border-0 card-glass">
+              {detailLoading || !selectedDetail ? (
+                <div className="modal-body text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading details...</span>
+                  </div>
+                  <p className="mt-2 text-secondary small">Loading complete candidate record...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Modal Header */}
+                  <div className="modal-header border-bottom pb-3">
+                    <div className="d-flex align-items-center gap-3">
+                      <div
+                        className="rounded-circle overflow-hidden border bg-light d-flex align-items-center justify-content-center flex-shrink-0"
+                        style={{ width: "54px", height: "54px" }}
+                      >
+                        {resolveImageUrl(selectedDetail.photoUrl) ? (
+                          <img
+                            src={resolveImageUrl(selectedDetail.photoUrl)!}
+                            alt={selectedDetail.displayName}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <span className="fw-bold text-primary fs-5">
+                            {getInitials(selectedDetail.displayName)}
+                          </span>
+                        )}
                       </div>
-                    )}
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">{selectedDetail.displayName}</h3>
-                      <p className="text-sm text-indigo-600 font-medium">
-                        {selectedDetail.profession?.name || selectedDetail.title || "Freelancer"}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {getStatusBadge(selectedDetail.status)}
-                        <span className="text-xs text-gray-500">{selectedDetail.experienceYears} Years Experience</span>
+                      <div>
+                        <div className="d-flex align-items-center gap-2">
+                          <h5 className="modal-title fw-bold text-dark mb-0">
+                            {selectedDetail.displayName}
+                          </h5>
+                          {renderStatusBadge(selectedDetail.status)}
+                        </div>
+                        <div className="text-secondary small mt-0-5">
+                          <span className="fw-medium text-primary">
+                            {selectedDetail.profession?.name || selectedDetail.title || "Specialist"}
+                          </span>{" "}
+                          • {selectedDetail.experienceYears} Years Experience
+                          {selectedDetail.startingPrice && ` • From ৳${selectedDetail.startingPrice.toLocaleString()}`}
+                        </div>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      onClick={() => setShowDetailModal(false)}
+                      aria-label="Close"
+                    ></button>
                   </div>
-                  <button
-                    onClick={() => setShowDetailModal(false)}
-                    className="text-gray-400 hover:text-gray-600 text-lg"
-                  >
-                    <i className="bi bi-x-lg"></i>
-                  </button>
-                </div>
 
-                {/* Contact & Account info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl text-sm">
-                  <div>
-                    <span className="text-xs text-gray-500 font-semibold block">Phone (Verified)</span>
-                    <span className="text-gray-900 font-medium">{selectedDetail.user?.phone || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-500 font-semibold block">Email</span>
-                    <span className="text-gray-900 font-medium">{selectedDetail.email || selectedDetail.user?.email || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-500 font-semibold block">Street Address</span>
-                    <span className="text-gray-900">{selectedDetail.address || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-500 font-semibold block">Registered User ID</span>
-                    <span className="font-mono text-xs text-gray-600">{selectedDetail.userId}</span>
-                  </div>
-                </div>
-
-                {/* About Bio */}
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-1">About / Bio</h4>
-                  <p className="text-sm text-gray-600 whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-gray-100">
-                    {selectedDetail.about || "No bio provided."}
-                  </p>
-                </div>
-
-                {/* Services & Pricing */}
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Offered Services</h4>
-                  <div className="space-y-2">
-                    {selectedDetail.services.length === 0 ? (
-                      <p className="text-xs text-gray-500">No services listed.</p>
-                    ) : (
-                      selectedDetail.services.map((svc) => (
-                        <div
-                          key={svc.id}
-                          className="flex items-center justify-between p-3 border rounded-lg bg-white"
+                  {/* Tab Navigation */}
+                  <div className="border-bottom bg-light px-3 pt-2">
+                    <ul className="nav nav-tabs border-bottom-0" style={{ fontSize: "0.82rem" }}>
+                      <li className="nav-item">
+                        <button
+                          type="button"
+                          className={`nav-link ${activeDetailTab === "overview" ? "active fw-bold" : "text-secondary"}`}
+                          onClick={() => setActiveDetailTab("overview")}
                         >
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{svc.title}</div>
-                            {svc.description && (
-                              <div className="text-xs text-gray-500">{svc.description}</div>
+                          <i className="bi bi-person me-1"></i> Identity & Bio
+                        </button>
+                      </li>
+                      <li className="nav-item">
+                        <button
+                          type="button"
+                          className={`nav-link ${activeDetailTab === "locations" ? "active fw-bold" : "text-secondary"}`}
+                          onClick={() => setActiveDetailTab("locations")}
+                        >
+                          <i className="bi bi-geo-alt me-1"></i> Coverage Areas ({selectedDetail.locations.length})
+                        </button>
+                      </li>
+                      <li className="nav-item">
+                        <button
+                          type="button"
+                          className={`nav-link ${activeDetailTab === "services" ? "active fw-bold" : "text-secondary"}`}
+                          onClick={() => setActiveDetailTab("services")}
+                        >
+                          <i className="bi bi-briefcase me-1"></i> Services ({selectedDetail.services.length})
+                        </button>
+                      </li>
+                      <li className="nav-item">
+                        <button
+                          type="button"
+                          className={`nav-link ${activeDetailTab === "portfolio" ? "active fw-bold" : "text-secondary"}`}
+                          onClick={() => setActiveDetailTab("portfolio")}
+                        >
+                          <i className="bi bi-images me-1"></i> Skills & Portfolio
+                        </button>
+                      </li>
+                      <li className="nav-item">
+                        <button
+                          type="button"
+                          className={`nav-link ${activeDetailTab === "moderation" ? "active fw-bold" : "text-secondary"}`}
+                          onClick={() => setActiveDetailTab("moderation")}
+                        >
+                          <i className="bi bi-shield-check me-1"></i> Audit & History
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="modal-body p-4">
+                    {/* Tab 1: Overview */}
+                    {activeDetailTab === "overview" && (
+                      <div className="space-y-4">
+                        <div className="row g-3 mb-3">
+                          <div className="col-12 col-sm-6">
+                            <div className="p-3 bg-light rounded-3 border">
+                              <span className="text-secondary small fw-bold d-block text-uppercase" style={{ fontSize: "0.7rem" }}>
+                                Verified Contact Phone
+                              </span>
+                              <span className="fw-bold text-dark font-monospace fs-6">
+                                {selectedDetail.user?.phone || "N/A"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="col-12 col-sm-6">
+                            <div className="p-3 bg-light rounded-3 border">
+                              <span className="text-secondary small fw-bold d-block text-uppercase" style={{ fontSize: "0.7rem" }}>
+                                Registered Email
+                              </span>
+                              <span className="fw-semibold text-dark small">
+                                {selectedDetail.email || selectedDetail.user?.email || "N/A"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="col-12 col-sm-6">
+                            <div className="p-3 bg-light rounded-3 border">
+                              <span className="text-secondary small fw-bold d-block text-uppercase" style={{ fontSize: "0.7rem" }}>
+                                Street / Locality Address
+                              </span>
+                              <span className="text-dark small">
+                                {selectedDetail.address || "No street address provided"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="col-12 col-sm-6">
+                            <div className="p-3 bg-light rounded-3 border">
+                              <span className="text-secondary small fw-bold d-block text-uppercase" style={{ fontSize: "0.7rem" }}>
+                                Marketplace Availability
+                              </span>
+                              <div className="mt-1">
+                                {renderAvailabilityPill(selectedDetail.availability)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="fw-bold text-dark small d-block mb-1">
+                            About / Professional Bio
+                          </label>
+                          <div className="p-3 bg-light rounded-3 border small text-dark lh-base">
+                            {selectedDetail.about || (
+                              <span className="text-muted fst-italic">No biography submitted.</span>
                             )}
                           </div>
-                          <div className="text-right">
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">
-                              {svc.priceType}
-                            </span>
-                            <div className="text-sm font-bold text-gray-900 mt-0.5">
-                              {svc.amount ? `৳${svc.amount}` : "Negotiable"}
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Coverage Locations */}
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Coverage Locations ({selectedDetail.locations.length}/5)</h4>
-                  <div className="space-y-2">
-                    {selectedDetail.locations.map((loc) => (
-                      <div key={loc.id} className="p-3 bg-gray-50 rounded-lg text-xs space-y-1 border border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-gray-900">
-                            {loc.division.name} &gt; {loc.district.name} &gt; {loc.thana.name}
-                          </span>
-                          {loc.isPrimary && (
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold">
-                              PRIMARY
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-gray-600">
-                          Post Office: {loc.postOffice.name} ({loc.postOffice.postalCode})
-                          {loc.cityCorporation && ` | City Corp: ${loc.cityCorporation.name}`}
-                          {loc.ward && ` | Ward #${loc.ward.wardNo}`}
-                          {loc.paurashava && ` | Paurashava: ${loc.paurashava.name}`}
-                          {loc.union && ` | Union: ${loc.union.name}`}
-                          {loc.localityText && ` | Locality: ${loc.localityText}`}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    )}
 
-                {/* Skills */}
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Skills</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedDetail.skills.map((sk) => (
-                      <span
-                        key={sk.skillId}
-                        className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-lg"
-                      >
-                        {sk.skill.name} {sk.skill.bnName ? `(${sk.skill.bnName})` : ""}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                    {/* Tab 2: Locations Coverage */}
+                    {activeDetailTab === "locations" && (
+                      <div>
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                          <span className="fw-bold text-dark small">
+                            Verified Coverage Zones ({selectedDetail.locations.length} of 5 max)
+                          </span>
+                        </div>
+                        {selectedDetail.locations.length === 0 ? (
+                          <div className="text-center py-4 text-muted small">
+                            No service locations configured.
+                          </div>
+                        ) : (
+                          <div className="d-flex flex-column gap-2">
+                            {selectedDetail.locations.map((loc) => (
+                              <div
+                                key={loc.id}
+                                className={`p-3 rounded-3 border ${
+                                  loc.isPrimary
+                                    ? "border-primary bg-primary bg-opacity-10"
+                                    : "bg-light"
+                                }`}
+                              >
+                                <div className="d-flex align-items-center justify-content-between mb-1">
+                                  <div className="fw-bold text-dark small d-flex align-items-center gap-1">
+                                    <i className="bi bi-geo-alt-fill text-danger"></i>
+                                    <span>
+                                      {loc.division.name} &gt; {loc.district.name} &gt; {loc.thana.name}
+                                    </span>
+                                  </div>
+                                  {loc.isPrimary && (
+                                    <span className="badge bg-primary text-white font-monospace" style={{ fontSize: "0.68rem" }}>
+                                      PRIMARY LOCATION
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-secondary small">
+                                  <span>Post Office: </span>
+                                  <span className="text-dark fw-medium">
+                                    {loc.postOffice.name} ({loc.postOffice.postalCode})
+                                  </span>
+                                  {loc.cityCorporation && (
+                                    <span> • City Corp: {loc.cityCorporation.name}</span>
+                                  )}
+                                  {loc.ward && (
+                                    <span> • Ward #{loc.ward.wardNo}</span>
+                                  )}
+                                  {loc.paurashava && (
+                                    <span> • Paurashava: {loc.paurashava.name}</span>
+                                  )}
+                                  {loc.union && (
+                                    <span> • Union: {loc.union.name}</span>
+                                  )}
+                                  {loc.localityText && (
+                                    <span> • Locality: {loc.localityText}</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                {/* Portfolio */}
-                {selectedDetail.portfolio.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Portfolio Showcase</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {selectedDetail.portfolio.map((item) => (
-                        <div key={item.id} className="group relative rounded-lg overflow-hidden border">
-                          <img
-                            src={item.imageUrl}
-                            alt={item.caption || "Portfolio item"}
-                            className="w-full h-24 object-cover"
-                          />
-                          {item.caption && (
-                            <div className="p-1 text-[11px] text-gray-600 truncate bg-white">
-                              {item.caption}
+                    {/* Tab 3: Services & Pricing */}
+                    {activeDetailTab === "services" && (
+                      <div>
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                          <span className="fw-bold text-dark small">
+                            Listed Services & Rates ({selectedDetail.services.length})
+                          </span>
+                        </div>
+                        {selectedDetail.services.length === 0 ? (
+                          <div className="text-center py-4 text-muted small">
+                            No individual services listed.
+                          </div>
+                        ) : (
+                          <div className="row g-2">
+                            {selectedDetail.services.map((svc) => (
+                              <div key={svc.id} className="col-12 col-md-6">
+                                <div className="p-3 rounded-3 border bg-light h-100 d-flex flex-column justify-content-between">
+                                  <div>
+                                    <div className="d-flex align-items-start justify-content-between gap-2 mb-1">
+                                      <h6 className="fw-bold text-dark mb-0 small">{svc.title}</h6>
+                                      <span className="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle font-monospace" style={{ fontSize: "0.68rem" }}>
+                                        {svc.priceType}
+                                      </span>
+                                    </div>
+                                    {svc.description && (
+                                      <p className="text-secondary small mb-2 lh-sm">
+                                        {svc.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-end pt-2 border-top">
+                                    <span className="text-secondary small me-1">Rate:</span>
+                                    <span className="fw-bold text-dark tabular-nums">
+                                      {svc.amount ? `৳${svc.amount.toLocaleString()}` : "Negotiable"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tab 4: Skills & Portfolio */}
+                    {activeDetailTab === "portfolio" && (
+                      <div>
+                        {/* Skills Cloud */}
+                        <div className="mb-4">
+                          <label className="fw-bold text-dark small d-block mb-2">
+                            Skills & Capabilities ({selectedDetail.skills.length})
+                          </label>
+                          <div className="d-flex flex-wrap gap-1">
+                            {selectedDetail.skills.length === 0 ? (
+                              <span className="text-muted small">No specific skills tagged.</span>
+                            ) : (
+                              selectedDetail.skills.map((sk) => (
+                                <span
+                                  key={sk.skillId}
+                                  className="badge bg-body-secondary text-dark border px-2 py-1"
+                                >
+                                  {sk.skill.name}
+                                  {sk.skill.bnName && (
+                                    <span className="text-muted ms-1 font-monospace">
+                                      ({sk.skill.bnName})
+                                    </span>
+                                  )}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Portfolio Gallery */}
+                        <div>
+                          <label className="fw-bold text-dark small d-block mb-2">
+                            Portfolio Work Showcase ({selectedDetail.portfolio.length})
+                          </label>
+                          {selectedDetail.portfolio.length === 0 ? (
+                            <div className="text-center py-4 bg-light rounded-3 border text-muted small">
+                              No portfolio images uploaded.
+                            </div>
+                          ) : (
+                            <div className="row g-2">
+                              {selectedDetail.portfolio.map((item) => {
+                                const pUrl = resolveImageUrl(item.imageUrl);
+                                return (
+                                  <div key={item.id} className="col-6 col-sm-4 col-md-3">
+                                    <div className="card shadow-sm border overflow-hidden h-100">
+                                      <div style={{ height: "110px" }} className="bg-light">
+                                        {pUrl ? (
+                                          <img
+                                            src={pUrl}
+                                            alt={item.caption || "Portfolio item"}
+                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                          />
+                                        ) : (
+                                          <div className="d-flex align-items-center justify-content-center h-100 text-muted">
+                                            <i className="bi bi-image"></i>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {item.caption && (
+                                        <div className="p-1-5 bg-white border-top text-truncate small text-secondary" style={{ fontSize: "0.72rem" }}>
+                                          {item.caption}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
-                      ))}
+                      </div>
+                    )}
+
+                    {/* Tab 5: Moderation History */}
+                    {activeDetailTab === "moderation" && (
+                      <div className="space-y-3">
+                        <div className="p-3 bg-light rounded-3 border small space-y-2">
+                          <div className="d-flex justify-content-between py-1 border-bottom">
+                            <span className="text-secondary">Current Status:</span>
+                            <span>{renderStatusBadge(selectedDetail.status)}</span>
+                          </div>
+                          <div className="d-flex justify-content-between py-1 border-bottom">
+                            <span className="text-secondary">Profile Registered:</span>
+                            <span className="text-dark font-monospace">
+                              {new Date(selectedDetail.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between py-1 border-bottom">
+                            <span className="text-secondary">Last Updated:</span>
+                            <span className="text-dark font-monospace">
+                              {new Date(selectedDetail.updatedAt).toLocaleString()}
+                            </span>
+                          </div>
+                          {selectedDetail.approvedAt && (
+                            <div className="d-flex justify-content-between py-1 border-bottom">
+                              <span className="text-secondary">Approved Date:</span>
+                              <span className="text-success font-monospace">
+                                {new Date(selectedDetail.approvedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="d-flex justify-content-between py-1 border-bottom">
+                            <span className="text-secondary">Rejection Counter:</span>
+                            <span className="text-dark tabular-nums fw-bold">
+                              {selectedDetail.rejectionCount}
+                            </span>
+                          </div>
+                          {selectedDetail.rejectionReason && (
+                            <div className="py-2 border-bottom">
+                              <span className="text-danger fw-bold d-block mb-1">
+                                Last Rejection Reason:
+                              </span>
+                              <div className="p-2 bg-danger bg-opacity-10 border border-danger-subtle rounded text-danger small">
+                                {selectedDetail.rejectionReason}
+                              </div>
+                            </div>
+                          )}
+                          {selectedDetail.suspendReason && (
+                            <div className="py-2">
+                              <span className="text-warning-emphasis fw-bold d-block mb-1">
+                                Suspension Notice:
+                              </span>
+                              <div className="p-2 bg-warning bg-opacity-10 border border-warning-subtle rounded text-dark small">
+                                {selectedDetail.suspendReason}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modal Footer with Actions */}
+                  <div className="modal-footer border-top bg-light d-flex align-items-center justify-content-between">
+                    <div>
+                      <span className="text-muted small">
+                        User ID: <code className="font-monospace small">{selectedDetail.userId}</code>
+                      </span>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => setShowDetailModal(false)}
+                      >
+                        Close
+                      </button>
+
+                      {selectedDetail.status === "PENDING" && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => {
+                              setTargetFreelancer(selectedDetail);
+                              setRejectReason("");
+                              setShowRejectModal(true);
+                            }}
+                          >
+                            <i className="bi bi-x-circle me-1"></i> Reject...
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-success"
+                            onClick={() => {
+                              setTargetFreelancer(selectedDetail);
+                              setShowApproveModal(true);
+                            }}
+                          >
+                            <i className="bi bi-check2-circle me-1"></i> Approve Profile
+                          </button>
+                        </>
+                      )}
+
+                      {selectedDetail.status === "APPROVED" && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-warning text-dark"
+                          onClick={() => {
+                            setTargetFreelancer(selectedDetail);
+                            setSuspendReason("");
+                            setShowSuspendModal(true);
+                          }}
+                        >
+                          <i className="bi bi-slash-circle me-1"></i> Suspend Profile
+                        </button>
+                      )}
+
+                      {selectedDetail.status === "SUSPENDED" && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          onClick={() => handleReinstate(selectedDetail)}
+                        >
+                          <i className="bi bi-arrow-counterclockwise me-1"></i> Reinstate Profile
+                        </button>
+                      )}
                     </div>
                   </div>
-                )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-                {/* Actions Footer */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t">
-                  <button
-                    onClick={() => setShowDetailModal(false)}
-                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                  >
-                    Close
-                  </button>
-
-                  {selectedDetail.status === "PENDING" && (
+      {/* Confirmation Modal: Approve */}
+      {showApproveModal && targetFreelancer && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 1060 }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content shadow-lg border-0 card-glass">
+              <div className="modal-header border-bottom">
+                <h5 className="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                  <i className="bi bi-patch-check-fill text-success fs-5"></i>
+                  Approve Marketplace Professional
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowApproveModal(false)}
+                  aria-label="Close"
+                  disabled={actionLoading}
+                ></button>
+              </div>
+              <div className="modal-body p-4">
+                <p className="text-secondary small mb-3">
+                  Are you sure you want to approve{" "}
+                  <strong className="text-dark">{targetFreelancer.displayName}</strong>?
+                </p>
+                <div className="p-3 bg-success bg-opacity-10 border border-success-subtle rounded-3 text-success small mb-0">
+                  <div className="fw-bold mb-1">What happens after approval:</div>
+                  <ul className="mb-0 ps-3">
+                    <li>Profile is published live to the public `/hire` marketplace directory.</li>
+                    <li>Subscribed members can view services and reveal contact details.</li>
+                    <li>Candidate receives approval notification on their dashboard.</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="modal-footer border-top bg-light">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setShowApproveModal(false)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-success"
+                  onClick={handleApprove}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? (
                     <>
-                      <button
-                        onClick={() => {
-                          setTargetFreelancer(selectedDetail);
-                          setShowApproveModal(true);
-                        }}
-                        className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
-                      >
-                        Approve Profile
-                      </button>
-                      <button
-                        onClick={() => {
-                          setTargetFreelancer(selectedDetail);
-                          setRejectReason("");
-                          setShowRejectModal(true);
-                        }}
-                        className="px-4 py-2 text-sm font-medium bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition"
-                      >
-                        Reject Profile
-                      </button>
+                      <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                      Approving...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-check-lg me-1"></i> Yes, Approve Profile
                     </>
                   )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Approve Confirmation Modal */}
-      {showApproveModal && targetFreelancer && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900">Approve Freelancer?</h3>
-            <p className="text-sm text-gray-600">
-              Are you sure you want to approve{" "}
-              <strong className="text-gray-900 font-semibold">{targetFreelancer.displayName}</strong>?
-              This will make their profile publicly visible in the marketplace directory.
-            </p>
-            <div className="flex justify-end gap-3 pt-3">
-              <button
-                disabled={actionLoading}
-                onClick={() => setShowApproveModal(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={handleApprove}
-                className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
-              >
-                {actionLoading ? "Approving..." : "Yes, Approve"}
-              </button>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Reject with Reason Modal */}
+      {/* Confirmation Modal: Reject with Presets */}
       {showRejectModal && targetFreelancer && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900">Reject Freelancer Application</h3>
-            <p className="text-sm text-gray-600">
-              Provide a clear, actionable reason for rejecting{" "}
-              <strong className="text-gray-900 font-semibold">{targetFreelancer.displayName}</strong>.
-              The freelancer will see this feedback in their dashboard to edit and resubmit.
-            </p>
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">
-                Mandatory Rejection Reason *
-              </label>
-              <textarea
-                rows={3}
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="E.g., Clear profile photo is required; please add at least 1 verified service description."
-                className="w-full p-3 border rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none"
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-3">
-              <button
-                disabled={actionLoading}
-                onClick={() => setShowRejectModal(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading || !rejectReason.trim()}
-                onClick={handleReject}
-                className="px-4 py-2 text-sm font-medium bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition disabled:opacity-50"
-              >
-                {actionLoading ? "Rejecting..." : "Confirm Rejection"}
-              </button>
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 1060 }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content shadow-lg border-0 card-glass">
+              <div className="modal-header border-bottom">
+                <h5 className="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                  <i className="bi bi-x-circle-fill text-danger fs-5"></i>
+                  Reject Freelancer Application
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowRejectModal(false)}
+                  aria-label="Close"
+                  disabled={actionLoading}
+                ></button>
+              </div>
+              <div className="modal-body p-4">
+                <p className="text-secondary small mb-2">
+                  Provide actionable feedback for{" "}
+                  <strong className="text-dark">{targetFreelancer.displayName}</strong>.
+                  This feedback is displayed on the candidate&apos;s onboarding screen so they can update and resubmit.
+                </p>
+
+                {/* Preset Chips */}
+                <div className="mb-3">
+                  <span className="text-secondary small fw-bold d-block mb-1">
+                    Quick Preset Feedback Reasons:
+                  </span>
+                  <div className="d-flex flex-wrap gap-1">
+                    {rejectionPresets.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary text-dark text-start"
+                        style={{ fontSize: "0.72rem" }}
+                        onClick={() => setRejectReason(preset)}
+                      >
+                        {preset.slice(0, 42)}...
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label fw-bold text-dark small">
+                    Mandatory Rejection Reason *
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Enter precise feedback for what the applicant needs to change..."
+                    className="form-control"
+                    required
+                  />
+                  <div className="form-text small">
+                    Minimum 5 characters. Be clear and constructive.
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer border-top bg-light">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setShowRejectModal(false)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  onClick={handleReject}
+                  disabled={actionLoading || !rejectReason.trim()}
+                >
+                  {actionLoading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                      Rejecting...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-x-circle me-1"></i> Confirm Rejection
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Suspend Modal */}
+      {/* Confirmation Modal: Suspend */}
       {showSuspendModal && targetFreelancer && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900">Suspend Freelancer Profile</h3>
-            <p className="text-sm text-gray-600">
-              Suspending will hide this freelancer from marketplace search and disable client phone reveals.
-            </p>
-            <div>
-              <label className="text-xs font-semibold text-gray-700 block mb-1">
-                Reason for Suspension *
-              </label>
-              <textarea
-                rows={3}
-                value={suspendReason}
-                onChange={(e) => setSuspendReason(e.target.value)}
-                placeholder="E.g., Reported for abusive communication or policy breach."
-                className="w-full p-3 border rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-3">
-              <button
-                disabled={actionLoading}
-                onClick={() => setShowSuspendModal(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading || !suspendReason.trim()}
-                onClick={handleSuspend}
-                className="px-4 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition disabled:opacity-50"
-              >
-                {actionLoading ? "Suspending..." : "Confirm Suspension"}
-              </button>
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 1060 }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content shadow-lg border-0 card-glass">
+              <div className="modal-header border-bottom">
+                <h5 className="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                  <i className="bi bi-shield-slash text-warning fs-5"></i>
+                  Suspend Freelancer Profile
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowSuspendModal(false)}
+                  aria-label="Close"
+                  disabled={actionLoading}
+                ></button>
+              </div>
+              <div className="modal-body p-4">
+                <p className="text-secondary small mb-3">
+                  Suspending will hide{" "}
+                  <strong className="text-dark">{targetFreelancer.displayName}</strong> from marketplace search and disable client phone reveals.
+                </p>
+                <div>
+                  <label className="form-label fw-bold text-dark small">
+                    Reason for Suspension *
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={suspendReason}
+                    onChange={(e) => setSuspendReason(e.target.value)}
+                    placeholder="E.g., Client abuse complaint, policy breach, or inactive number."
+                    className="form-control"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer border-top bg-light">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setShowSuspendModal(false)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-warning text-dark"
+                  onClick={handleSuspend}
+                  disabled={actionLoading || !suspendReason.trim()}
+                >
+                  {actionLoading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                      Suspending...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-shield-slash me-1"></i> Confirm Suspension
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -776,4 +1821,3 @@ export default function FreelancersManagementPage() {
     </div>
   );
 }
-

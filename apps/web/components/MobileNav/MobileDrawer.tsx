@@ -351,6 +351,14 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
               <span>Hire a Professional</span>
             </Link>
             <Link
+              href="/freelancer/onboarding"
+              onClick={onClose}
+              className="flex items-center space-x-2 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold transition-colors shadow-2xs"
+            >
+              <Briefcase className="w-4 h-4 text-amber-400" />
+              <span>Become a Professional (পেশাদার নিবন্ধন)</span>
+            </Link>
+            <Link
               href="/membership"
               onClick={onClose}
               className="flex items-center space-x-2 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-700 text-xs font-bold transition-colors"

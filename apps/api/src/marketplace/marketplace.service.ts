@@ -82,6 +82,12 @@ export class MarketplaceService {
       });
     }
 
+    if (query.minRating !== undefined) {
+      and.push({
+        averageRating: { gte: query.minRating },
+      });
+    }
+
     const location: Prisma.FreelancerLocationWhereInput = {};
     if (query.divisionId) location.divisionId = query.divisionId;
     if (query.districtId) location.districtId = query.districtId;
@@ -138,6 +144,13 @@ export class MarketplaceService {
           { availability: 'asc' },
           { id: 'asc' },
         ];
+      case MarketplaceSort.TOP_RATED:
+        return [
+          { averageRating: { sort: 'desc', nulls: 'last' } },
+          { totalReviews: 'desc' },
+          { availability: 'asc' },
+          { id: 'asc' },
+        ];
       default:
         // Enum declaration order is AVAILABLE, BUSY, UNAVAILABLE.
         return [
@@ -165,47 +178,61 @@ export class MarketplaceService {
   }
 
   async listFreelancers(query: MarketplaceListQueryDto) {
-    const limit = query.limit ?? DEFAULT_PAGE_SIZE;
-    const offset = this.decodeCursor(query.cursor);
+    const limit = query.limit ?? 12;
+    let offset = 0;
+    if (query.page && query.page > 0) {
+      offset = (query.page - 1) * limit;
+    } else if (query.cursor) {
+      offset = this.decodeCursor(query.cursor);
+    }
     const where = this.buildWhere(query);
 
-    const rows = await this.prisma.freelancerProfile.findMany({
-      where,
-      orderBy: this.buildOrderBy(query.sort),
-      skip: offset,
-      take: limit + 1,
-      select: {
-        id: true,
-        displayName: true,
-        photoUrl: true,
-        title: true,
-        experienceYears: true,
-        availability: true,
-        startingPrice: true,
-        profession: { select: { id: true, name: true, bnName: true } },
-        skills: {
-          take: 3,
-          select: { skill: { select: { id: true, name: true, bnName: true } } },
+    const [total, rows] = await Promise.all([
+      this.prisma.freelancerProfile.count({ where }),
+      this.prisma.freelancerProfile.findMany({
+        where,
+        orderBy: this.buildOrderBy(query.sort),
+        skip: offset,
+        take: limit + 1,
+        select: {
+          id: true,
+          displayName: true,
+          photoUrl: true,
+          title: true,
+          experienceYears: true,
+          availability: true,
+          startingPrice: true,
+          averageRating: true,
+          totalReviews: true,
+          profession: { select: { id: true, name: true, bnName: true } },
+          skills: {
+            take: 3,
+            select: { skill: { select: { id: true, name: true, bnName: true } } },
+          },
+          _count: { select: { skills: true } },
+          services: { select: { priceType: true, amount: true } },
+          locations: {
+            orderBy: { isPrimary: 'desc' },
+            take: 1,
+            include: locationInclude,
+          },
         },
-        _count: { select: { skills: true } },
-        services: { select: { priceType: true, amount: true } },
-        locations: {
-          orderBy: { isPrimary: 'desc' },
-          take: 1,
-          include: locationInclude,
-        },
-      },
-    });
+      }),
+    ]);
 
     const hasMore = rows.length > limit;
-    const page = hasMore ? rows.slice(0, limit) : rows;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const currentPage = query.page ?? Math.floor(offset / limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
 
-    const items = page.map(({ services, locations, skills, _count, ...rest }) => {
+    const items = pageRows.map(({ services, locations, skills, _count, ...rest }) => {
       const priced = services
         .filter((s) => s.amount !== null)
         .sort((a, b) => (a.amount ?? 0) - (b.amount ?? 0))[0];
       return {
         ...rest,
+        averageRating: rest.averageRating !== null ? Number(rest.averageRating) : null,
+        totalReviews: rest.totalReviews,
         skills: skills.map((s) => s.skill),
         extraSkillCount: Math.max(0, _count.skills - skills.length),
         startingPriceType: priced?.priceType ?? null,
@@ -215,6 +242,10 @@ export class MarketplaceService {
 
     return {
       items,
+      total,
+      page: currentPage,
+      totalPages,
+      limit,
       nextCursor: hasMore ? this.encodeCursor(offset + limit) : null,
     };
   }
@@ -231,6 +262,8 @@ export class MarketplaceService {
         experienceYears: true,
         availability: true,
         startingPrice: true,
+        averageRating: true,
+        totalReviews: true,
         lastActiveAt: true,
         approvedAt: true,
         profession: {
@@ -279,7 +312,12 @@ export class MarketplaceService {
     }
 
     const { skills, ...rest } = profile;
-    return { ...rest, skills: skills.map((s) => s.skill) };
+    return {
+      ...rest,
+      averageRating: rest.averageRating !== null ? Number(rest.averageRating) : null,
+      totalReviews: rest.totalReviews,
+      skills: skills.map((s) => s.skill),
+    };
   }
 
   /** Start of the current day in Asia/Dhaka (UTC+6, no DST), as a UTC instant. */

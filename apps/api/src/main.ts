@@ -19,7 +19,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Static uploads directories
-  ensureUploadDirs(['categories', 'brands', 'products']);
+  ensureUploadDirs(['categories', 'brands', 'products', 'freelancers']);
   app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // Security Headers
@@ -32,14 +32,36 @@ async function bootstrap() {
   // CORS Configuration
   const defaultCors =
     'http://localhost:3000,http://localhost:3002,http://127.0.0.1:3000,http://127.0.0.1:3002';
-  const corsOrigins = configService
+  const configuredOrigins = configService
     .get<string>('CORS_ORIGIN', defaultCors)
     .split(',')
-    .map((origin) => origin.trim());
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   app.enableCors({
-    origin: corsOrigins,
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // In development or local environments, permit any localhost/127.0.0.1 or LAN IP
+      const isLocal =
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+        /^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin) ||
+        /^https?:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin);
+
+      if (isLocal || configuredOrigins.includes(origin) || configuredOrigins.includes('*')) {
+        return callback(null, true);
+      }
+
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Cookie'],
+    exposedHeaders: ['Set-Cookie'],
   });
 
   // Global Prefix
@@ -73,5 +95,6 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT', 3001);
   await app.listen(port);
+  console.log(`[NestJS] API server is ready at http://localhost:${port}/api/v1`);
 }
 await bootstrap();

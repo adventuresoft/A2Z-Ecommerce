@@ -28,6 +28,9 @@
     "db:seed": "node --no-warnings prisma/seed.ts",
     "db:seed:locations": "node --no-warnings prisma/seed-locations.ts",
     "db:seed:post-offices": "node --no-warnings prisma/seed-post-offices.ts",
+    "db:seed:taxonomy": "node --no-warnings prisma/seed-taxonomy.ts",
+    "db:seed:memberships": "node --no-warnings prisma/seed-memberships.ts",
+    "db:seed:freelancers": "node --no-warnings prisma/seed-freelancers.ts",
     "inventory:backfill": "node --no-warnings prisma/backfill-inventory.ts"
   },
   "dependencies": {

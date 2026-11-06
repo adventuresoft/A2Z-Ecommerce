@@ -36,11 +36,12 @@ export interface UseLocationCascadeProps {
 }
 
 const memoryCache = new Map<string, LocationItem[]>();
+const defaultApiFetcher = <T = any>(ep: string) => request<T>(ep, { skipAuth: true });
 
 export function useLocationCascade({
   initialValue,
   onChange,
-  apiFetcher = (ep: string) => request(ep, { skipAuth: true }),
+  apiFetcher,
 }: UseLocationCascadeProps = {}) {
   const [state, setState] = useState<LocationSelectionState>({
     divisionId: initialValue?.divisionId ?? null,
@@ -79,16 +80,20 @@ export function useLocationCascade({
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const updateState = useCallback(
-    (updater: Partial<LocationSelectionState>) => {
-      setState((prev) => {
-        const next = { ...prev, ...updater };
-        onChange?.(next);
-        return next;
-      });
-    },
-    [onChange],
-  );
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const apiFetcherRef = useRef(apiFetcher);
+  apiFetcherRef.current = apiFetcher;
+
+  const updateState = useCallback((updater: Partial<LocationSelectionState>) => {
+    setState((prev) => ({ ...prev, ...updater }));
+  }, []);
+
+  // Notify parent component of location selection state changes safely
+  useEffect(() => {
+    onChangeRef.current?.(state);
+  }, [state]);
 
   const fetchCached = useCallback(
     async (endpoint: string, key: string, setter: (data: LocationItem[]) => void) => {
@@ -99,7 +104,8 @@ export function useLocationCascade({
       setLoading((prev) => ({ ...prev, [key]: true }));
       setErrors((prev) => ({ ...prev, [key]: null }));
       try {
-        const data = await apiFetcher<LocationItem[]>(endpoint);
+        const fetcher = apiFetcherRef.current || defaultApiFetcher;
+        const data = await fetcher<LocationItem[]>(endpoint);
         const list = Array.isArray(data) ? data : [];
         memoryCache.set(endpoint, list);
         setter(list);
@@ -112,7 +118,7 @@ export function useLocationCascade({
         setLoading((prev) => ({ ...prev, [key]: false }));
       }
     },
-    [apiFetcher],
+    [],
   );
 
   // 1. Initial load: Divisions

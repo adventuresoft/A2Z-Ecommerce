@@ -123,15 +123,6 @@ export function ContactActions({
         )}
       </div>
 
-      {!isMember && (
-        <p className="text-xs text-slate-600">
-          Phone and messages are for members.{' '}
-          <Link href="/membership" className="font-semibold text-accent-hover underline underline-offset-2">
-            See plans
-          </Link>
-        </p>
-      )}
-
       {notice && (
         <p role="alert" className="text-xs font-medium text-red-700">
           {notice.text}{' '}

@@ -1,6 +1,6 @@
 op# Freelancer Marketplace ("Hire a Professional") – Design
 
-Status: design agreed through the grill-me interview (15 decisions). No code written yet.
+Status: design agreed (15 decisions). Backend models and demo data seeded via `apps/api/prisma/seed-freelancers.ts`.
 Stack: NestJS + Prisma 7 (PostgreSQL) API (`apps/api`), Next.js storefront (`apps/web`), admin (`apps/admin`).
 
 ---
@@ -21,9 +21,11 @@ Stack: NestJS + Prisma 7 (PostgreSQL) API (`apps/api`), Next.js storefront (`app
 | 10 | Spam and abuse | Layered controls: rate limits, report, block, admin actions, text-only messages, automatic filtering. Admin reads only reported conversations, and every read is audit-logged. Messages kept 2 years after the last activity. A suspended member's remaining time is decided by admin. |
 | 11 | Auto filter | Bad words: blocked (both sides). Phone numbers and links: delivered but flagged (members only), and links are not clickable. 3 flags in a day lead to a 1-hour rate limit and an admin queue. Admin edits the word list, thresholds and toggles. |
 | 12 | Taxonomy | Admin-managed `ProfessionCategory` → `Profession` → `Skill`, plus a freelancer suggestion queue. One profession per freelancer, up to 10 skills. Experience in integer years. Up to 10 services with a price type. |
-| 13 | Scope of "hire" | Directory model (contact only). No in-platform job, escrow or dispute. Ratings and reviews are Phase 2. |
+| 13 | Scope of "hire" | Directory model (contact only). No in-platform escrow or dispute. Ratings and reviews are included in MVP (see Decision 16). |
 | 14 | Freelancer cost | Free to list. Paid "Featured" boost later (`featuredUntil` now). BUSY freelancers are shown with a grey badge. |
 | 15 | Expiry | Access is decided by `expiresAt > now()` on every request, not by `status`. Reminders at 7, 3 and 1 days. Renewal is manual. No access during the grace window. Default for the rest below. |
+| 16 | Ratings and reviews | Verified contacts only (client must have a `ContactReveal` or `Conversation`). Exactly 1 review per client-freelancer pair (`@@unique([freelancerId, clientId])`). Rating: 1–5 stars + mandatory comment (10–500 chars) + optional photos (max 3). Client can edit at most ONCE after initial submission (`editCount <= 1`). Auto-published with bad-word filter. Freelancers get 1 public reply and can report abusive reviews. Profile stores cached `averageRating` and `totalReviews`. Card shows `★ New` if 0 reviews. Marketplace adds "Top Rated" sort and "4★ & above" filter. |
+| 17 | Freelancer registration entry | Role switcher tab on auth card (`/register` & `/login`) for instant toggle between Customer and Professional (`?role=freelancer`), routing directly to `/freelancer/onboarding` on completion. Prominent hero CTA on `/hire` ("পেশাদার হিসেবে যোগ দিন") and "Become a Professional" action in Header Account dropdown and Mobile Drawer. |
 
 Defaults chosen without further discussion (change if needed): Postgres filters plus `pg_trgm` search (no Elasticsearch), portfolio images through the existing uploads module (max 10), admin permissions via the existing `RoleDefinition`, notifications via the existing `Notification` table with new types.
 
@@ -41,13 +43,13 @@ Defaults chosen without further discussion (change if needed): Postgres filters 
 
 | MVP | Later |
 |-----|-------|
-| Freelancer registration through OTP, profile, approval, revisions | Ratings and reviews |
-| Membership plans, PayStation payment, expiry, reminders | Tiered plans (use `features` JSON) |
-| Marketplace listing, filters, profile, reveal phone | Featured boost (paid) |
-| Real-time messaging, report, block, auto filter | Masked relay phone numbers |
-| Three dashboards, admin moderation, analytics | Multiple professions per freelancer |
-| Bangladesh hierarchical location | Elasticsearch / geo search |
-| | Auto-renewal (gateway-dependent) |
+| Freelancer registration through OTP, profile, approval, revisions | Tiered plans (use `features` JSON) |
+| Membership plans, PayStation payment, expiry, reminders | Featured boost (paid) |
+| Marketplace listing, filters, profile, reveal phone | Masked relay phone numbers |
+| Real-time messaging, report, block, auto filter | Multiple professions per freelancer |
+| Ratings and reviews (verified contact, 1-edit limit, replies, photo attachment) | Elasticsearch / geo search |
+| Three dashboards, admin moderation, analytics | Auto-renewal (gateway-dependent) |
+| Bangladesh hierarchical location | |
 
 **Constraints:** reuse existing auth, OTP, uploads, notifications, audit log and PayStation integration. No change to Order, Payment or checkout tables.
 
@@ -61,11 +63,11 @@ Defaults chosen without further discussion (change if needed): Postgres filters 
 - **Admin/Super Admin**: existing admin users with new marketplace permissions.
 
 ### 3.2 Freelancer registration
-1. Customer taps "Become a Freelancer" and enters a mobile number (must match `User.phone`, or sets it if empty).
-2. Existing OTP (`OtpCode`, purpose `FREELANCER_REGISTER`) verifies the number.
-3. A `FreelancerProfile` is created as `DRAFT`.
-4. Customer completes the profile: name, photo, email, address, profession, skills, years of experience, description, services and pricing, portfolio, availability, 1–5 locations.
-5. Submit: validation, then `PENDING`.
+1. Customer taps "Become a Freelancer" (from `/register?role=freelancer`, `/hire` banner, or Account dropdown).
+2. Phone verification is completed at initial signup/login; upon accessing onboarding (`/freelancer/onboarding`), a `FreelancerProfile` is automatically created as `DRAFT` for the authenticated user.
+3. Step 1 displays the verified mobile badge and collects identity info (displayName, title, experienceYears, about, photo) without redundant secondary OTP.
+4. Customer completes remaining profile steps: profession, skills, services and pricing, locations (1–5), portfolio.
+5. Submit: validation, then status transitions to `PENDING`.
 6. Admin approves (`APPROVED`, `approvedAt`) or rejects (`REJECTED` with a mandatory reason). The freelancer edits and resubmits.
 
 Validation: phone unique across freelancer profiles (verified, normalized to `+8801XXXXXXXXX`), one profile per user, required fields complete, at least one location and one service, photo type and size limits, consistent location path.
@@ -106,6 +108,14 @@ stateDiagram-v2
 
 ### 3.7 Admin
 Freelancer management and approval, revision review, membership plans, subscriptions, payments, categories/professions/skills (including the suggestion queue), locations, message reports, user reports, analytics, bad-word list and thresholds.
+
+### 3.8 Ratings and Reviews
+- **Eligibility:** Verified contact only. The client must have revealed the freelancer's phone number (`ContactReveal`) or initiated a chat conversation (`Conversation`). A client can leave at most 1 review per freelancer.
+- **Review Content:** Overall rating (1–5 stars) + mandatory comment (10 to 500 characters) + optional completed work photos (up to 3 images).
+- **Edit Limit:** After initial submission, the client is allowed to edit their review **at most ONCE** (`editCount <= 1`). Subsequent edit attempts are rejected.
+- **Publishing & Moderation:** Auto-published immediately upon submission. If bad words are detected, the review is blocked or routed to admin review. Freelancer can flag abusive or fabricated reviews ("Report Review") to admin.
+- **Freelancer Reply:** The freelancer can post at most 1 public reply (`freelancerReply`) beneath each review.
+- **Scoring & Performance:** `FreelancerProfile` caches `averageRating` (Decimal) and `totalReviews` (Int), recomputed in a transaction whenever a review is created, edited, or deleted. Cards display `★ New` for freelancers with 0 reviews. Marketplace includes "Top Rated" sort and "4★ & above" filter.
 
 ---
 
@@ -162,6 +172,9 @@ erDiagram
     User ||--o{ UserBlock : "blocks"
     User ||--o{ ContactReveal : "reveals"
     FreelancerProfile ||--o{ ContactReveal : "revealed"
+    User ||--o{ FreelancerReview : "writes"
+    FreelancerProfile ||--o{ FreelancerReview : "receives"
+    FreelancerReview ||--o{ ReviewReport : "reported"
     Division ||--o{ District : ""
     District ||--o{ Thana : ""
     Thana ||--o{ PostOffice : ""
@@ -208,8 +221,8 @@ Indexes: `(divisionId)`, `(districtId)`, `(thanaId)`, `(postOfficeId)`, `(cityCo
 
 ### 6.3 Core tables
 
-`FreelancerProfile`: id, userId (unique FK), status (`DRAFT|PENDING|APPROVED|REJECTED|SUSPENDED`), displayName, photoUrl, professionId, title, about, experienceYears, email, address, availability (`AVAILABLE|BUSY|UNAVAILABLE`), startingPrice (cached int), rejectionReason, rejectionCount, approvedAt, approvedById, suspendedAt, suspendReason, featuredUntil, lastActiveAt, createdAt, updatedAt.
-Indexes: `(status, professionId)`, `(status, availability)`, `(startingPrice)`, `(experienceYears)`, trigram on `displayName`/`title`.
+`FreelancerProfile`: id, userId (unique FK), status (`DRAFT|PENDING|APPROVED|REJECTED|SUSPENDED`), displayName, nidNumber, photoUrl, professionId, title, about, experienceYears, email, address, availability (`AVAILABLE|BUSY|UNAVAILABLE`), startingPrice (cached int), averageRating (cached Decimal(3,2)?), totalReviews (cached Int @default(0)), rejectionReason, rejectionCount, approvedAt, approvedById, suspendedAt, suspendReason, featuredUntil, lastActiveAt, createdAt, updatedAt.
+Indexes: `(status, professionId)`, `(status, availability)`, `(startingPrice)`, `(experienceYears)`, `(averageRating)`, `(nidNumber)`, trigram on `displayName`/`title`.
 
 `FreelancerService`: id, freelancerId, title, description, priceType (`FIXED|HOURLY|DAILY|NEGOTIABLE`), amount (int BDT, nullable for NEGOTIABLE). Max 10.
 `FreelancerSkill`: freelancerId, skillId (composite PK). Max 10.
@@ -226,9 +239,11 @@ Indexes: `(status, professionId)`, `(status, availability)`, `(startingPrice)`, 
 `MessageReport`: id, messageId?, conversationId, reporterId, reason, status, reviewedById, createdAt.
 `UserBlock`: blockerId, blockedId (composite PK).
 `ContactReveal`: id, userId, freelancerId, createdAt. Index `(userId, createdAt)`.
+`FreelancerReview`: id, freelancerId (FK), clientId (User FK), rating (Int 1..5), comment (Text, 10..500 chars), images (String[] @default([])), freelancerReply (Text?), repliedAt (DateTime?), isVerifiedContact (Boolean @default(true)), editCount (Int @default(0), max 1), status (`APPROVED|PENDING|HIDDEN`), createdAt, updatedAt. Unique `(freelancerId, clientId)`. Index `(freelancerId, status)`.
+`ReviewReport`: id, reviewId (FK), reporterId (User FK), reason (Text), status (`PENDING|RESOLVED|DISMISSED`), reviewedById, createdAt. Index `(reviewId, status)`.
 `FilterTerm`: id, term, language, active. Settings in the existing settings module.
 
-`Notification`: add types `FREELANCER_APPROVED`, `FREELANCER_REJECTED`, `REVISION_RESULT`, `MESSAGE_NEW`, `MEMBERSHIP_EXPIRING`, `MEMBERSHIP_EXPIRED`, `REPORT_UPDATE`.
+`Notification`: add types `FREELANCER_APPROVED`, `FREELANCER_REJECTED`, `REVISION_RESULT`, `MESSAGE_NEW`, `MEMBERSHIP_EXPIRING`, `MEMBERSHIP_EXPIRED`, `REPORT_UPDATE`, `REVIEW_NEW`, `REVIEW_REPLY`.
 
 ---
 
@@ -264,6 +279,9 @@ Guards: `JwtAuthGuard`, `PermissionsGuard` (admin), `FreelancerGuard` (status ap
 - `POST /conversations` (membership), `GET /conversations`, `GET /conversations/:id/messages`
 - `POST /conversations/:id/messages`, `POST /conversations/:id/read`
 - `POST /conversations/:id/report`, `POST /users/:id/block`, `DELETE /users/:id/block`
+- `GET /marketplace/freelancers/:id/reviews` (public reviews, pagination, rating breakdown)
+- `POST /marketplace/freelancers/:id/reviews` (verified contact only, 1-5 stars, comment 10-500 chars, up to 3 photos)
+- `PUT /marketplace/freelancers/:id/reviews/me` (client edit, allowed at most ONCE)
 - WebSocket events: `message:new`, `unread:update`
 
 **Freelancer**
@@ -272,11 +290,14 @@ Guards: `JwtAuthGuard`, `PermissionsGuard` (admin), `FreelancerGuard` (status ap
 - `GET|PUT /freelancer/services|skills|locations|portfolio|availability`
 - `POST /freelancer/skills/suggest`
 - `GET /freelancer/reveals`, `GET /freelancer/dashboard`
+- `POST /freelancer/reviews/:id/reply` (single public response)
+- `POST /freelancer/reviews/:id/report` (dispute abusive review)
 
 **Admin** (permission-guarded)
 - `GET /admin/freelancers`, `POST /admin/freelancers/:id/approve|reject|suspend|reinstate`
 - `GET /admin/revisions`, `POST /admin/revisions/:id/approve|reject`
 - CRUD: `/admin/plans`, `/admin/categories`, `/admin/professions`, `/admin/skills` (plus the suggestion queue), `/admin/locations/*`, `/admin/filter-terms`
+- `GET /admin/reviews/reports`, `POST /admin/reviews/reports/:id/action` (review disputes and moderation)
 - `GET /admin/subscriptions`, `GET /admin/payments`, `POST /admin/payments/:id/refund`
 - `GET /admin/reports`, `GET /admin/reports/:id/conversation` (audit-logged), `POST /admin/reports/:id/action`
 - `GET /admin/analytics`
@@ -313,13 +334,14 @@ WHERE profile.status = 'APPROVED' AND user.isActive
   [AND skills ALL/ANY of given]
   [AND experienceYears BETWEEN]
   [AND startingPrice BETWEEN]
+  [AND averageRating >= minRating]
   [AND location.divisionId / districtId / thanaId / type column]
   [AND availability IN (...)]
   [AND (displayName/title ILIKE or trigram similarity)]
-ORDER BY availability_rank, lastActiveAt DESC, createdAt DESC   -- default
+ORDER BY availability_rank, averageRating DESC NULLS LAST, lastActiveAt DESC, createdAt DESC   -- default (or sort = 'top_rated')
 ```
 
-Cursor pagination on `(sortKey, id)`. Counts per profession are cached for a short time. `startingPrice` is a cached column, updated whenever services change.
+Pagination supports both numbered page (`page`, `limit`) and cursor `(sortKey, id)`. `startingPrice`, `averageRating`, and `totalReviews` are cached columns on `FreelancerProfile`, updated atomically whenever reviews or services change.
 
 ---
 
@@ -337,9 +359,9 @@ Cursor pagination on `(sortKey, id)`. Counts per profession are cached for a sho
 
 ## 12. Dashboards and UI Structure
 
-**Customer:** My Membership, Membership History, Hire a Professional (filters, cards, profile), My Conversations, Notifications.
-**Freelancer:** Overview, My Profile, My Services, My Skills, My Location (the cascading selector in section 6.2), Messages/Inbox, Notifications, Availability, Approval Status (including revisions and rejection reason), Who Viewed My Number, Account Settings.
-**Admin:** Freelancer Management, Approvals and Revisions, Membership Plans, Subscriptions, Payments, Categories/Professions, Skills (and suggestions), Locations, Message Reports, User Reports, Filter Settings, Marketplace Analytics.
+**Customer:** My Membership, Membership History, Hire a Professional (filters, cards, profile), My Conversations, My Reviews, Notifications.
+**Freelancer:** Overview, My Profile, My Services, My Skills, My Location (the cascading selector in section 6.2), Messages/Inbox, Client Reviews (and public replies), Notifications, Availability, Approval Status (including revisions and rejection reason), Who Viewed My Number, Account Settings.
+**Admin:** Freelancer Management, Approvals and Revisions, Membership Plans, Subscriptions, Payments, Categories/Professions, Skills (and suggestions), Locations, Message Reports, Review Reports & Moderation, User Reports, Filter Settings, Marketplace Analytics.
 
 ---
 
@@ -364,8 +386,9 @@ Cursor pagination on `(sortKey, id)`. Counts per profession are cached for a sho
 | 2 | Plans, PayStation checkout, subscriptions, access guards, expiry job and reminders. |
 | 3 | Marketplace listing, filters, profile page, reveal phone. |
 | 4 | Messaging (REST, gateway, notifications), reports, blocks, filter. |
-| 5 | Dashboards polish, analytics, hardening, load test. |
-| Later | Reviews, tiers, featured boost, masked numbers, Elasticsearch. |
+| 5 | Ratings & reviews (verified contact, 1-edit limit, replies, photo attachment, moderation). |
+| 6 | Dashboards polish, analytics, hardening, load test. |
+| Later | Tiers, featured boost, masked numbers, Elasticsearch. |
 
 ---
 
@@ -390,6 +413,13 @@ Cursor pagination on `(sortKey, id)`. Counts per profession are cached for a sho
 | Messaging | Blocked user sends | Rejected. |
 | Filter | Bad word | Blocked. |
 | Filter | Phone number from a member | Delivered, flagged. |
+| Review | Client has no ContactReveal or Conversation | `403` Forbidden ("Must contact professional first"). |
+| Review | Client submits valid 1-5 star review with comment | Saved as APPROVED, averageRating & totalReviews recalculated. |
+| Review | Client submits second review to same freelancer | `400` Rejected by unique constraint. |
+| Review | Client edits review (1st time) | Allowed, editCount becomes 1, score updated. |
+| Review | Client attempts 2nd edit on the same review | `400` Rejected ("Review can only be edited once"). |
+| Review | Freelancer posts second public reply | `400` Rejected (only 1 reply permitted). |
+| Review | Freelancer reports abusive review | ReviewReport created as PENDING, logged in AuditLog. |
 | Visibility | Suspended freelancer | Hidden from the listing, reveal blocked. |
 | Existing | Order, checkout and payment flows | Unchanged (regression tests). |
 
@@ -403,4 +433,61 @@ Acceptance for MVP: all scenarios pass, listing p95 under 300 ms on seeded data,
 - Bad-word list (English and Bangla) content.
 - Plan prices (examples used: 299 / 799 / 2,499 BDT).
 - Exact SMS reminder support in the SMS provider.
+
+---
+
+## 17. Demonstration Data & Testing Guide
+
+A dedicated seed script is provided at [`apps/api/prisma/seed-freelancers.ts`](file:///d:/laravel/office/A2Z-Ecommerce/apps/api/prisma/seed-freelancers.ts) to populate realistic Bangladeshi marketplace demonstration records.
+
+Run the seed command:
+```bash
+# Inside apps/api or repository root:
+pnpm --filter api run db:seed:freelancers
+```
+
+### 17.1 Test Accounts & Credentials
+
+All test accounts use standardized passwords hashed with Argon2id:
+- **Freelancer default password:** `FreelancerPass123!`
+- **Customer default password:** `CustomerPass123!`
+
+#### Test Clients / Customers
+| Name | Email | Mobile / Phone | Membership Status | Notes |
+|---|---|---|---|---|
+| Sabbir Ahmed | `client1@example.com` | `+8801811000001` | **ACTIVE** (30-day Monthly Plan) | Unlocks Phone Reveal, Send Message, active conversation demo with message flags. |
+| Nusrat Jahan | `client2@example.com` | `+8801811000002` | **FREE** (No Active Plan) | Used to test 403 / "Buy a Plan" membership paywall triggers. |
+
+#### Demonstration Freelancers (19 Profiles)
+| # | Name | Profession | Status | Availability | Phone | Starting Price | Test Focus |
+|---|---|---|---|---|---|---|---|
+| 1 | Md. Rafiqul Islam | Electrician | `APPROVED` | `AVAILABLE` | `+8801700000001` | 350 BDT | Featured profile (15 days), has active chat & contact reveals. |
+| 2 | Abdur Rahim | Plumber | `APPROVED` | `AVAILABLE` | `+8801700000002` | 400 BDT | Featured profile (10 days), contact revealed by Client 1. |
+| 3 | Kamrul Hasan | AC Technician | `APPROVED` | `AVAILABLE` | `+8801700000003` | 600 BDT | High rating, Dhanmondi location. |
+| 4 | Tanvir Ahmed | Motorcycle Mechanic | `APPROVED` | `AVAILABLE` | `+8801700000004` | 500 BDT | Vehicle category, Demra location. |
+| 5 | Sumon Mia | Carpenter | `APPROVED` | `BUSY` | `+8801700000005` | 600 BDT | Grey "BUSY" status badge testing. |
+| 6 | Al-Amin Hossain | Painter | `APPROVED` | `AVAILABLE` | `+8801700000006` | 1400 BDT | Daily pricing model. |
+| 7 | Jahangir Alam | Mason & Tiles Worker | `APPROVED` | `BUSY` | `+8801700000007` | 1800 BDT | High experience (14 yrs), Banani location. |
+| 8 | Shafiqul Islam | Refrigerator Tech | `APPROVED` | `AVAILABLE` | `+8801700000008` | 600 BDT | Appliance servicing. |
+| 9 | Nazmul Huda | Washing Machine Tech | `APPROVED` | `UNAVAILABLE` | `+8801700000009` | 700 BDT | Unavailable status testing. |
+| 10 | Belal Hossain | Electrician | `APPROVED` | `AVAILABLE` | `+880170000010` | 300 BDT | Lowest price sort testing. |
+| 11 | Mizanur Rahman | Plumber | `APPROVED` | `AVAILABLE` | `+880170000011` | 500 BDT | Sanitary & tank cleaning services. |
+| 12 | Monirul Islam | AC Technician | `APPROVED` | `BUSY` | `+880170000012` | 900 BDT | Installation specialist. |
+| 13 | Faisal Mahmud | Motorcycle Mechanic | `APPROVED` | `AVAILABLE` | `+880170000013` | 500 BDT | Sports bike tuning. |
+| 14 | Sohel Rana | Carpenter | `APPROVED` | `AVAILABLE` | `+880170000014` | 700 BDT | Modern cabinet maker. |
+| 15 | Mehedi Hasan | Electrician | `PENDING` | `AVAILABLE` | `+880170000015` | 300 BDT | **Admin Queue:** profile approval review. |
+| 16 | Tariqul Islam | AC Technician | `PENDING` | `AVAILABLE` | `+880170000016` | 650 BDT | **Admin Queue:** profile approval review. |
+| 17 | Anwar Hossain | Painter | `REJECTED` | `AVAILABLE` | `+880170000017` | 1200 BDT | **Rejection Test:** has rejection reason, resubmission test. |
+| 18 | Habibur Rahman | Plumber | `SUSPENDED` | `AVAILABLE` | `+880170000018` | 400 BDT | **Suspension Test:** hidden from search, reveal blocked. |
+| 19 | Zubayer Ahmed | Mason & Tiles Worker | `DRAFT` | `AVAILABLE` | `+880170000019` | 600 BDT | **Draft Test:** onboarding/registration step. |
+
+### 17.2 Seeded Interactivity Features
+1. **Hierarchical Location Integrity:** All 19 profiles are bound to valid records in the database (`Dhaka` division, `Dhaka` district, Thanas like Banani, Dhanmondi, Cantonment, Demra, with valid `PostOffice` and `CityCorporation` + `Ward` IDs).
+2. **Pricing Distribution:** Tests all `ServicePriceType` variants (`FIXED`, `HOURLY`, `DAILY`, `NEGOTIABLE`).
+3. **Conversations & Auto Filter:**
+   - Conversation pre-seeded between `client1` and `Md. Rafiqul Islam` (`+8801700000001`).
+   - Includes a sample message with `PHONE` flag (`MessageFlag.PHONE`) to test admin message moderation & flagging.
+4. **Phone Reveal Quota:**
+   - 2 contact reveal entries pre-seeded for `client1` to test the daily reveal quota counter and "Who Viewed My Number" freelancer dashboard.
+
 

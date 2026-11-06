@@ -19,8 +19,6 @@ import type { AccessPayload } from '../auth/interfaces/token-payload.interface.j
 
 @ApiTags('Marketplace')
 @Controller('marketplace/freelancers')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class MarketplaceController {
   constructor(private readonly marketplaceService: MarketplaceService) {}
 
@@ -37,7 +35,8 @@ export class MarketplaceController {
   }
 
   @Post(':id/reveal-phone')
-  @UseGuards(MembershipGuard)
+  @UseGuards(JwtAuthGuard, MembershipGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reveal the freelancer phone number (members, daily quota)' })
   revealPhone(

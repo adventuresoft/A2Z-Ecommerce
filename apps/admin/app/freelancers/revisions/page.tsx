@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -7,25 +8,38 @@ import {
   adminFreelancersService,
 } from "../../../services/freelancers";
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+const ASSET_BASE = API_BASE.replace("/api/v1", "");
+
 export default function FreelancerRevisionsQueuePage() {
   const [items, setItems] = useState<AdminRevisionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Target item for moderation action
   const [target, setTarget] = useState<AdminRevisionItem | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [notification, setNotification] = useState<{ type: string; text: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const [notification, setNotification] = useState<{
+    type: "success" | "danger" | "info";
+    text: string;
+  } | null>(null);
 
   const loadRevisions = useCallback(async () => {
     setLoading(true);
     try {
       const data = await adminFreelancersService.getRevisions({
         status: "PENDING",
-        limit: 50,
+        limit: 100,
       });
       setItems(data.items);
-    } catch (err: any) {
-      setNotification({ type: "danger", text: err.message || "Failed to load revisions" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load revisions";
+      setNotification({ type: "danger", text: msg });
     } finally {
       setLoading(false);
     }
@@ -35,17 +49,21 @@ export default function FreelancerRevisionsQueuePage() {
     loadRevisions();
   }, [loadRevisions]);
 
-  const handleApprove = async (revision: AdminRevisionItem) => {
+  const handleApprove = async () => {
+    if (!target) return;
     setActionLoading(true);
     try {
-      await adminFreelancersService.approveRevision(revision.id);
+      await adminFreelancersService.approveRevision(target.id);
       setNotification({
         type: "success",
-        text: `Profile revision approved and applied live!`,
+        text: `Profile revision for "${target.freelancer?.displayName}" was approved and applied live!`,
       });
+      setShowApproveModal(false);
+      setTarget(null);
       loadRevisions();
-    } catch (err: any) {
-      setNotification({ type: "danger", text: err.message || "Approval failed" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Approval failed";
+      setNotification({ type: "danger", text: msg });
     } finally {
       setActionLoading(false);
     }
@@ -58,224 +76,618 @@ export default function FreelancerRevisionsQueuePage() {
       await adminFreelancersService.rejectRevision(target.id, rejectReason.trim());
       setNotification({
         type: "info",
-        text: `Revision rejected. Freelancer informed.`,
+        text: `Revision rejected with feedback recorded.`,
       });
       setShowRejectModal(false);
       setTarget(null);
       setRejectReason("");
       loadRevisions();
-    } catch (err: any) {
-      setNotification({ type: "danger", text: err.message || "Rejection failed" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Rejection failed";
+      setNotification({ type: "danger", text: msg });
     } finally {
       setActionLoading(false);
     }
   };
 
+  const resolveImageUrl = (path: string | null | undefined): string | null => {
+    if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    return `${ASSET_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "FP";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const filteredItems = items.filter((rev) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (rev.freelancer?.displayName && rev.freelancer.displayName.toLowerCase().includes(term)) ||
+      (rev.freelancer?.user?.phone && rev.freelancer.user.phone.includes(term)) ||
+      (rev.payload?.displayName && rev.payload.displayName.toLowerCase().includes(term))
+    );
+  });
+
+  const revisionRejectPresets = [
+    "Proposed profile photo violates marketplace community guidelines.",
+    "Proposed display name does not match legal or professional identity.",
+    "Proposed bio contains prohibited contact numbers, links, or advertising.",
+    "Portfolio images do not demonstrate relevant professional workmanship.",
+  ];
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <Link href="/freelancers" className="hover:underline">Freelancers</Link>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">Revisions Queue</span>
+    <div className="container-fluid py-3 px-3 px-md-4">
+      {/* Header & Breadcrumb */}
+      <div className="row align-items-center mb-3 g-2">
+        <div className="col-12 col-md-7">
+          <nav aria-label="breadcrumb">
+            <ol className="breadcrumb mb-1">
+              <li className="breadcrumb-item">
+                <Link href="/" className="text-decoration-none">
+                  Dashboard
+                </Link>
+              </li>
+              <li className="breadcrumb-item">
+                <Link href="/freelancers" className="text-decoration-none">
+                  Freelancers
+                </Link>
+              </li>
+              <li className="breadcrumb-item active" aria-current="page">
+                Sensitive Revisions
+              </li>
+            </ol>
+          </nav>
+          <div className="d-flex align-items-center gap-2">
+            <div
+              className="d-inline-flex align-items-center justify-content-center text-info bg-info bg-opacity-10 rounded-3 p-2"
+              style={{ width: "38px", height: "38px" }}
+            >
+              <i className="bi bi-arrow-repeat fs-5" aria-hidden="true"></i>
+            </div>
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <h1 className="h4 fw-bold text-dark mb-0 tracking-tight">
+                  Sensitive Field Revisions
+                </h1>
+                <span className="badge rounded-pill bg-info text-white font-monospace">
+                  {items.length} Pending Diffs
+                </span>
+              </div>
+              <p className="text-secondary small mb-0">
+                Visual diff inspector: review sensitive field edits (name, photo, bio, portfolio) from active professionals before changes go live.
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Sensitive Field Revisions Queue</h1>
-          <p className="text-sm text-gray-500">
-            Approved freelancers who updated sensitive fields (name, photo, bio, portfolio) require admin diff approval before changes become public.
-          </p>
         </div>
-        <Link
-          href="/freelancers"
-          className="px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
-          View All Freelancers
-        </Link>
+
+        <div className="col-12 col-md-5 text-md-end d-flex align-items-center justify-content-md-end gap-2 mt-2 mt-md-0">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary shadow-sm"
+            onClick={loadRevisions}
+            disabled={loading}
+          >
+            <i className={`bi bi-arrow-clockwise me-1 ${loading ? "spinner-border spinner-border-sm" : ""}`}></i>
+            Refresh Diffs
+          </button>
+          <Link
+            href="/freelancers"
+            className="btn btn-sm btn-outline-primary shadow-sm d-inline-flex align-items-center gap-1"
+          >
+            <i className="bi bi-people me-1"></i>
+            All Freelancers Directory
+          </Link>
+        </div>
       </div>
 
+      {/* Global Alert Notification */}
       {notification && (
         <div
-          className={`p-4 rounded-lg flex items-center justify-between text-sm ${
-            notification.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : "bg-rose-50 text-rose-800 border border-rose-200"
-          }`}
+          className={`alert alert-${notification.type} alert-dismissible fade show shadow-sm mb-3`}
+          role="alert"
         >
-          <span>{notification.text}</span>
-          <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-gray-600">
-            <i className="bi bi-x-lg"></i>
-          </button>
+          <div className="d-flex align-items-center gap-2">
+            <i
+              className={`bi ${
+                notification.type === "success"
+                  ? "bi-check-circle-fill text-success fs-5"
+                  : notification.type === "danger"
+                  ? "bi-exclamation-triangle-fill text-danger fs-5"
+                  : "bi-info-circle-fill text-info fs-5"
+              }`}
+            ></i>
+            <span className="fw-medium">{notification.text}</span>
+          </div>
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setNotification(null)}
+            aria-label="Close"
+          ></button>
         </div>
       )}
 
-      {loading ? (
-        <div className="py-20 text-center bg-white rounded-xl border border-gray-200">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mb-2"></div>
-          <p className="text-sm text-gray-500">Fetching pending revisions...</p>
-        </div>
-      ) : items.length === 0 ? (
-        <div className="py-20 text-center bg-white rounded-xl border border-gray-200 p-8">
-          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
-            <i className="bi bi-shield-check"></i>
-          </div>
-          <h3 className="text-base font-semibold text-gray-900">No Pending Revisions</h3>
-          <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
-            All submitted profile revisions have been reviewed.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {items.map((rev) => (
-            <div
-              key={rev.id}
-              className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4"
-            >
-              <div className="flex items-start justify-between border-b pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-gray-900 text-base">
-                      {rev.freelancer?.displayName || "Freelancer"}
-                    </h3>
-                    <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">
-                      REVISION PENDING
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Submitted: {new Date(rev.createdAt).toLocaleString()} • User Phone: {rev.freelancer?.user?.phone}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    disabled={actionLoading}
-                    onClick={() => handleApprove(rev)}
-                    className="px-4 py-2 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
-                  >
-                    Approve Diff
-                  </button>
-                  <button
-                    disabled={actionLoading}
-                    onClick={() => {
-                      setTarget(rev);
-                      setRejectReason("");
-                      setShowRejectModal(true);
-                    }}
-                    className="px-4 py-2 text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg transition disabled:opacity-50"
-                  >
-                    Reject Diff...
-                  </button>
+      {/* Search / Filter Toolbar */}
+      {items.length > 0 && (
+        <div className="card shadow-sm border-0 mb-3 card-glass">
+          <div className="card-body p-3">
+            <div className="row g-2 align-items-center justify-content-between">
+              <div className="col-12 col-sm-6 col-md-4">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-body-tertiary border-end-0">
+                    <i className="bi bi-search text-secondary"></i>
+                  </span>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by candidate name or phone..."
+                    className="form-control border-start-0"
+                    aria-label="Search diffs"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary border-start-0"
+                      onClick={() => setSearchTerm("")}
+                    >
+                      <i className="bi bi-x"></i>
+                    </button>
+                  )}
                 </div>
               </div>
-
-              {/* Proposed Changes Diff View */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Live Current */}
-                <div className="p-4 bg-gray-50 rounded-lg border text-xs space-y-2">
-                  <div className="font-bold text-gray-700 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
-                    <i className="bi bi-clock-history"></i> Current Live Profile
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-[10px] uppercase">Name</span>
-                    <span className="font-semibold text-gray-800">{rev.freelancer?.displayName}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-[10px] uppercase">Live Photo</span>
-                    {rev.freelancer?.photoUrl ? (
-                      <img
-                        src={rev.freelancer.photoUrl}
-                        alt="Current"
-                        className="w-14 h-14 rounded-lg object-cover border mt-1"
-                      />
-                    ) : (
-                      <span className="text-gray-400 italic">No photo set</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Proposed Changes */}
-                <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-200 text-xs space-y-2">
-                  <div className="font-bold text-blue-900 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
-                    <i className="bi bi-arrow-repeat"></i> Proposed Changes
-                  </div>
-                  {rev.payload.displayName && (
-                    <div>
-                      <span className="text-blue-500 block text-[10px] uppercase">Proposed Name</span>
-                      <span className="font-bold text-blue-950 bg-blue-100 px-1.5 py-0.5 rounded">
-                        {rev.payload.displayName}
-                      </span>
-                    </div>
-                  )}
-                  {rev.payload.photoUrl && (
-                    <div>
-                      <span className="text-blue-500 block text-[10px] uppercase">Proposed Photo</span>
-                      <img
-                        src={rev.payload.photoUrl}
-                        alt="Proposed"
-                        className="w-14 h-14 rounded-lg object-cover border border-blue-300 mt-1"
-                      />
-                    </div>
-                  )}
-                  {rev.payload.about && (
-                    <div>
-                      <span className="text-blue-500 block text-[10px] uppercase">Proposed Bio</span>
-                      <p className="text-gray-800 bg-white p-2 rounded border border-blue-100 mt-1 whitespace-pre-line">
-                        {rev.payload.about}
-                      </p>
-                    </div>
-                  )}
-                  {rev.payload.portfolio && (
-                    <div>
-                      <span className="text-blue-500 block text-[10px] uppercase">
-                        Proposed Portfolio ({rev.payload.portfolio.length} items)
-                      </span>
-                      <div className="flex gap-2 mt-1">
-                        {rev.payload.portfolio.map((item, idx) => (
-                          <img
-                            key={idx}
-                            src={item.imageUrl}
-                            alt="Proposed portfolio"
-                            className="w-12 h-12 rounded object-cover border"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <div className="col-12 col-sm-6 col-md-4 text-sm-end text-secondary small">
+                Showing <span className="fw-bold text-dark">{filteredItems.length}</span> of{" "}
+                <span className="fw-bold text-dark">{items.length}</span> pending diffs
               </div>
             </div>
-          ))}
+          </div>
         </div>
       )}
 
-      {/* Reject Modal */}
+      {/* Revisions Diff List */}
+      {loading ? (
+        <div className="card shadow-sm border-0 card-glass text-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading revisions...</span>
+          </div>
+          <p className="mt-2 text-secondary small mb-0">Fetching pending profile revisions...</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="card shadow-sm border-0 card-glass text-center py-5 px-3">
+          <div
+            className="rounded-circle bg-info bg-opacity-10 text-info d-inline-flex align-items-center justify-content-center p-3 mb-3 mx-auto"
+            style={{ width: "64px", height: "64px" }}
+          >
+            <i className="bi bi-shield-check fs-2"></i>
+          </div>
+          <h5 className="fw-bold text-dark mb-1">No Pending Revisions</h5>
+          <p className="text-secondary small mb-3 max-w-md mx-auto">
+            All submitted profile revisions have been moderated. When an approved professional updates sensitive profile fields, their proposed changes will appear here for side-by-side diff review.
+          </p>
+          <div>
+            <Link href="/freelancers" className="btn btn-sm btn-primary">
+              <i className="bi bi-arrow-left me-1"></i> Back to Freelancers Directory
+            </Link>
+          </div>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="card shadow-sm border-0 card-glass text-center py-5">
+          <i className="bi bi-search text-secondary fs-3 mb-2"></i>
+          <h6 className="fw-bold text-dark mb-1">No matching diffs</h6>
+          <p className="text-secondary small mb-3">
+            No pending revision matches &quot;{searchTerm}&quot;.
+          </p>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => setSearchTerm("")}
+          >
+            Clear Search
+          </button>
+        </div>
+      ) : (
+        <div className="d-flex flex-column gap-4">
+          {filteredItems.map((rev) => {
+            const currentPhoto = resolveImageUrl(rev.freelancer?.photoUrl);
+            const proposedPhoto = resolveImageUrl(rev.payload.photoUrl);
+
+            return (
+              <div
+                key={rev.id}
+                className="card shadow-sm border-0 card-glass overflow-hidden"
+              >
+                {/* Revision Header */}
+                <div className="card-header bg-light border-bottom py-3 px-3 px-md-4">
+                  <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                    <div className="d-flex align-items-center gap-3">
+                      <div
+                        className="rounded-circle overflow-hidden border bg-white d-flex align-items-center justify-content-center flex-shrink-0"
+                        style={{ width: "42px", height: "42px" }}
+                      >
+                        {currentPhoto ? (
+                          <img
+                            src={currentPhoto}
+                            alt={rev.freelancer?.displayName || "Freelancer"}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <span className="fw-bold text-primary small">
+                            {getInitials(rev.freelancer?.displayName || "FP")}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="d-flex align-items-center gap-2">
+                          <h6 className="fw-bold text-dark mb-0">
+                            {rev.freelancer?.displayName || "Freelancer"}
+                          </h6>
+                          <span className="badge bg-info bg-opacity-10 text-info border border-info-subtle font-monospace" style={{ fontSize: "0.68rem" }}>
+                            DIFF AWAITING APPROVAL
+                          </span>
+                        </div>
+                        <div className="text-secondary small mt-0-5">
+                          Submitted:{" "}
+                          <span className="text-dark font-monospace">
+                            {new Date(rev.createdAt).toLocaleString()}
+                          </span>{" "}
+                          • Phone: <span className="text-dark fw-medium">{rev.freelancer?.user?.phone || "N/A"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => {
+                          setTarget(rev);
+                          setRejectReason("");
+                          setShowRejectModal(true);
+                        }}
+                      >
+                        <i className="bi bi-x-circle me-1"></i> Reject Diff...
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-success"
+                        onClick={() => {
+                          setTarget(rev);
+                          setShowApproveModal(true);
+                        }}
+                      >
+                        <i className="bi bi-check2-circle me-1"></i> Approve & Publish Diff
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Side-by-side Visual Diff Body */}
+                <div className="card-body p-3 p-md-4">
+                  <div className="row g-3">
+                    {/* Left: Current Live Profile */}
+                    <div className="col-12 col-md-6">
+                      <div className="p-3 rounded-3 border bg-light h-100">
+                        <div className="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
+                          <div className="fw-bold text-secondary text-uppercase small d-flex align-items-center gap-1.5" style={{ fontSize: "0.72rem", letterSpacing: "0.05em" }}>
+                            <i className="bi bi-clock-history text-secondary"></i>
+                            Current Live Profile
+                          </div>
+                          <span className="badge bg-secondary-subtle text-secondary font-monospace" style={{ fontSize: "0.68rem" }}>
+                            PUBLIC / LIVE
+                          </span>
+                        </div>
+
+                        {/* Name */}
+                        <div className="mb-3">
+                          <span className="text-secondary small fw-bold d-block text-uppercase" style={{ fontSize: "0.68rem" }}>
+                            Display Name
+                          </span>
+                          <span className="fw-semibold text-dark small">
+                            {rev.freelancer?.displayName || "N/A"}
+                          </span>
+                        </div>
+
+                        {/* Photo */}
+                        <div className="mb-3">
+                          <span className="text-secondary small fw-bold d-block text-uppercase mb-1" style={{ fontSize: "0.68rem" }}>
+                            Live Avatar Photo
+                          </span>
+                          {currentPhoto ? (
+                            <div
+                              className="rounded-circle overflow-hidden border bg-white"
+                              style={{ width: "64px", height: "64px" }}
+                            >
+                              <img
+                                src={currentPhoto}
+                                alt="Current Live"
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-muted small fst-italic">No photo currently live</span>
+                          )}
+                        </div>
+
+                        {/* Bio Note */}
+                        <div className="mb-2">
+                          <span className="text-secondary small fw-bold d-block text-uppercase" style={{ fontSize: "0.68rem" }}>
+                            Bio Description
+                          </span>
+                          <span className="text-muted small fst-italic">
+                            (Refer to candidate details for full current biography)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Proposed Changes */}
+                    <div className="col-12 col-md-6">
+                      <div className="p-3 rounded-3 border border-info bg-info bg-opacity-10 h-100">
+                        <div className="d-flex align-items-center justify-content-between border-bottom border-info-subtle pb-2 mb-3">
+                          <div className="fw-bold text-info text-uppercase small d-flex align-items-center gap-1.5" style={{ fontSize: "0.72rem", letterSpacing: "0.05em" }}>
+                            <i className="bi bi-arrow-repeat text-info"></i>
+                            Proposed Updates (Pending)
+                          </div>
+                          <span className="badge bg-info text-white font-monospace" style={{ fontSize: "0.68rem" }}>
+                            PROPOSED CHANGES
+                          </span>
+                        </div>
+
+                        {/* Proposed Name */}
+                        <div className="mb-3">
+                          <span className="text-info small fw-bold d-block text-uppercase" style={{ fontSize: "0.68rem" }}>
+                            Proposed Display Name
+                          </span>
+                          {rev.payload.displayName ? (
+                            <div className="d-flex align-items-center gap-2">
+                              <span className="badge bg-info bg-opacity-25 text-info-emphasis border border-info-subtle font-monospace px-2 py-1 fs-6">
+                                {rev.payload.displayName}
+                              </span>
+                              <span className="badge bg-warning text-dark font-monospace" style={{ fontSize: "0.65rem" }}>
+                                MODIFIED
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted small fst-italic">No change proposed</span>
+                          )}
+                        </div>
+
+                        {/* Proposed NID */}
+                        {rev.payload.nidNumber && (
+                          <div className="mb-3">
+                            <span className="text-info small fw-bold d-block text-uppercase" style={{ fontSize: "0.68rem" }}>
+                              Proposed NID Number
+                            </span>
+                            <div className="d-flex align-items-center gap-2">
+                              <span className="badge bg-info bg-opacity-25 text-info-emphasis border border-info-subtle font-monospace px-2 py-1 fs-6">
+                                {rev.payload.nidNumber}
+                              </span>
+                              <span className="badge bg-warning text-dark font-monospace" style={{ fontSize: "0.65rem" }}>
+                                MODIFIED
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Proposed Photo */}
+                        <div className="mb-3">
+                          <span className="text-info small fw-bold d-block text-uppercase mb-1" style={{ fontSize: "0.68rem" }}>
+                            Proposed Avatar Photo
+                          </span>
+                          {proposedPhoto ? (
+                            <div className="d-flex align-items-center gap-2">
+                              <div
+                                className="rounded-circle overflow-hidden border border-info border-2 bg-white"
+                                style={{ width: "64px", height: "64px" }}
+                              >
+                                <img
+                                  src={proposedPhoto}
+                                  alt="Proposed"
+                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                              </div>
+                              <span className="badge bg-warning text-dark font-monospace" style={{ fontSize: "0.65rem" }}>
+                                NEW PHOTO
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted small fst-italic">No photo change proposed</span>
+                          )}
+                        </div>
+
+                        {/* Proposed Bio */}
+                        {rev.payload.about && (
+                          <div className="mb-3">
+                            <span className="text-info small fw-bold d-block text-uppercase mb-1" style={{ fontSize: "0.68rem" }}>
+                              Proposed Bio Update
+                            </span>
+                            <div className="p-2-5 bg-white rounded-3 border border-info-subtle small text-dark lh-base">
+                              {rev.payload.about}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Proposed Portfolio */}
+                        {rev.payload.portfolio && rev.payload.portfolio.length > 0 && (
+                          <div className="mb-2">
+                            <span className="text-info small fw-bold d-block text-uppercase mb-1" style={{ fontSize: "0.68rem" }}>
+                              Proposed Portfolio Updates ({rev.payload.portfolio.length} items)
+                            </span>
+                            <div className="row g-1">
+                              {rev.payload.portfolio.map((item, idx) => {
+                                const itmUrl = resolveImageUrl(item.imageUrl);
+                                return (
+                                  <div key={idx} className="col-4 col-sm-3">
+                                    <div className="card shadow-sm border border-info overflow-hidden">
+                                      <img
+                                        src={itmUrl!}
+                                        alt={item.caption || "Portfolio item"}
+                                        style={{ width: "100%", height: "60px", objectFit: "cover" }}
+                                      />
+                                      {item.caption && (
+                                        <div className="p-1 text-truncate text-secondary" style={{ fontSize: "0.65rem" }}>
+                                          {item.caption}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Approve Confirmation Modal */}
+      {showApproveModal && target && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 1060 }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content shadow-lg border-0 card-glass">
+              <div className="modal-header border-bottom">
+                <h5 className="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                  <i className="bi bi-check2-circle text-success fs-5"></i>
+                  Approve Profile Diff
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowApproveModal(false)}
+                  aria-label="Close"
+                  disabled={actionLoading}
+                ></button>
+              </div>
+              <div className="modal-body p-4">
+                <p className="text-secondary small mb-3">
+                  Approve proposed changes for <strong className="text-dark">{target.freelancer?.displayName}</strong>?
+                </p>
+                <div className="p-3 bg-success bg-opacity-10 border border-success-subtle rounded-3 text-success small mb-0">
+                  Approved fields will immediately overwrite the active profile and become visible across marketplace search.
+                </div>
+              </div>
+              <div className="modal-footer border-top bg-light">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setShowApproveModal(false)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-success"
+                  onClick={handleApprove}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? "Applying Diff..." : "Yes, Approve & Publish"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirmation Modal with Presets */}
       {showRejectModal && target && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900">Reject Revision</h3>
-            <p className="text-sm text-gray-600">
-              Provide feedback why this revision cannot be approved.
-            </p>
-            <textarea
-              rows={3}
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="E.g., Photo resolution is blurry; please submit a clear portrait."
-              className="w-full p-3 border rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none"
-            />
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={actionLoading || !rejectReason.trim()}
-                onClick={handleReject}
-                className="px-4 py-2 text-sm font-medium bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition disabled:opacity-50"
-              >
-                {actionLoading ? "Rejecting..." : "Confirm Rejection"}
-              </button>
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 1060 }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content shadow-lg border-0 card-glass">
+              <div className="modal-header border-bottom">
+                <h5 className="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                  <i className="bi bi-x-circle text-danger fs-5"></i>
+                  Reject Sensitive Diff
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowRejectModal(false)}
+                  aria-label="Close"
+                  disabled={actionLoading}
+                ></button>
+              </div>
+              <div className="modal-body p-4">
+                <p className="text-secondary small mb-2">
+                  Feedback for <strong className="text-dark">{target.freelancer?.displayName}</strong>:
+                </p>
+
+                {/* Presets */}
+                <div className="mb-3">
+                  <span className="text-secondary small fw-bold d-block mb-1">
+                    Select quick reason:
+                  </span>
+                  <div className="d-flex flex-wrap gap-1">
+                    {revisionRejectPresets.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary text-dark text-start"
+                        style={{ fontSize: "0.72rem" }}
+                        onClick={() => setRejectReason(preset)}
+                      >
+                        {preset.slice(0, 42)}...
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label fw-bold text-dark small">
+                    Mandatory Rejection Feedback *
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Specify why these proposed changes cannot be accepted..."
+                    className="form-control"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer border-top bg-light">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setShowRejectModal(false)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  onClick={handleReject}
+                  disabled={actionLoading || !rejectReason.trim()}
+                >
+                  {actionLoading ? "Rejecting..." : "Confirm Rejection"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -283,4 +695,3 @@ export default function FreelancerRevisionsQueuePage() {
     </div>
   );
 }
-

@@ -41,35 +41,23 @@ export class LocationsValidationService {
 
     const { cityCorporationId, paurashavaId, unionId, wardId } = input;
 
-    // Check mutual exclusivity: exactly one of cityCorporationId, paurashavaId, unionId
+    // Check mutual exclusivity only if any local area type is provided (they are optional)
     const localTypesCount = [
       cityCorporationId ? 1 : 0,
       paurashavaId ? 1 : 0,
       unionId ? 1 : 0,
     ].reduce((a, b) => a + b, 0);
 
-    if (localTypesCount === 0) {
-      throw new BadRequestException(
-        'Must select exactly one local area type: City Corporation, Paurashava, or Union',
-      );
-    }
-
     if (localTypesCount > 1) {
       throw new BadRequestException(
-        'Cannot combine multiple local area types. Select exactly one among City Corporation, Paurashava, or Union',
+        'Cannot combine multiple local area types. Select at most one among City Corporation, Paurashava, or Union',
       );
     }
 
     // Ward constraint
-    if (cityCorporationId) {
-      if (!wardId) {
-        throw new BadRequestException(
-          'Ward is required when a City Corporation is selected',
-        );
-      }
-    } else if (wardId) {
+    if (wardId && !cityCorporationId) {
       throw new BadRequestException(
-        'Ward cannot be selected for Paurashava or Union',
+        'Ward cannot be selected without a City Corporation',
       );
     }
 

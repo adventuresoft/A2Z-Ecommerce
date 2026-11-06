@@ -12,29 +12,22 @@ import {
   formatPrice,
   priceTypeLabel,
 } from '../../lib/marketplace-format';
-import { useRequireAuth } from '../../lib/useRequireAuth';
 import { useMembership } from '../../lib/useMembership';
 import { AvailabilityBadge, AvailabilityEdge } from './AvailabilityBadge';
 import { ContactActions } from './ContactActions';
-import { Avatar } from './FreelancerCard';
+import { Avatar, RatingBadge } from './FreelancerCard';
+import { FreelancerReviewsSection } from './FreelancerReviewsSection';
 import { EmptyState, ErrorState, PageSkeleton } from './States';
 
 function areaLine(loc: MarketplaceProfile['locations'][number]): string {
   const parts: string[] = [];
-  if (loc.localityText) parts.push(loc.localityText);
-  if (loc.ward && loc.cityCorporation) {
-    parts.push(`Ward ${loc.ward.wardNo}`, loc.cityCorporation.name);
-  } else if (loc.paurashava) {
-    parts.push(loc.paurashava.name);
-  } else if (loc.union) {
-    parts.push(`${loc.union.name} Union`);
-  }
-  parts.push(loc.thana.name, loc.district.name, loc.division.name);
+  if (loc.thana?.name) parts.push(loc.thana.name);
+  if (loc.district?.name) parts.push(loc.district.name);
+  if (loc.division?.name) parts.push(loc.division.name);
   return parts.join(', ');
 }
 
 export function FreelancerProfileView({ id }: { id: string }) {
-  const { ready } = useRequireAuth();
   const { isMember, isLoading: membershipLoading } = useMembership();
   const [profile, setProfile] = useState<MarketplaceProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,8 +46,8 @@ export function FreelancerProfileView({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => {
-    if (ready) void load();
-  }, [ready, load]);
+    void load();
+  }, [load]);
 
   const back = (
     <Link
@@ -66,7 +59,7 @@ export function FreelancerProfileView({ id }: { id: string }) {
     </Link>
   );
 
-  if (!ready || loading) {
+  if (loading) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-8">
         <PageSkeleton rows={3} />
@@ -109,7 +102,13 @@ export function FreelancerProfileView({ id }: { id: string }) {
               <div className="min-w-0">
                 <h1 className="text-xl font-semibold text-slate-900">{profile.displayName}</h1>
                 <p className="text-sm text-slate-700">{profile.profession?.name ?? 'Professional'}</p>
-                <AvailabilityBadge availability={profile.availability} className="mt-1.5" />
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <AvailabilityBadge availability={profile.availability} />
+                  <RatingBadge
+                    averageRating={profile.averageRating}
+                    totalReviews={profile.totalReviews}
+                  />
+                </div>
               </div>
             </div>
 
@@ -234,6 +233,12 @@ export function FreelancerProfileView({ id }: { id: string }) {
               ))}
             </ul>
           </section>
+
+          <FreelancerReviewsSection
+            freelancerId={profile.id}
+            freelancerName={profile.displayName}
+            onReviewsUpdated={load}
+          />
         </div>
       </div>
     </div>

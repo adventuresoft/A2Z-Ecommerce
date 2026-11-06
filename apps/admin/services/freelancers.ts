@@ -13,6 +13,7 @@ export interface AdminFreelancerItem {
   userId: string;
   status: FreelancerStatus;
   displayName: string;
+  nidNumber?: string | null;
   photoUrl: string | null;
   professionId: string | null;
   title: string | null;
@@ -95,6 +96,7 @@ export interface AdminRevisionItem {
   freelancerId: string;
   payload: {
     displayName?: string;
+    nidNumber?: string;
     photoUrl?: string;
     professionId?: string;
     about?: string;
@@ -107,6 +109,7 @@ export interface AdminRevisionItem {
   freelancer?: {
     id: string;
     displayName: string;
+    nidNumber?: string | null;
     title?: string | null;
     photoUrl?: string | null;
     status: FreelancerStatus;
@@ -224,7 +227,7 @@ export const adminFreelancersService = {
     return res.json();
   },
 
-  async approveFreelancer(id: string): Promise<{ message: string; profile: any }> {
+  async approveFreelancer(id: string): Promise<{ message: string; profile: Record<string, unknown> }> {
     const res = await fetchWithAuth(`${API_BASE}/admin/freelancers/${id}/approve`, {
       method: 'POST',
     });
@@ -238,7 +241,7 @@ export const adminFreelancersService = {
   async rejectFreelancer(
     id: string,
     reason: string,
-  ): Promise<{ message: string; profile: any }> {
+  ): Promise<{ message: string; profile: Record<string, unknown> }> {
     const res = await fetchWithAuth(`${API_BASE}/admin/freelancers/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
@@ -253,7 +256,7 @@ export const adminFreelancersService = {
   async suspendFreelancer(
     id: string,
     reason: string,
-  ): Promise<{ message: string; profile: any }> {
+  ): Promise<{ message: string; profile: Record<string, unknown> }> {
     const res = await fetchWithAuth(`${API_BASE}/admin/freelancers/${id}/suspend`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
@@ -265,7 +268,7 @@ export const adminFreelancersService = {
     return res.json();
   },
 
-  async reinstateFreelancer(id: string): Promise<{ message: string; profile: any }> {
+  async reinstateFreelancer(id: string): Promise<{ message: string; profile: Record<string, unknown> }> {
     const res = await fetchWithAuth(`${API_BASE}/admin/freelancers/${id}/reinstate`, {
       method: 'POST',
     });
@@ -297,7 +300,7 @@ export const adminFreelancersService = {
     return res.json();
   },
 
-  async approveRevision(id: string): Promise<{ message: string; revision: any }> {
+  async approveRevision(id: string): Promise<{ message: string; revision: Record<string, unknown> }> {
     const res = await fetchWithAuth(`${API_BASE}/admin/revisions/${id}/approve`, {
       method: 'POST',
     });
@@ -311,7 +314,7 @@ export const adminFreelancersService = {
   async rejectRevision(
     id: string,
     reason: string,
-  ): Promise<{ message: string; revision: any }> {
+  ): Promise<{ message: string; revision: Record<string, unknown> }> {
     const res = await fetchWithAuth(`${API_BASE}/admin/revisions/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),

@@ -13,11 +13,10 @@ const AVAILABILITY_OPTIONS = [
   { value: 'UNAVAILABLE', label: 'Unavailable' },
 ];
 
-const ADDRESS_TYPES = [
-  { value: '', label: 'Any' },
-  { value: 'CITY_CORPORATION', label: 'City corporation' },
-  { value: 'PAURASHAVA', label: 'Paurashava' },
-  { value: 'UNION', label: 'Union' },
+const RATING_OPTIONS = [
+  { value: '', label: 'All ratings' },
+  { value: '4', label: '4.0★ and above' },
+  { value: '3', label: '3.0★ and above' },
 ];
 
 const field =
@@ -207,19 +206,6 @@ export function FilterPanel({
             ))}
           </select>
         </div>
-        <div>
-          <label htmlFor="f-address" className={label}>Address type</label>
-          <select
-            id="f-address"
-            className={field}
-            value={draft.addressType ?? ''}
-            onChange={(e) => set({ addressType: e.target.value as MarketplaceFilters['addressType'] })}
-          >
-            {ADDRESS_TYPES.map((a) => (
-              <option key={a.value} value={a.value}>{a.label}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <fieldset>
@@ -273,6 +259,20 @@ export function FilterPanel({
           />
         </div>
       </fieldset>
+
+      <div>
+        <label htmlFor="f-rating" className={label}>Minimum rating</label>
+        <select
+          id="f-rating"
+          className={field}
+          value={draft.minRating ?? ''}
+          onChange={(e) => set({ minRating: e.target.value })}
+        >
+          {RATING_OPTIONS.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+      </div>
 
       <fieldset>
         <legend className={label}>Availability</legend>

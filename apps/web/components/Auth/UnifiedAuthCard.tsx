@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   User as UserIcon,
+  Briefcase,
   ArrowLeft,
   AlertCircle,
   Loader2,
@@ -41,7 +42,13 @@ export function UnifiedAuthCard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryRedirect = searchParams.get('redirect');
-  const targetRedirect = queryRedirect || redirectTo || '/';
+  const queryRole = searchParams.get('role');
+  const [roleMode, setRoleMode] = useState<'customer' | 'freelancer'>(
+    queryRole === 'freelancer' ? 'freelancer' : 'customer',
+  );
+  const targetRedirect =
+    queryRedirect ||
+    (roleMode === 'freelancer' ? '/freelancer/onboarding' : redirectTo || '/');
 
   const {
     login,
@@ -72,6 +79,7 @@ export function UnifiedAuthCard({
   const [signupToken, setSignupToken] = useState<string | null>(null);
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [otpPurpose, setOtpPurpose] = useState<'SIGNUP' | 'RESET_PASSWORD'>('SIGNUP');
+  const [devOtp, setDevOtp] = useState<string | null>(null);
 
   // Feedback states
   const [loading, setLoading] = useState(false);
@@ -157,7 +165,12 @@ export function UnifiedAuthCard({
       } else {
         // Not registered -> Send OTP and move to OTP screen (Screenshot 2)
         setOtpPurpose('SIGNUP');
-        await phoneSendOtp(res.phone, 'SIGNUP');
+        const otpRes = await phoneSendOtp(res.phone, 'SIGNUP');
+        if (otpRes.devOtp) {
+          setDevOtp(otpRes.devOtp);
+        } else {
+          setDevOtp(null);
+        }
         setTimerSeconds(297);
         setCanResend(false);
         setOtpDigits(['', '', '', '']);
@@ -247,7 +260,10 @@ export function UnifiedAuthCard({
     setInfoMessage(null);
     try {
       setLoading(true);
-      await phoneSendOtp(phone, otpPurpose);
+      const res = await phoneSendOtp(phone, otpPurpose);
+      if (res.devOtp) {
+        setDevOtp(res.devOtp);
+      }
       setTimerSeconds(297);
       setCanResend(false);
       setOtpDigits(['', '', '', '']);
@@ -373,6 +389,9 @@ export function UnifiedAuthCard({
       setOtpPurpose('RESET_PASSWORD');
       const res = await phoneSendOtp(cleanPhone, 'RESET_PASSWORD');
       setPhone(res.phone);
+      if (res.devOtp) {
+        setDevOtp(res.devOtp);
+      }
       setTimerSeconds(297);
       setCanResend(false);
       setOtpDigits(['', '', '', '']);
@@ -452,8 +471,67 @@ export function UnifiedAuthCard({
           </Link>
         </div>
 
+        {/* Role Switcher Tabs (Customer vs Professional) */}
+        <div className="px-6 pt-2 pb-1">
+          <div
+            role="tablist"
+            aria-label="Account type"
+            className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl gap-1 border border-slate-200/60"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={roleMode === 'customer'}
+              onClick={() => {
+                setRoleMode('customer');
+                setError(null);
+              }}
+              className={`min-h-[40px] flex items-center justify-center gap-2 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5A00] ${
+                roleMode === 'customer'
+                  ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200/80'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <UserIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Customer / ক্রেতা</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={roleMode === 'freelancer'}
+              onClick={() => {
+                setRoleMode('freelancer');
+                setError(null);
+              }}
+              className={`min-h-[40px] flex items-center justify-center gap-2 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 ${
+                roleMode === 'freelancer'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
+              <span>Professional / পেশাদার</span>
+            </button>
+          </div>
+        </div>
+
         {/* Card Body */}
         <div className="px-6 pb-6 pt-3">
+          {/* Professional Banner Notice */}
+          {roleMode === 'freelancer' && (
+            <div className="mb-3.5 rounded-xl bg-slate-900 text-white p-3.5 shadow-xs">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-slate-950 text-[11px] font-extrabold">
+                  ★
+                </span>
+                <p className="text-xs font-bold text-white">Join as a Service Professional</p>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                সাইন আপ শেষেই সরাসরি আপনার ৫-ধাপের প্রোফাইল সেটআপ শুরু হবে (পেশা, কাজের এলাকা ও ফি নির্ধারণ)।
+              </p>
+            </div>
+          )}
           {/* Error Banner */}
           {error && (
             <div
@@ -619,6 +697,31 @@ export function UnifiedAuthCard({
                   Code sent to{' '}
                   <span className="font-bold text-slate-900 tabular-nums">{phone}</span>
                 </p>
+
+                {devOtp && (
+                  <div className="mb-4 rounded-xl bg-amber-50/90 p-3 border border-amber-200/90 text-center shadow-2xs">
+                    <p className="text-xs font-semibold text-amber-800">
+                      Development Verification Code:{' '}
+                      <span className="font-mono text-sm font-extrabold text-amber-950 tracking-wider">
+                        {devOtp}
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-amber-700/80 mt-0.5">
+                      (MobiReach SMS is simulated in development mode)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const digits = devOtp.split('');
+                        setOtpDigits(digits);
+                        otpInputRefs[3]?.current?.focus();
+                      }}
+                      className="mt-1.5 inline-flex items-center text-xs font-bold text-amber-900 underline hover:text-amber-950 cursor-pointer"
+                    >
+                      Click here to auto-fill {devOtp}
+                    </button>
+                  </div>
+                )}
 
                 {/* 4 Digit Inputs */}
                 <div className="flex justify-center gap-2.5 mb-4">

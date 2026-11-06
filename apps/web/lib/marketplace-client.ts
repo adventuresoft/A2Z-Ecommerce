@@ -28,6 +28,8 @@ export interface MarketplaceCard {
   availability: FreelancerAvailability;
   startingPrice: number | null;
   startingPriceType: ServicePriceType | null;
+  averageRating?: number | null;
+  totalReviews?: number;
   profession: { id: string; name: string; bnName: string | null } | null;
   skills: MarketplaceSkill[];
   extraSkillCount: number;
@@ -36,6 +38,10 @@ export interface MarketplaceCard {
 
 export interface MarketplaceList {
   items: MarketplaceCard[];
+  total: number;
+  page: number;
+  totalPages: number;
+  limit: number;
   nextCursor: string | null;
 }
 
@@ -48,6 +54,8 @@ export interface MarketplaceProfile {
   experienceYears: number;
   availability: FreelancerAvailability;
   startingPrice: number | null;
+  averageRating?: number | null;
+  totalReviews?: number;
   lastActiveAt: string | null;
   profession: {
     id: string;
@@ -77,10 +85,56 @@ export interface MarketplaceProfile {
   >;
 }
 
-export type MarketplaceSort = 'default' | 'price_asc' | 'price_desc' | 'experience';
+export interface FreelancerReviewItem {
+  id: string;
+  rating: number;
+  comment: string;
+  images: string[];
+  freelancerReply: string | null;
+  repliedAt: string | null;
+  isVerifiedContact: boolean;
+  editCount: number;
+  createdAt: string;
+  updatedAt: string;
+  client: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface FreelancerReviewsSummary {
+  averageRating: number | null;
+  totalReviews: number;
+  distribution: Record<number, number>;
+}
+
+export interface FreelancerReviewsResponse {
+  reviews: FreelancerReviewItem[];
+  total: number;
+  page: number;
+  totalPages: number;
+  limit: number;
+  summary: FreelancerReviewsSummary;
+}
+
+export interface CreateFreelancerReviewInput {
+  rating: number;
+  comment: string;
+  images?: string[];
+}
+
+export interface UpdateFreelancerReviewInput {
+  rating?: number;
+  comment?: string;
+  images?: string[];
+}
+
+export type MarketplaceSort = 'default' | 'top_rated' | 'price_asc' | 'price_desc' | 'experience';
 export type MarketplaceAddressType = 'CITY_CORPORATION' | 'PAURASHAVA' | 'UNION';
 
 export interface MarketplaceFilters {
+  page?: string | number;
+  limit?: string | number;
   search?: string;
   categoryId?: string;
   professionId?: string;
@@ -89,6 +143,7 @@ export interface MarketplaceFilters {
   maxExperience?: string;
   minPrice?: string;
   maxPrice?: string;
+  minRating?: string | number;
   divisionId?: string;
   districtId?: string;
   thanaId?: string;
@@ -98,6 +153,8 @@ export interface MarketplaceFilters {
 }
 
 export const FILTER_KEYS: Array<keyof MarketplaceFilters> = [
+  'page',
+  'limit',
   'search',
   'categoryId',
   'professionId',
@@ -106,6 +163,7 @@ export const FILTER_KEYS: Array<keyof MarketplaceFilters> = [
   'maxExperience',
   'minPrice',
   'maxPrice',
+  'minRating',
   'divisionId',
   'districtId',
   'thanaId',
@@ -156,6 +214,58 @@ export const marketplaceClient = {
     return request<{ phone: string }>(
       `/marketplace/freelancers/${encodeURIComponent(id)}/reveal-phone`,
       { method: 'POST' },
+    );
+  },
+
+  getReviews(id: string, page = 1, limit = 10) {
+    return request<FreelancerReviewsResponse>(
+      `/marketplace/freelancers/${encodeURIComponent(id)}/reviews?page=${page}&limit=${limit}`,
+    );
+  },
+
+  getMyReview(id: string) {
+    return request<FreelancerReviewItem | null>(
+      `/marketplace/freelancers/${encodeURIComponent(id)}/reviews/me`,
+    );
+  },
+
+  createReview(id: string, input: CreateFreelancerReviewInput) {
+    return request<FreelancerReviewItem>(
+      `/marketplace/freelancers/${encodeURIComponent(id)}/reviews`,
+      {
+        method: 'POST',
+        body: JSON.stringify(input),
+      },
+    );
+  },
+
+  updateReview(id: string, input: UpdateFreelancerReviewInput) {
+    return request<FreelancerReviewItem>(
+      `/marketplace/freelancers/${encodeURIComponent(id)}/reviews/me`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      },
+    );
+  },
+
+  replyToReview(reviewId: string, reply: string) {
+    return request<FreelancerReviewItem>(
+      `/freelancer/reviews/${encodeURIComponent(reviewId)}/reply`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reply }),
+      },
+    );
+  },
+
+  reportReview(reviewId: string, reason: string, details?: string) {
+    return request<{ id: string; status: string }>(
+      `/freelancer/reviews/${encodeURIComponent(reviewId)}/report`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason, details }),
+      },
     );
   },
 };

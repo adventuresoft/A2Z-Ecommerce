@@ -78,6 +78,7 @@ export class MobiReachSmsService {
             Authorization: `Bearer ${this.cachedRefreshToken}`,
             Accept: 'application/json',
           },
+          signal: AbortSignal.timeout(3000),
         });
         if (refreshRes.ok) {
           const data = (await refreshRes.json()) as {
@@ -106,6 +107,7 @@ export class MobiReachSmsService {
           username: this.username,
           password: this.password,
         }),
+        signal: AbortSignal.timeout(3000),
       });
 
       if (!res.ok) {
@@ -137,10 +139,26 @@ export class MobiReachSmsService {
    */
   async sendSms(rawPhone: string, content: string): Promise<SendSmsResult> {
     const receiver = this.normalizePhoneNumber(rawPhone);
+    const isDev =
+      process.env.NODE_ENV !== 'production' ||
+      this.configService.get<string>('SMS_SIMULATE') === 'true';
 
     try {
       let token = await this.getAccessToken(false);
       if (!token) {
+        if (isDev) {
+          this.logger.warn(
+            `\n===========================================================\n` +
+              `[DEV SMS GATEWAY] MobiReach auth unavailable. Simulating SMS:\n` +
+              `To: ${receiver}\n` +
+              `Content: "${content}"\n` +
+              `===========================================================\n`,
+          );
+          return {
+            success: true,
+            messageId: `sim_${Date.now()}`,
+          };
+        }
         return {
           success: false,
           error: 'Unable to authenticate with MobiReach SMS gateway',
@@ -164,6 +182,7 @@ export class MobiReachSmsService {
           Accept: 'application/json',
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(3000),
       });
 
       // Retry once with fresh token if unauthorized (401)
@@ -178,6 +197,7 @@ export class MobiReachSmsService {
               Accept: 'application/json',
             },
             body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(3000),
           });
         }
       }
@@ -185,6 +205,19 @@ export class MobiReachSmsService {
       if (!res.ok) {
         const errorText = await res.text();
         this.logger.error(`MobiReach send failed (${res.status}): ${errorText}`);
+        if (isDev) {
+          this.logger.warn(
+            `\n===========================================================\n` +
+              `[DEV SMS GATEWAY] MobiReach returned ${res.status}. Simulating delivery:\n` +
+              `To: ${receiver}\n` +
+              `Content: "${content}"\n` +
+              `===========================================================\n`,
+          );
+          return {
+            success: true,
+            messageId: `sim_${Date.now()}`,
+          };
+        }
         return {
           success: false,
           error: `SMS Gateway error (${res.status})`,
@@ -199,6 +232,19 @@ export class MobiReachSmsService {
       };
     } catch (error: any) {
       this.logger.error(`Error sending SMS via MobiReach: ${error.message}`);
+      if (isDev) {
+        this.logger.warn(
+          `\n===========================================================\n` +
+            `[DEV SMS GATEWAY] MobiReach error (${error.message}). Simulating delivery:\n` +
+            `To: ${receiver}\n` +
+            `Content: "${content}"\n` +
+            `===========================================================\n`,
+        );
+        return {
+          success: true,
+          messageId: `sim_${Date.now()}`,
+        };
+      }
       return {
         success: false,
         error: error.message,

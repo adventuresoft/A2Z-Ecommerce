@@ -62,12 +62,21 @@ describe('LocationsValidationService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('throws error when no local type (CityCorp, Paurashava, Union) is provided', async () => {
-    await expect(
-      service.validateLocationSelection({
-        ...validBasePayload,
-      }),
-    ).rejects.toThrow('Must select exactly one local area type');
+  it('validates successfully when only division, district, thana, and postOffice are provided', async () => {
+    setupValidAncestry();
+    const result = await service.validateLocationSelection({
+      ...validBasePayload,
+    });
+    expect(result).toEqual({
+      divisionId: 4,
+      districtId: 14,
+      thanaId: 365,
+      postOfficeId: 10,
+      cityCorporationId: null,
+      wardId: null,
+      paurashavaId: null,
+      unionId: null,
+    });
   });
 
   it('throws error when multiple local types are provided', async () => {
@@ -80,23 +89,14 @@ describe('LocationsValidationService', () => {
     ).rejects.toThrow('Cannot combine multiple local area types');
   });
 
-  it('throws error when City Corporation is selected without a ward', async () => {
-    await expect(
-      service.validateLocationSelection({
-        ...validBasePayload,
-        cityCorporationId: 1,
-      }),
-    ).rejects.toThrow('Ward is required when a City Corporation is selected');
-  });
-
-  it('throws error when Ward is provided with Paurashava', async () => {
+  it('throws error when Ward is provided without City Corporation', async () => {
     await expect(
       service.validateLocationSelection({
         ...validBasePayload,
         paurashavaId: 1,
         wardId: 5,
       }),
-    ).rejects.toThrow('Ward cannot be selected for Paurashava or Union');
+    ).rejects.toThrow('Ward cannot be selected without a City Corporation');
   });
 
   it('validates successfully for valid City Corporation + Ward selection', async () => {

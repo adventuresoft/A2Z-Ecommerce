@@ -42,6 +42,8 @@ model User {
   shipmentStatusHistories ShipmentStatusHistory[]
   processedRefunds Refund[] @relation("ProcessedRefunds")
   reviews         Review[]
+  freelancerReviews FreelancerReview[] @relation("ClientFreelancerReviews")
+  reviewReports     FreelancerReviewReport[] @relation("ReporterReviewReports")
   suggestedSkills Skill[]  @relation("SuggestedSkills")
   freelancerProfile FreelancerProfile?
   subscriptions   Subscription[]
@@ -1191,6 +1193,7 @@ model FreelancerProfile {
   userId          String                 @unique @map("user_id")
   status          FreelancerStatus       @default(DRAFT)
   displayName     String                 @map("display_name") @db.VarChar(150)
+  nidNumber       String?                @map("nid_number") @db.VarChar(30)
   photoUrl        String?                @map("photo_url") @db.VarChar(500)
   professionId    String?                @map("profession_id")
   title           String?                @db.VarChar(150)
@@ -1200,6 +1203,8 @@ model FreelancerProfile {
   address         String?                @db.VarChar(255)
   availability    FreelancerAvailability @default(AVAILABLE)
   startingPrice   Int?                   @map("starting_price")
+  averageRating   Decimal?               @map("average_rating") @db.Decimal(3, 2)
+  totalReviews    Int                    @default(0) @map("total_reviews")
   rejectionReason String?                @map("rejection_reason") @db.Text
   rejectionCount  Int                    @default(0) @map("rejection_count")
   approvedAt      DateTime?              @map("approved_at")
@@ -1220,11 +1225,14 @@ model FreelancerProfile {
   revisions       ProfileRevision[]
   contactReveals  ContactReveal[]
   conversations   Conversation[] @relation("FreelancerConversations")
+  reviews         FreelancerReview[]
 
   @@index([status, professionId])
   @@index([status, availability])
   @@index([startingPrice])
+  @@index([averageRating])
   @@index([experienceYears])
+  @@index([nidNumber])
   @@map("freelancer_profiles")
 }
 
@@ -1497,6 +1505,61 @@ model FilterTerm {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("filter_terms")
+}
+
+enum FreelancerReviewStatus {
+  APPROVED
+  PENDING
+  HIDDEN
+}
+
+enum ReviewReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+model FreelancerReview {
+  id                String                 @id @default(uuid())
+  freelancerId      String                 @map("freelancer_id")
+  clientId          String                 @map("client_id")
+  rating            Int
+  comment           String                 @db.Text
+  images            String[]               @default([])
+  freelancerReply   String?                @map("freelancer_reply") @db.Text
+  repliedAt         DateTime?              @map("replied_at")
+  isVerifiedContact Boolean                @default(true) @map("is_verified_contact")
+  editCount         Int                    @default(0) @map("edit_count")
+  status            FreelancerReviewStatus @default(APPROVED)
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  freelancer        FreelancerProfile      @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  client            User                   @relation("ClientFreelancerReviews", fields: [clientId], references: [id], onDelete: Cascade)
+  reports           FreelancerReviewReport[]
+
+  @@unique([freelancerId, clientId])
+  @@index([freelancerId, status])
+  @@index([clientId])
+  @@map("freelancer_reviews")
+}
+
+model FreelancerReviewReport {
+  id           String             @id @default(uuid())
+  reviewId     String             @map("review_id")
+  reporterId   String             @map("reporter_id")
+  reason       String             @db.Text
+  status       ReviewReportStatus @default(PENDING)
+  reviewedById String?            @map("reviewed_by_id")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  review       FreelancerReview   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporter     User               @relation("ReporterReviewReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, status])
+  @@index([reporterId])
+  @@map("freelancer_review_reports")
 }
 
 

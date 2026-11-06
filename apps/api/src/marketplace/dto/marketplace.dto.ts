@@ -15,6 +15,7 @@ export enum MarketplaceSort {
   PRICE_ASC = 'price_asc',
   PRICE_DESC = 'price_desc',
   EXPERIENCE = 'experience',
+  TOP_RATED = 'top_rated',
 }
 
 export enum MarketplaceAddressType {
@@ -68,6 +69,13 @@ export class MarketplaceListQueryDto {
   @Min(0)
   maxPrice?: number;
 
+  @ApiPropertyOptional({ description: 'Minimum rating (1 to 5)' })
+  @IsOptional()
+  @Type(() => Number)
+  @Min(1)
+  @Max(5)
+  minRating?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
@@ -108,13 +116,20 @@ export class MarketplaceListQueryDto {
   @IsEnum(MarketplaceSort)
   sort?: MarketplaceSort;
 
+  @ApiPropertyOptional({ description: 'Page number (1-based)', default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
   @ApiPropertyOptional({ description: 'Opaque cursor from the previous page' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   cursor?: string;
 
-  @ApiPropertyOptional({ default: 20 })
+  @ApiPropertyOptional({ default: 12 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

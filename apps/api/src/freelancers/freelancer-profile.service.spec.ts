@@ -239,12 +239,30 @@ describe('FreelancerProfileService', () => {
       );
     });
 
+    it('should reject submission if nidNumber is missing', async () => {
+      prismaMock.freelancerProfile.findUnique.mockResolvedValue({
+        id: 'prof-1',
+        userId: 'user-1',
+        status: FreelancerStatus.DRAFT,
+        displayName: 'Karim',
+        nidNumber: null, // missing nidNumber
+        professionId: 'prof-id',
+        locations: [{ id: 'loc-1' }],
+        services: [{ id: 'svc-1' }],
+      });
+
+      await expect(service.submitProfile('user-1')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
     it('should submit complete profile to PENDING status', async () => {
       prismaMock.freelancerProfile.findUnique.mockResolvedValue({
         id: 'prof-1',
         userId: 'user-1',
         status: FreelancerStatus.DRAFT,
         displayName: 'Karim',
+        nidNumber: '19901234567890123',
         professionId: 'prof-id',
         locations: [{ id: 'loc-1' }],
         services: [{ id: 'svc-1' }],

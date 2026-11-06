@@ -125,6 +125,7 @@ export class AuthService {
       expiresInSeconds: 300,
       resendInSeconds: 60,
       message: 'Verification code sent successfully',
+      ...(process.env.NODE_ENV !== 'production' && { devOtp: otpCode }),
     };
   }
 

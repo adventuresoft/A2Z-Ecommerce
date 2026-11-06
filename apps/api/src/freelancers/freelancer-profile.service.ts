@@ -28,6 +28,32 @@ export class FreelancerProfileService {
     private readonly locationsValidationService: LocationsValidationService,
   ) {}
 
+  async getOrCreateProfile(userId: string) {
+    try {
+      return await this.getProfile(userId);
+    } catch (err: any) {
+      if (err instanceof NotFoundException) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+        });
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+
+        await this.prisma.freelancerProfile.create({
+          data: {
+            userId,
+            displayName: user.name || 'Professional',
+            status: FreelancerStatus.DRAFT,
+          },
+        });
+
+        return this.getProfile(userId);
+      }
+      throw err;
+    }
+  }
+
   async getProfile(userId: string) {
     const profile = await this.prisma.freelancerProfile.findUnique({
       where: { userId },
@@ -109,6 +135,7 @@ export class FreelancerProfileService {
 
     const isSensitiveUpdate =
       dto.displayName !== undefined ||
+      dto.nidNumber !== undefined ||
       dto.photoUrl !== undefined ||
       dto.professionId !== undefined ||
       dto.about !== undefined;
@@ -126,6 +153,7 @@ export class FreelancerProfileService {
       const sensitivePayload: Record<string, unknown> = {
         ...currentPayload,
         ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
+        ...(dto.nidNumber !== undefined ? { nidNumber: dto.nidNumber } : {}),
         ...(dto.photoUrl !== undefined ? { photoUrl: dto.photoUrl } : {}),
         ...(dto.professionId !== undefined ? { professionId: dto.professionId } : {}),
         ...(dto.about !== undefined ? { about: dto.about } : {}),
@@ -171,6 +199,7 @@ export class FreelancerProfileService {
       where: { id: profile.id },
       data: {
         ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
+        ...(dto.nidNumber !== undefined ? { nidNumber: dto.nidNumber } : {}),
         ...(dto.photoUrl !== undefined ? { photoUrl: dto.photoUrl } : {}),
         ...(dto.professionId !== undefined ? { professionId: dto.professionId } : {}),
         ...(dto.title !== undefined ? { title: dto.title } : {}),
@@ -426,6 +455,9 @@ export class FreelancerProfileService {
     const missingFields: string[] = [];
     if (!profile.displayName || profile.displayName.trim().length === 0) {
       missingFields.push('displayName');
+    }
+    if (!profile.nidNumber || profile.nidNumber.trim().length === 0) {
+      missingFields.push('nidNumber');
     }
     if (!profile.professionId) {
       missingFields.push('profession');

@@ -280,6 +280,7 @@ export class AdminFreelancersService {
       // 1. Update FreelancerProfile fields if in payload
       const profileUpdates: Record<string, any> = {};
       if (payload.displayName) profileUpdates.displayName = payload.displayName;
+      if (payload.nidNumber) profileUpdates.nidNumber = payload.nidNumber;
       if (payload.photoUrl) profileUpdates.photoUrl = payload.photoUrl;
       if (payload.professionId) profileUpdates.professionId = payload.professionId;
       if (payload.about) profileUpdates.about = payload.about;

@@ -1,14 +1,11 @@
 'use client';
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Loader2, MapPin, Building2, Trees, Landmark } from 'lucide-react';
+import { Loader2, MapPin } from 'lucide-react';
 import {
   useLocationCascade,
   type LocationSelectionState,
-  type AreaType,
 } from '../../lib/useLocationCascade';
-import { useSafeReducedMotion } from '../../lib/useSafeReducedMotion';
 
 export interface CascadingLocationSelectorProps {
   value?: Partial<LocationSelectionState>;
@@ -27,28 +24,17 @@ export function CascadingLocationSelector({
   required = true,
   error,
 }: CascadingLocationSelectorProps) {
-  const prefersReducedMotion = useSafeReducedMotion();
-
   const {
     state,
     divisions,
     districts,
     thanas,
     postOffices,
-    cityCorporations,
-    paurashavas,
-    unions,
-    wards,
     loading,
     setDivision,
     setDistrict,
     setThana,
     setPostOffice,
-    setAreaType,
-    setCityCorporation,
-    setWard,
-    setPaurashava,
-    setUnion,
   } = useLocationCascade({
     initialValue: value,
     onChange,
@@ -64,10 +50,6 @@ export function CascadingLocationSelector({
     if (!bnName || name === bnName) return name;
     return `${name} (${bnName})`;
   };
-
-  const isBaseComplete = Boolean(
-    state.divisionId && state.districtId && state.thanaId && state.postOfficeId,
-  );
 
   return (
     <div
@@ -198,201 +180,6 @@ export function CascadingLocationSelector({
           </select>
         </div>
       </div>
-
-      {/* Progressive Disclosure: Local Area Type Selector */}
-      {isBaseComplete && (
-        <motion.div
-          initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="pt-2 border-t border-slate-200/80 dark:border-slate-800"
-        >
-          <label className={labelClass}>
-            Local Area Type / স্থানীয় এলাকা ধরন {required && <span className="text-rose-500">*</span>}
-          </label>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2.5">
-            Choose whether your location is under a City Corporation, Municipality (Paurashava), or Rural Union.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" role="radiogroup">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={state.areaType === 'city_corporation'}
-              disabled={disabled}
-              onClick={() => setAreaType('city_corporation')}
-              className={`flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 ${
-                state.areaType === 'city_corporation'
-                  ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Landmark className="h-4 w-4" />
-              <span>City Corporation</span>
-            </button>
-
-            <button
-              type="button"
-              role="radio"
-              aria-checked={state.areaType === 'paurashava'}
-              disabled={disabled}
-              onClick={() => setAreaType('paurashava')}
-              className={`flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 ${
-                state.areaType === 'paurashava'
-                  ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Building2 className="h-4 w-4" />
-              <span>Paurashava (পৌরসভা)</span>
-            </button>
-
-            <button
-              type="button"
-              role="radio"
-              aria-checked={state.areaType === 'union'}
-              disabled={disabled}
-              onClick={() => setAreaType('union')}
-              className={`flex items-center justify-center gap-2 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 ${
-                state.areaType === 'union'
-                  ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Trees className="h-4 w-4" />
-              <span>Union (ইউনিয়ন)</span>
-            </button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Dependent Dynamic Sub-Fields */}
-      <AnimatePresence mode="wait">
-        {state.areaType === 'city_corporation' && (
-          <motion.div
-            key="city-corp-section"
-            initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2"
-          >
-            <div>
-              <label htmlFor="loc-city-corp" className={labelClass}>
-                City Corporation / সিটি কর্পোরেশন <span className="text-rose-500">*</span>
-              </label>
-              <select
-                id="loc-city-corp"
-                className={selectBaseClass}
-                disabled={disabled || loading.cityCorporations}
-                value={state.cityCorporationId ?? ''}
-                onChange={(e) =>
-                  setCityCorporation(e.target.value ? Number(e.target.value) : null)
-                }
-              >
-                <option value="">Select City Corporation</option>
-                {cityCorporations.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {formatBilingual(c.name, c.bnName)}
-                  </option>
-                ))}
-              </select>
-              {cityCorporations.length === 0 && (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                  No city corporation found in this district. Select Paurashava or Union instead.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="loc-ward" className={labelClass}>
-                Ward No / ওয়ার্ড নম্বর <span className="text-rose-500">*</span>
-              </label>
-              <select
-                id="loc-ward"
-                className={selectBaseClass}
-                disabled={disabled || !state.cityCorporationId || loading.wards}
-                value={state.wardId ?? ''}
-                onChange={(e) => setWard(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">
-                  {!state.cityCorporationId ? 'Select city corporation first' : 'Select Ward'}
-                </option>
-                {wards.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {formatBilingual(w.name || `Ward ${w.wardNo}`, w.bnName)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </motion.div>
-        )}
-
-        {state.areaType === 'paurashava' && (
-          <motion.div
-            key="paurashava-section"
-            initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="pt-2"
-          >
-            <label htmlFor="loc-paurashava" className={labelClass}>
-              Paurashava / পৌরসভা <span className="text-rose-500">*</span>
-            </label>
-            <select
-              id="loc-paurashava"
-              className={selectBaseClass}
-              disabled={disabled || loading.paurashavas}
-              value={state.paurashavaId ?? ''}
-              onChange={(e) =>
-                setPaurashava(e.target.value ? Number(e.target.value) : null)
-              }
-            >
-              <option value="">Select Municipality / পৌরসভা নির্বাচন করুন</option>
-              {paurashavas.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {formatBilingual(p.name, p.bnName)}
-                </option>
-              ))}
-            </select>
-            {paurashavas.length === 0 && (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                No paurashavas found for this district. Please choose Union or City Corporation.
-              </p>
-            )}
-          </motion.div>
-        )}
-
-        {state.areaType === 'union' && (
-          <motion.div
-            key="union-section"
-            initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="pt-2"
-          >
-            <label htmlFor="loc-union" className={labelClass}>
-              Union / ইউনিয়ন <span className="text-rose-500">*</span>
-            </label>
-            <select
-              id="loc-union"
-              className={selectBaseClass}
-              disabled={disabled || loading.unions}
-              value={state.unionId ?? ''}
-              onChange={(e) => setUnion(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">Select Rural Union / ইউনিয়ন নির্বাচন করুন</option>
-              {unions.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {formatBilingual(u.name, u.bnName)}
-                </option>
-              ))}
-            </select>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Global Error Banner */}
       {error && (

@@ -19,6 +19,7 @@ import {
   Package,
   Loader2,
   MessageSquare,
+  Briefcase,
 } from "lucide-react";
 import { formatBDT } from "../../data/mock-catalog";
 import { useAuth } from "../../context/AuthContext";
@@ -497,6 +498,14 @@ export function Header({
                       </Link>
 
                       <div className="pt-1 mt-1 border-t border-slate-100">
+                        <Link
+                          href="/freelancer/onboarding"
+                          onClick={() => setIsAccountDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-900 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 mb-1"
+                        >
+                          <Briefcase className="w-4 h-4 text-primary" aria-hidden="true" />
+                          <span>Become a Professional</span>
+                        </Link>
                         <button
                           type="button"
                           onClick={async () => {
@@ -534,6 +543,16 @@ export function Header({
                         Create Account
                       </Link>
                     </p>
+                    <div className="pt-2 border-t border-slate-100">
+                      <Link
+                        href="/register?role=freelancer"
+                        onClick={() => setIsAccountDropdownOpen(false)}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900 hover:text-primary transition-colors"
+                      >
+                        <Briefcase className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                        <span>Join as a Professional ➔</span>
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>

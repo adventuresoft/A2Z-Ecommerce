@@ -27,6 +27,12 @@ export class UpdateProfileDto {
   @MaxLength(150)
   displayName?: string;
 
+  @ApiPropertyOptional({ example: '19901234567890123' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  nidNumber?: string;
+
   @ApiPropertyOptional({ example: 'https://cdn.example.com/profiles/avatar.jpg' })
   @IsOptional()
   @IsString()
