@@ -3,13 +3,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import {
   Menu,
   ChevronDown,
   ChevronRight,
   Flame,
-  Sparkles,
-  Tag,
   Cpu,
   Shirt,
   Home,
@@ -19,8 +18,7 @@ import {
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  Package,
-  Briefcase,
+  Check,
 } from "lucide-react";
 import {
   CategoryTreeNode,
@@ -48,13 +46,29 @@ function CategoryIcon({ name, className }: { name: string; className?: string })
 }
 
 export function MainNav() {
+  const pathname = usePathname();
   const [categories, setCategories] = useState<CategoryTreeNode[]>(FALLBACK_CATEGORY_TREE);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [activeSlug, setActiveSlug] = useState<string>("");
+  const [copiedCoupon, setCopiedCoupon] = useState(false);
 
   const menuContainerRef = useRef<HTMLDivElement>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCopyCoupon = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText("AZDEAL").catch(() => {});
+    }
+    setCopiedCoupon(true);
+    setTimeout(() => setCopiedCoupon(false), 2000);
+  };
+
+  const isActiveRoute = (href: string) => {
+    if (!pathname) return false;
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   // Load category tree from backend API
   useEffect(() => {
@@ -122,29 +136,34 @@ export function MainNav() {
     : null;
 
   return (
-    <nav className="bg-white border-b border-slate-200 hidden lg:block relative z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        <div className="flex items-center space-x-6">
+    <nav
+      aria-label="Primary Storefront Navigation"
+      className="bg-white border-b border-slate-200 hidden lg:block relative z-30"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-6 h-full min-w-0">
           {/* ALL CATEGORIES Mega Button & Dropdown Container */}
           <div
             ref={menuContainerRef}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className="relative"
+            className="relative h-full flex items-center shrink-0"
           >
             <button
               type="button"
               onClick={() => setIsOpen((prev) => !prev)}
               aria-expanded={isOpen}
               aria-haspopup="true"
-              className={`bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs uppercase tracking-wider px-5 py-3.5 flex items-center space-x-2.5 transition-all cursor-pointer select-none rounded-t-lg shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
-                isOpen ? "bg-blue-800 ring-2 ring-blue-400/30" : ""
+              className={`h-9 px-4 rounded-lg font-semibold text-[13px] whitespace-nowrap shrink-0 flex items-center gap-2 transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1 ${
+                isOpen
+                  ? "bg-blue-700 text-white shadow-sm"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
               }`}
             >
               <Menu className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>ALL CATEGORIES</span>
+              <span>All Categories</span>
               <ChevronDown
-                className={`w-3.5 h-3.5 ml-2 transition-transform duration-200 ${
+                className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
                   isOpen ? "rotate-180" : ""
                 }`}
                 aria-hidden="true"
@@ -378,49 +397,157 @@ export function MainNav() {
             )}
           </div>
 
-          {/* Horizontal Nav Links */}
-          <div className="flex items-center space-x-7 text-xs font-semibold text-slate-700">
+          {/* Clean Material Horizontal Nav Links (Strictly Single-Line) */}
+          <div className="flex items-center gap-1 text-[13px] font-medium text-slate-700 h-full whitespace-nowrap">
+            {/* Home */}
             <Link
               href="/"
-              className="text-blue-700 font-bold border-b-2 border-blue-700 py-3.5 transition-colors"
+              aria-current={isActiveRoute("/") ? "page" : undefined}
+              className={`relative h-full px-3 flex items-center whitespace-nowrap shrink-0 transition-colors ${
+                isActiveRoute("/")
+                  ? "text-blue-600 font-semibold"
+                  : "text-slate-700 hover:text-blue-600"
+              }`}
             >
-              Home
+              <span>Home</span>
+              {isActiveRoute("/") && (
+                <span
+                  className="absolute bottom-0 inset-x-3 h-[3px] bg-blue-600 rounded-t-full"
+                  aria-hidden="true"
+                />
+              )}
             </Link>
+
+            {/* Flash Sale */}
             <Link
               href="/collections/flash-sale"
-              className="hover:text-orange-600 py-3.5 transition-colors flex items-center space-x-1.5"
+              aria-current={isActiveRoute("/collections/flash-sale") ? "page" : undefined}
+              className={`relative h-full px-3 flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
+                isActiveRoute("/collections/flash-sale")
+                  ? "text-orange-600 font-semibold"
+                  : "text-slate-700 hover:text-orange-600"
+              }`}
             >
               <span>Flash Sale</span>
-              <span className="bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full flex items-center shadow-xs">
-                <Flame className="w-2.5 h-2.5 mr-0.5" />
+              <span className="bg-orange-600 text-white text-[10px] font-bold uppercase px-1.5 py-0.5 rounded inline-flex items-center leading-none">
                 HOT
               </span>
+              {isActiveRoute("/collections/flash-sale") && (
+                <span
+                  className="absolute bottom-0 inset-x-3 h-[3px] bg-orange-600 rounded-t-full"
+                  aria-hidden="true"
+                />
+              )}
             </Link>
-            <Link href="/collections/new-arrivals" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+
+            {/* New Arrivals */}
+            <Link
+              href="/collections/new-arrivals"
+              aria-current={isActiveRoute("/collections/new-arrivals") ? "page" : undefined}
+              className={`relative h-full px-3 flex items-center whitespace-nowrap shrink-0 transition-colors ${
+                isActiveRoute("/collections/new-arrivals")
+                  ? "text-blue-600 font-semibold"
+                  : "text-slate-700 hover:text-blue-600"
+              }`}
+            >
               <span>New Arrivals</span>
-              <Sparkles className="w-3 h-3 text-amber-500" />
+              {isActiveRoute("/collections/new-arrivals") && (
+                <span
+                  className="absolute bottom-0 inset-x-3 h-[3px] bg-blue-600 rounded-t-full"
+                  aria-hidden="true"
+                />
+              )}
             </Link>
-            <Link href="/collections/archive" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
-              <Tag className="w-3 h-3 text-blue-600" />
-              <span>Archive & Clearance</span>
+
+            {/* Archive & Clearance */}
+            <Link
+              href="/collections/archive"
+              aria-current={isActiveRoute("/collections/archive") ? "page" : undefined}
+              className={`relative h-full px-3 flex items-center whitespace-nowrap shrink-0 transition-colors ${
+                isActiveRoute("/collections/archive")
+                  ? "text-blue-600 font-semibold"
+                  : "text-slate-700 hover:text-blue-600"
+              }`}
+            >
+              <span>Archive &amp; Clearance</span>
+              {isActiveRoute("/collections/archive") && (
+                <span
+                  className="absolute bottom-0 inset-x-3 h-[3px] bg-blue-600 rounded-t-full"
+                  aria-hidden="true"
+                />
+              )}
             </Link>
-            <Link href="/hire" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
-              <Briefcase className="w-3 h-3 text-blue-600" />
+
+            {/* Hire a Professional */}
+            <Link
+              href="/hire"
+              aria-current={isActiveRoute("/hire") ? "page" : undefined}
+              className={`relative h-full px-3 flex items-center whitespace-nowrap shrink-0 transition-colors ${
+                isActiveRoute("/hire")
+                  ? "text-blue-600 font-semibold"
+                  : "text-slate-700 hover:text-blue-600"
+              }`}
+            >
               <span>Hire a Professional</span>
+              {isActiveRoute("/hire") && (
+                <span
+                  className="absolute bottom-0 inset-x-3 h-[3px] bg-blue-600 rounded-t-full"
+                  aria-hidden="true"
+                />
+              )}
             </Link>
-            <Link href="/membership" className="hover:text-blue-700 py-3.5 transition-colors flex items-center space-x-1">
+
+            {/* Membership */}
+            <Link
+              href="/membership"
+              aria-current={isActiveRoute("/membership") ? "page" : undefined}
+              className={`relative h-full px-3 flex items-center whitespace-nowrap shrink-0 transition-colors ${
+                isActiveRoute("/membership")
+                  ? "text-blue-600 font-semibold"
+                  : "text-slate-700 hover:text-blue-600"
+              }`}
+            >
               <span>Membership</span>
+              {isActiveRoute("/membership") && (
+                <span
+                  className="absolute bottom-0 inset-x-3 h-[3px] bg-blue-600 rounded-t-full"
+                  aria-hidden="true"
+                />
+              )}
             </Link>
           </div>
         </div>
 
-        {/* Right side Promo Pill */}
-        <div className="hidden xl:flex items-center space-x-2 text-xs font-bold text-slate-600">
-          <span className="text-orange-600">⚡ Special Coupon:</span>
-          <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-md font-mono tracking-wider border border-orange-200">
-            AZDEAL
-          </span>
-          <span className="text-slate-400 text-[11px]">(৳500 OFF)</span>
+        {/* Right side Simple Material Coupon Chip */}
+        <div className="hidden xl:flex items-center shrink-0 whitespace-nowrap">
+          <button
+            type="button"
+            onClick={handleCopyCoupon}
+            title="Click to copy coupon code AZDEAL"
+            aria-label="Copy coupon code AZDEAL for 500 Taka off"
+            className="flex items-center gap-2 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-md px-2 py-1 hover:bg-slate-50 transition-colors"
+          >
+            <span>Coupon:</span>
+            <span
+              role="status"
+              aria-live="polite"
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold font-mono tracking-wide border transition-colors ${
+                copiedCoupon
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-orange-50 text-orange-700 border-orange-200"
+              }`}
+            >
+              {copiedCoupon ? (
+                <>
+                  <Check className="w-3 h-3 text-emerald-600 shrink-0" aria-hidden="true" />
+                  <span>COPIED</span>
+                </>
+              ) : (
+                <span>AZDEAL</span>
+              )}
+            </span>
+            <span className="text-slate-400 text-[11px]">(৳500 OFF)</span>
+          </button>
         </div>
       </div>
     </nav>

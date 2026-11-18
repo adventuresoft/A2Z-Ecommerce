@@ -169,7 +169,7 @@ export function Header({
           <Link href="/" className="flex items-center space-x-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-xl">
             <div className="relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-xl overflow-hidden bg-white border border-slate-200/90 shadow-2xs flex items-center justify-center p-1 group-hover:border-blue-500 group-hover:shadow-md transition-all">
               <Image
-                src="/brand/Logo.png"
+                src="/images/Logo.png"
                 alt="A to Z Ecommerce Logo"
                 width={44}
                 height={44}
@@ -219,9 +219,8 @@ export function Header({
                         setSelectedCategory(cat);
                         setIsCategoryDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-blue-50 transition-colors ${
-                        selectedCategory === cat ? "text-blue-700 font-bold bg-blue-50/50" : "text-slate-700"
-                      }`}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-blue-50 transition-colors ${selectedCategory === cat ? "text-blue-700 font-bold bg-blue-50/50" : "text-slate-700"
+                        }`}
                     >
                       {cat}
                     </button>
