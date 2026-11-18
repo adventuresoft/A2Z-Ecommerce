@@ -20,6 +20,7 @@ import {
   Loader2,
   MessageSquare,
   Briefcase,
+  Check,
 } from "lucide-react";
 import { formatBDT } from "../../data/mock-catalog";
 import { useAuth } from "../../context/AuthContext";
@@ -136,7 +137,7 @@ export function Header({
     });
   }, []);
 
-  // Close search suggestions & account dropdown on click outside
+  // Close search suggestions & account dropdown on click outside or Escape key
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -147,84 +148,116 @@ export function Header({
         setIsAccountDropdownOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setShowSuggestions(false);
+        setIsCategoryDropdownOpen(false);
+        setIsAccountDropdownOpen(false);
+      }
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 sm:gap-6">
+    <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-40 shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 sm:gap-6">
         {/* Mobile menu button & Brand Logo Lockup */}
-        <div className="flex items-center space-x-2.5 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onOpenMobileMenu}
-            className="p-2 -ml-2 text-slate-700 hover:text-blue-700 rounded-xl hover:bg-slate-100 transition-colors lg:hidden cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="w-10 h-10 -ml-2 flex items-center justify-center text-slate-700 hover:text-blue-600 rounded-xl hover:bg-slate-100 transition-colors lg:hidden cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             aria-label="Open navigation menu"
           >
-            <Menu className="w-6 h-6" aria-hidden="true" />
+            <Menu className="w-5 h-5" aria-hidden="true" />
           </button>
 
           {/* Official Logo */}
-          <Link href="/" className="flex items-center space-x-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-xl">
-            <div className="relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-xl overflow-hidden bg-white border border-slate-200/90 shadow-2xs flex items-center justify-center p-1 group-hover:border-blue-500 group-hover:shadow-md transition-all">
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-xl py-1 pr-1"
+          >
+            <div className="relative h-10 w-10 shrink-0 rounded-xl overflow-hidden bg-slate-50 border border-slate-200/80 flex items-center justify-center p-1 group-hover:border-blue-300 transition-colors">
               <Image
                 src="/images/Logo.png"
                 alt="A to Z Ecommerce Logo"
-                width={44}
-                height={44}
+                width={40}
+                height={40}
                 priority
-                className="object-contain w-full h-full group-hover:scale-105 transition-transform"
+                className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-200"
               />
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center">
-                <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-                  A<span className="text-blue-700">to</span>Z
-                </span>
-                <span className="ml-1.5 text-[10px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-200">
-                  Ecommerce
-                </span>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mt-1">
-                Trusted Shopping, Always
+            <div className="flex flex-col leading-none">
+              <span className="text-lg sm:text-[21px] font-extrabold tracking-tight text-slate-900 whitespace-nowrap">
+                A<span className="text-blue-600">to</span>Z
+              </span>
+              <span className="text-[11px] font-medium text-slate-500 mt-0.5 whitespace-nowrap">
+                Ecommerce
               </span>
             </div>
           </Link>
         </div>
 
-        {/* Global Search Bar with Category Filter & Live Autocomplete */}
+        {/* Material Search Bar with Category Filter & Live Autocomplete */}
         <div ref={searchRef} className="hidden md:flex flex-1 max-w-2xl relative mx-2">
-          <div className="w-full flex items-center bg-slate-50/90 rounded-2xl border-2 border-slate-200 focus-within:border-blue-600 focus-within:bg-white transition-all overflow-hidden shadow-2xs">
+          <div className="w-full h-11 flex items-center bg-slate-100/80 hover:bg-slate-100 rounded-xl border border-slate-200/90 focus-within:bg-white focus-within:border-blue-600 focus-within:ring-4 focus-within:ring-blue-600/10 focus-within:shadow-sm transition-all">
             {/* Category Dropdown Selector */}
-            <div className="relative">
+            <div className="relative h-full flex items-center shrink-0">
               <button
                 type="button"
                 onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
                 aria-expanded={isCategoryDropdownOpen}
+                aria-haspopup="listbox"
                 aria-label="Select search category filter"
-                className="border-r border-slate-200 px-3.5 py-2.5 bg-slate-100/70 hover:bg-slate-100 cursor-pointer flex items-center space-x-1.5 text-xs font-bold text-slate-700 select-none whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                className="h-full pl-3.5 pr-2.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 cursor-pointer select-none whitespace-nowrap rounded-l-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
               >
-                <span>{selectedCategory}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                <span className="max-w-[125px] truncate">{selectedCategory}</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${
+                    isCategoryDropdownOpen ? "rotate-180 text-blue-600" : ""
+                  }`}
+                  aria-hidden="true"
+                />
               </button>
 
+              <div className="h-5 w-px bg-slate-300/80 shrink-0" aria-hidden="true" />
+
               {isCategoryDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in duration-100">
-                  {categoriesList.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategory(cat);
-                        setIsCategoryDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-blue-50 transition-colors ${selectedCategory === cat ? "text-blue-700 font-bold bg-blue-50/50" : "text-slate-700"
+                <div
+                  role="listbox"
+                  aria-label="Search categories"
+                  className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200/90 rounded-2xl shadow-xl py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+                >
+                  {categoriesList.map((cat) => {
+                    const isSelected = selectedCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setSelectedCategory(cat);
+                          setIsCategoryDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isSelected
+                            ? "text-blue-600 font-semibold bg-blue-50/70"
+                            : "text-slate-700 font-medium hover:bg-slate-50"
                         }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                      >
+                        <span className="truncate">{cat}</span>
+                        {isSelected && (
+                          <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" aria-hidden="true" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -247,8 +280,8 @@ export function Header({
                   handleSearchSubmit();
                 }
               }}
-              placeholder="Search products, brands, models, or categories…"
-              className="flex-1 px-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden bg-transparent"
+              placeholder="Search products, brands, or categories…"
+              className="flex-1 min-w-0 px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden bg-transparent"
             />
 
             {/* Clear Button */}
@@ -256,44 +289,53 @@ export function Header({
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="p-1.5 text-slate-400 hover:text-slate-600 mr-1.5 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 mr-1 cursor-pointer rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                 aria-label="Clear search query"
               >
-                <X className="w-4 h-4" aria-hidden="true" />
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             )}
 
-            {/* Search Submit Button */}
+            {/* Inset Material Primary Search Button */}
             <button
               type="button"
               onClick={() => handleSearchSubmit()}
-              className="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 transition-colors flex items-center justify-center font-bold text-xs cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white h-8 px-4 mr-1.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 font-semibold text-xs cursor-pointer shrink-0 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
               aria-label="Submit search"
             >
-              <Search className="w-4 h-4" aria-hidden="true" />
+              <Search className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden lg:inline">Search</span>
             </button>
           </div>
 
           {/* Autocomplete Dropdown Preview */}
           {showSuggestions && searchQuery.trim().length >= 2 && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-              <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
-                <span>Matching suggestions for &quot;{searchQuery}&quot;</span>
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-200/90 overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span className="truncate pr-2">
+                  Results for <span className="text-slate-800 font-semibold">&quot;{searchQuery}&quot;</span>
+                </span>
                 {isLoadingSuggestions ? (
-                  <span className="text-[11px] text-blue-700 font-bold flex items-center gap-1" role="status" aria-live="polite">
+                  <span
+                    className="text-[11px] text-blue-600 font-semibold flex items-center gap-1.5 shrink-0"
+                    role="status"
+                    aria-live="polite"
+                  >
                     <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
                     Searching…
                   </span>
                 ) : (
-                  <span className="text-[11px] text-blue-700 font-bold">Live Catalog Preview</span>
+                  <span className="text-[11px] text-slate-400 font-medium shrink-0">
+                    Quick Preview
+                  </span>
                 )}
               </div>
 
               {/* Matching Categories section */}
               {suggestions.categories.length > 0 && (
-                <div className="px-4 py-2.5 bg-slate-50/70 border-b border-slate-100">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1.5">
-                    Matching Categories
+                <div className="px-4 py-2.5 bg-slate-50/40 border-b border-slate-100">
+                  <span className="text-[11px] font-semibold text-slate-400 block mb-1.5">
+                    Categories
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {suggestions.categories.map((cat) => (
@@ -304,7 +346,7 @@ export function Header({
                           setShowSuggestions(false);
                           router.push(`/category/${cat.slug}`);
                         }}
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50/50 transition-colors cursor-pointer text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         {cat.name}
                       </button>
@@ -321,49 +363,74 @@ export function Header({
                       key={item.id}
                       href={`/products/${item.slug}`}
                       onClick={() => setShowSuggestions(false)}
-                      className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors group focus-visible:outline-none focus-visible:bg-blue-50"
+                      className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-colors group focus-visible:outline-none focus-visible:bg-blue-50"
                     >
-                      <div className="flex items-center space-x-3 min-w-0 pr-2">
+                      <div className="flex items-center gap-3 min-w-0 pr-2">
                         {item.image ? (
-                          <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                          <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200/80">
                             <Image
                               src={item.image}
                               alt={item.title}
                               fill
-                              sizes="32px"
+                              sizes="36px"
                               className="object-cover"
                             />
                           </div>
                         ) : (
-                          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-black shrink-0">
+                          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
                             {item.category?.[0] || "P"}
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors truncate">
+                          <p className="text-sm font-medium text-slate-800 group-hover:text-blue-600 transition-colors truncate">
                             {item.title}
                           </p>
                           <span className="text-[11px] text-slate-400 truncate block">
-                            in {item.category}
+                            {item.category}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 shrink-0">
-                        <span className="text-xs font-black text-orange-600 tabular-nums">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-bold text-slate-900 tabular-nums">
                           {formatBDT(item.price)}
                         </span>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+                        <ArrowRight
+                          className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all"
+                          aria-hidden="true"
+                        />
                       </div>
                     </Link>
                   ))
                 ) : isLoadingSuggestions ? (
-                  <div className="px-4 py-6 text-center text-xs text-slate-500 flex items-center justify-center space-x-2" role="status" aria-live="polite">
+                  <div
+                    className="px-4 py-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2"
+                    role="status"
+                    aria-live="polite"
+                  >
                     <Loader2 className="w-4 h-4 animate-spin text-blue-600" aria-hidden="true" />
                     <span>Searching catalog…</span>
                   </div>
                 ) : (
-                  <div className="px-4 py-6 text-center text-xs text-slate-500">
-                    No matching products found. Press Enter to view all results in shop.
+                  <div className="px-4 py-6 text-center space-y-2">
+                    <p className="text-xs text-slate-500">
+                      No exact matches found for &quot;{searchQuery}&quot;.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <Link
+                        href="/collections/flash-sale"
+                        onClick={() => setShowSuggestions(false)}
+                        className="text-xs font-semibold text-blue-600 hover:underline px-2.5 py-1 rounded-lg bg-blue-50/70"
+                      >
+                        Browse Flash Sale
+                      </Link>
+                      <Link
+                        href="/collections/new-arrivals"
+                        onClick={() => setShowSuggestions(false)}
+                        className="text-xs font-semibold text-slate-700 hover:text-blue-600 px-2.5 py-1 rounded-lg bg-slate-100"
+                      >
+                        New Arrivals
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>
@@ -372,7 +439,7 @@ export function Header({
               <button
                 type="button"
                 onClick={() => handleSearchSubmit()}
-                className="w-full px-4 py-2.5 text-center text-xs font-bold text-blue-700 hover:bg-blue-50 bg-slate-50/80 border-t border-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                className="w-full px-4 py-2.5 text-center text-xs font-semibold text-blue-600 hover:bg-blue-50/60 bg-slate-50/70 border-t border-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               >
                 <span>View all results for &quot;{searchQuery}&quot;</span>
                 <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -382,23 +449,23 @@ export function Header({
         </div>
 
         {/* Right Actions: Wishlist, Account & Cart */}
-        <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Wishlist Button */}
           <button
             type="button"
             onClick={onOpenWishlist}
-            className="hidden md:flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 hover:text-rose-600 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+            className="hidden md:flex items-center gap-2 h-10 px-2.5 rounded-xl hover:bg-slate-100 text-slate-700 hover:text-slate-950 transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             aria-label={`Wishlist, ${wishlistCount} saved items`}
           >
-            <div className="relative">
-              <Heart className="w-5 h-5" aria-hidden="true" />
+            <div className="relative flex items-center justify-center">
+              <Heart className="w-[18px] h-[18px]" aria-hidden="true" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-2xs tabular-nums">
+                <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center border-2 border-white tabular-nums">
                   {wishlistCount}
                 </span>
               )}
             </div>
-            <span className="text-xs font-bold hidden lg:inline">Wishlist</span>
+            <span className="text-[13px] font-medium hidden lg:inline">Wishlist</span>
           </button>
 
           {/* User Account */}
@@ -407,41 +474,53 @@ export function Header({
               type="button"
               onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
               aria-expanded={isAccountDropdownOpen}
-              className="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              aria-haspopup="menu"
+              className={`h-10 flex items-center gap-2 px-2.5 rounded-xl transition-colors cursor-pointer group whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                isAccountDropdownOpen ? "bg-slate-100" : "hover:bg-slate-100"
+              }`}
               aria-label="Account Menu"
             >
               {isAuthenticated && user ? (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
               ) : (
-                <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 group-hover:text-blue-700 group-hover:border-blue-300 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-600 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors shrink-0">
                   <User className="w-4 h-4" aria-hidden="true" />
                 </div>
               )}
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] text-slate-400 font-semibold leading-tight">
+              <div className="flex flex-col text-left leading-tight">
+                <span className="text-[10px] text-slate-500 font-medium">
                   {isAuthenticated && user
-                    ? `Hello, ${user.name.split(" ")[0]}`
-                    : "Hello, Sign In"}
+                    ? `Hi, ${user.name.split(" ")[0]}`
+                    : "Sign in"}
                 </span>
-                <span className="text-xs font-bold text-slate-800 flex items-center leading-tight">
-                  My Account
-                  <ChevronDown className="w-3 h-3 ml-0.5 text-slate-400" aria-hidden="true" />
+                <span className="text-xs font-semibold text-slate-800 flex items-center gap-0.5">
+                  <span>Account</span>
+                  <ChevronDown
+                    className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${
+                      isAccountDropdownOpen ? "rotate-180" : ""
+                    }`}
+                    aria-hidden="true"
+                  />
                 </span>
               </div>
             </button>
 
             {/* Account Dropdown */}
             {isAccountDropdownOpen && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div
+                role="menu"
+                aria-label="Account options"
+                className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200/90 p-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+              >
                 {isAuthenticated && user ? (
                   <>
-                    <div className="px-3 py-2.5 bg-slate-50 rounded-xl mb-1 border border-slate-100">
-                      <p className="text-xs font-bold text-slate-900 truncate">
+                    <div className="px-3 py-2.5 bg-slate-50 rounded-xl mb-1.5 border border-slate-100">
+                      <p className="text-xs font-semibold text-slate-900 truncate">
                         {user.name}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate">
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
                         {user.email}
                       </p>
                     </div>
@@ -450,7 +529,7 @@ export function Header({
                       <Link
                         href="/account"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         <LayoutDashboard className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         Dashboard Overview
@@ -458,15 +537,15 @@ export function Header({
                       <Link
                         href="/account/profile"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         <User className="w-4 h-4 text-slate-400" aria-hidden="true" />
-                        Profile & Security
+                        Profile &amp; Security
                       </Link>
                       <Link
                         href="/account/addresses"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         <MapPin className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         Saved Addresses
@@ -474,7 +553,7 @@ export function Header({
                       <Link
                         href="/account#orders"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         <Package className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         My Orders
@@ -482,7 +561,7 @@ export function Header({
                       <Link
                         href="/messages"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                       >
                         <MessageSquare className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         Messages
@@ -490,19 +569,19 @@ export function Header({
                       <Link
                         href="/wishlist"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-rose-600 hover:bg-rose-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-rose-600 hover:bg-rose-50/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                       >
                         <Heart className="w-4 h-4 text-slate-400" aria-hidden="true" />
                         <span>Wishlist ({wishlistCount})</span>
                       </Link>
 
-                      <div className="pt-1 mt-1 border-t border-slate-100">
+                      <div className="pt-1.5 mt-1.5 border-t border-slate-100 space-y-0.5">
                         <Link
                           href="/freelancer/onboarding"
                           onClick={() => setIsAccountDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-900 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 mb-1"
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
                         >
-                          <Briefcase className="w-4 h-4 text-primary" aria-hidden="true" />
+                          <Briefcase className="w-4 h-4 text-blue-600" aria-hidden="true" />
                           <span>Become a Professional</span>
                         </Link>
                         <button
@@ -512,7 +591,7 @@ export function Header({
                             await logout();
                             router.push("/login");
                           }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                         >
                           <LogOut className="w-4 h-4 text-red-500" aria-hidden="true" />
                           Sign Out
@@ -521,14 +600,14 @@ export function Header({
                     </div>
                   </>
                 ) : (
-                  <div className="p-3 text-center space-y-3">
+                  <div className="p-2.5 text-center space-y-3">
                     <p className="text-xs text-slate-600">
                       Sign in to view your profile and orders
                     </p>
                     <Link
                       href="/login"
                       onClick={() => setIsAccountDropdownOpen(false)}
-                      className="block w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                      className="block w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     >
                       Sign In
                     </Link>
@@ -542,14 +621,15 @@ export function Header({
                         Create Account
                       </Link>
                     </p>
-                    <div className="pt-2 border-t border-slate-100">
+                    <div className="pt-2.5 border-t border-slate-100">
                       <Link
                         href="/register?role=freelancer"
                         onClick={() => setIsAccountDropdownOpen(false)}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900 hover:text-primary transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 hover:text-blue-600 transition-colors"
                       >
                         <Briefcase className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
-                        <span>Join as a Professional ➔</span>
+                        <span>Join as a Professional</span>
+                        <ArrowRight className="w-3 h-3" aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
@@ -558,24 +638,27 @@ export function Header({
             )}
           </div>
 
-          {/* Cart Icon & Total Preview */}
+          {/* Cart Action Pill */}
           <button
             type="button"
             onClick={onOpenCartModal}
-            className="flex items-center space-x-2.5 sm:space-x-3 px-3 py-2 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 transition-all cursor-pointer group shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="h-10 flex items-center gap-2.5 px-3 rounded-xl bg-slate-100/80 hover:bg-blue-50 border border-slate-200/80 hover:border-blue-200 transition-colors cursor-pointer group whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             aria-label={`Shopping Cart, ${cartCount} items, total ${formatBDT(cartTotal)}`}
           >
-            <div className="relative">
-              <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700 group-hover:text-blue-700 transition-colors" aria-hidden="true" />
+            <div className="relative flex items-center justify-center">
+              <ShoppingCart
+                className="w-[18px] h-[18px] text-slate-700 group-hover:text-blue-600 transition-colors"
+                aria-hidden="true"
+              />
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-orange-600 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-2xs tabular-nums">
+                <span className="absolute -top-2 -right-2 bg-orange-600 text-white text-[9px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-white tabular-nums">
                   {cartCount}
                 </span>
               )}
             </div>
-            <div className="hidden sm:flex flex-col text-left">
-              <span className="text-[10px] text-slate-400 font-semibold leading-none">Cart</span>
-              <span className="text-xs font-black text-slate-900 group-hover:text-blue-700 transition-colors leading-tight mt-1 tabular-nums">
+            <div className="hidden sm:flex flex-col text-left leading-tight">
+              <span className="text-[10px] text-slate-500 font-medium">Cart</span>
+              <span className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors tabular-nums">
                 {formatBDT(cartTotal)}
               </span>
             </div>
