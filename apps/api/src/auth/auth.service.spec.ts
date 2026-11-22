@@ -1,6 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { AuthService } from './auth.service.js';
-import { ConflictException, UnauthorizedException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  UnauthorizedException,
+  ForbiddenException,
+  NotFoundException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 
 describe('AuthService', () => {
@@ -43,6 +51,12 @@ describe('AuthService', () => {
       },
       user: {
         update: vi.fn(),
+      },
+      refreshSession: {
+        create: vi.fn(),
+        findUnique: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
     authService = new AuthService(
@@ -208,6 +222,171 @@ describe('AuthService', () => {
     it('should throw NotFoundException if profile user does not exist', async () => {
       usersServiceMock.findById.mockResolvedValue(null);
       await expect(authService.getProfile('unknown-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('per-device RefreshSession, OTP cooldown, and production guardrails', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it('should persist RefreshSession on login and rotate SHA-256 hash on refresh', async () => {
+      const mockUser = {
+        id: 'u-1',
+        email: 'mobile@az.local',
+        name: 'Mobile User',
+        passwordHash: 'hashed-pw',
+        role: Role.CUSTOMER,
+        isActive: true,
+        tokenVersion: 0,
+      };
+      usersServiceMock.findByEmail.mockResolvedValue(mockUser);
+      passwordServiceMock.verify.mockResolvedValue(true);
+      tokenServiceMock.generateTokens.mockResolvedValue({
+        accessToken: 'acc-1',
+        refreshToken: 'ref-1',
+      });
+
+      await authService.login({
+        email: 'mobile@az.local',
+        password: 'Password123!',
+        deviceId: 'pixel-7',
+      });
+
+      expect(prismaMock.refreshSession.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: 'u-1',
+            deviceId: 'pixel-7',
+            tokenHash: createHash('sha256').update('ref-1').digest('hex'),
+          }),
+        }),
+      );
+
+      // Now rotate valid token
+      const validHash = createHash('sha256').update('ref-1').digest('hex');
+      tokenServiceMock.verifyRefreshToken.mockResolvedValue({
+        sub: 'u-1',
+        tokenVersion: 0,
+        sid: 'sess-1',
+        deviceId: 'pixel-7',
+      });
+      usersServiceMock.findById.mockResolvedValue(mockUser);
+      prismaMock.refreshSession.findUnique.mockResolvedValue({
+        id: 'sess-1',
+        userId: 'u-1',
+        deviceId: 'pixel-7',
+        tokenHash: validHash,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      tokenServiceMock.generateTokens.mockResolvedValue({
+        accessToken: 'acc-2',
+        refreshToken: 'ref-2',
+      });
+
+      const rotated = await authService.refreshToken({ refreshToken: 'ref-1' });
+      expect(rotated.accessToken).toBe('acc-2');
+      expect(prismaMock.refreshSession.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'sess-1' },
+          data: expect.objectContaining({
+            tokenHash: createHash('sha256').update('ref-2').digest('hex'),
+          }),
+        }),
+      );
+    });
+
+    it('should detect rotated refresh token replay and revoke the session', async () => {
+      tokenServiceMock.verifyRefreshToken.mockResolvedValue({
+        sub: 'u-1',
+        tokenVersion: 0,
+        sid: 'sess-1',
+      });
+      usersServiceMock.findById.mockResolvedValue({
+        id: 'u-1',
+        isActive: true,
+        tokenVersion: 0,
+      });
+      prismaMock.refreshSession.findUnique.mockResolvedValue({
+        id: 'sess-1',
+        userId: 'u-1',
+        deviceId: 'pixel-7',
+        tokenHash: createHash('sha256').update('current-newest-ref').digest('hex'),
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      await expect(
+        authService.refreshToken({ refreshToken: 'replayed-old-ref' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(prismaMock.refreshSession.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'sess-1' },
+          data: expect.objectContaining({ revokedAt: expect.any(Date) }),
+        }),
+      );
+    });
+
+    it('should revoke only the active device session on single-device logout without incrementing tokenVersion', async () => {
+      const res = await authService.logout('u-1', { deviceId: 'pixel-7' });
+      expect(res.message).toBe('Successfully logged out');
+      expect(prismaMock.refreshSession.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'u-1', deviceId: 'pixel-7', revokedAt: null },
+        }),
+      );
+      expect(usersServiceMock.incrementTokenVersion).not.toHaveBeenCalled();
+    });
+
+    it('should reject OTP send within 60-second cooldown with HTTP 429', async () => {
+      prismaMock.otpCode.findFirst.mockResolvedValue({
+        id: 'otp-recent',
+        phone: '01707819647',
+        purpose: 'SIGNUP',
+        createdAt: new Date(Date.now() - 10_000),
+      });
+
+      try {
+        await authService.sendOtp({ phone: '01707819647', purpose: 'SIGNUP' });
+        expect.unreachable('Expected 429 Too Many Requests');
+      } catch (err) {
+        expect(err).toBeInstanceOf(HttpException);
+        expect((err as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+      }
+      expect(mobireachSmsMock.sendSms).not.toHaveBeenCalled();
+    });
+
+    it('should block customer@az-ecommerce.local dev backdoor in production', async () => {
+      process.env.NODE_ENV = 'production';
+      usersServiceMock.findByEmail.mockResolvedValue({
+        id: 'u-demo',
+        email: 'customer@az-ecommerce.local',
+        passwordHash: 'real-hash',
+        isActive: true,
+        role: Role.CUSTOMER,
+      });
+      passwordServiceMock.verify.mockResolvedValue(false);
+
+      await expect(
+        authService.login({
+          email: 'customer@az-ecommerce.local',
+          password: 'Customer123!',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should omit devOtp from sendOtp response in production', async () => {
+      process.env.NODE_ENV = 'production';
+      prismaMock.otpCode.findFirst.mockResolvedValue(null);
+      passwordServiceMock.hash.mockResolvedValue('otp-hash');
+
+      const res = await authService.sendOtp({ phone: '01707819647', purpose: 'SIGNUP' });
+      expect(res.success).toBe(true);
+      expect((res as any).devOtp).toBeUndefined();
     });
   });
 });

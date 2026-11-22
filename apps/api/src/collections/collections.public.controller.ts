@@ -1,6 +1,10 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CollectionsService } from './collections.service.js';
+import {
+  CollectionDetailResponseDto,
+  HomeCollectionResponseDto,
+} from './dto/public-collection-response.dto.js';
 
 @ApiTags('Public Collections')
 @Controller('collections')
@@ -10,7 +14,11 @@ export class CollectionsPublicController {
   @Get('home')
   @ApiOperation({ summary: 'Get active collections enabled for home page display with their matching products' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max products per collection (default 12)' })
-  @ApiResponse({ status: 200, description: 'List of home page collections with products' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of home page collections with products',
+    type: [HomeCollectionResponseDto],
+  })
   async getHomeCollections(@Query('limit') limit?: string) {
     const limitNum = limit ? parseInt(limit, 10) : 12;
     return this.collectionsService.findHomeCollections(limitNum);
@@ -21,7 +29,11 @@ export class CollectionsPublicController {
   @ApiParam({ name: 'slug', description: 'Collection slug', example: 'flash-sale' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiResponse({ status: 200, description: 'Collection with products' })
+  @ApiResponse({
+    status: 200,
+    description: 'Collection with products',
+    type: CollectionDetailResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Collection not found' })
   async getBySlug(
     @Param('slug') slug: string,

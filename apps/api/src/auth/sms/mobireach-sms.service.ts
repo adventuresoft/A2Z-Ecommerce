@@ -52,15 +52,27 @@ export class MobiReachSmsService {
   }
 
   private get username(): string {
-    return this.configService.get<string>('MOBIREACH_USERNAME') || 'advsoft';
+    const configured = this.configService.get<string>('MOBIREACH_USERNAME');
+    if (process.env.NODE_ENV === 'production') {
+      return configured || '';
+    }
+    return configured || 'advsoft';
   }
 
   private get password(): string {
-    return this.configService.get<string>('MOBIREACH_PASSWORD') || 'Dhaka@0088';
+    const configured = this.configService.get<string>('MOBIREACH_PASSWORD');
+    if (process.env.NODE_ENV === 'production') {
+      return configured || '';
+    }
+    return configured || 'Dhaka@0088';
   }
 
   private get sender(): string {
-    return this.configService.get<string>('MOBIREACH_SENDER_ID') || '01805976387';
+    const configured = this.configService.get<string>('MOBIREACH_SENDER_ID');
+    if (process.env.NODE_ENV === 'production') {
+      return configured || '';
+    }
+    return configured || '01805976387';
   }
 
   private async getAccessToken(forceNew = false): Promise<string | null> {
@@ -139,9 +151,18 @@ export class MobiReachSmsService {
    */
   async sendSms(rawPhone: string, content: string): Promise<SendSmsResult> {
     const receiver = this.normalizePhoneNumber(rawPhone);
+    const isProduction = process.env.NODE_ENV === 'production';
     const isDev =
-      process.env.NODE_ENV !== 'production' ||
-      this.configService.get<string>('SMS_SIMULATE') === 'true';
+      !isProduction &&
+      (process.env.NODE_ENV !== 'production' ||
+        this.configService.get<string>('SMS_SIMULATE') === 'true');
+
+    if (isProduction && (!this.username || !this.password || !this.sender)) {
+      return {
+        success: false,
+        error: 'SMS gateway credentials are not configured in production',
+      };
+    }
 
     try {
       let token = await this.getAccessToken(false);

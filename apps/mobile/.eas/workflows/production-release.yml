@@ -1,0 +1,50 @@
+name: Production Release (App Store & Google Play)
+
+on:
+  push:
+    tags: ['mobile-v*']
+
+jobs:
+  verify:
+    name: Pre-Release Quality Gate
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Full Client & Mobile Verification
+        run: |
+          pnpm --filter @repo/api-client check-types
+          pnpm --filter @repo/api-client test
+          pnpm --filter mobile check-types
+          pnpm --filter mobile test
+
+  build_android_prod:
+    name: Build Android Production AAB
+    needs: [verify]
+    type: build
+    params:
+      platform: android
+      profile: production
+
+  build_ios_prod:
+    name: Build iOS Production IPA
+    needs: [verify]
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  submit_android:
+    name: Submit to Google Play (Internal Track)
+    needs: [build_android_prod]
+    type: submit
+    params:
+      build_id: ${{ needs.build_android_prod.outputs.build_id }}
+      profile: production
+
+  submit_ios:
+    name: Submit to App Store Connect (TestFlight)
+    needs: [build_ios_prod]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios_prod.outputs.build_id }}
+      profile: production

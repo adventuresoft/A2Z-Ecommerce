@@ -33,14 +33,16 @@ describe('AccountAddressesService and Controller', () => {
 
       const res = await service.listAddresses('u-1');
       expect(res).toEqual(addresses);
-      expect(prismaMock.userAddress.findMany).toHaveBeenCalledWith({
-        where: { userId: 'u-1' },
-        orderBy: [
-          { isDefaultShipping: 'desc' },
-          { isDefaultBilling: 'desc' },
-          { createdAt: 'desc' },
-        ],
-      });
+      expect(prismaMock.userAddress.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'u-1' },
+          orderBy: [
+            { isDefaultShipping: 'desc' },
+            { isDefaultBilling: 'desc' },
+            { createdAt: 'desc' },
+          ],
+        }),
+      );
     });
 
     it('should throw NotFoundException if address not found or not owned by user', async () => {

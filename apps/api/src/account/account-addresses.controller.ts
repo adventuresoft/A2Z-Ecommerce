@@ -21,10 +21,15 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { AccessPayload } from '../auth/interfaces/token-payload.interface.js';
 import { AccountAddressesService } from './account-addresses.service.js';
-import { CreateAddressDto, UpdateAddressDto } from './dto/index.js';
+import {
+  AccountMessageResponseDto,
+  CreateAddressDto,
+  UpdateAddressDto,
+  UserAddressResponseDto,
+} from './dto/index.js';
 
 @ApiTags('Account Addresses')
-@ApiBearerAuth('access-token')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('account/addresses')
 export class AccountAddressesController {
@@ -34,7 +39,7 @@ export class AccountAddressesController {
 
   @Get()
   @ApiOperation({ summary: 'List customer saved addresses' })
-  @ApiResponse({ status: 200, description: 'Addresses retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Addresses retrieved successfully', type: [UserAddressResponseDto] })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async listAddresses(@CurrentUser() user: AccessPayload) {
     return this.addressesService.listAddresses(user.sub);
@@ -42,7 +47,7 @@ export class AccountAddressesController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new customer address' })
-  @ApiResponse({ status: 201, description: 'Address created successfully' })
+  @ApiResponse({ status: 201, description: 'Address created successfully', type: UserAddressResponseDto })
   @ApiResponse({ status: 400, description: 'Validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createAddress(
@@ -54,7 +59,7 @@ export class AccountAddressesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific saved address by id' })
-  @ApiResponse({ status: 200, description: 'Address retrieved successfully' })
+  @ApiResponse({ status: 200, description: 'Address retrieved successfully', type: UserAddressResponseDto })
   @ApiResponse({ status: 404, description: 'Address not found' })
   async getAddress(
     @CurrentUser() user: AccessPayload,
@@ -65,7 +70,7 @@ export class AccountAddressesController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update customer saved address' })
-  @ApiResponse({ status: 200, description: 'Address updated successfully' })
+  @ApiResponse({ status: 200, description: 'Address updated successfully', type: UserAddressResponseDto })
   @ApiResponse({ status: 400, description: 'Validation failed' })
   @ApiResponse({ status: 404, description: 'Address not found' })
   async updateAddress(
@@ -79,7 +84,7 @@ export class AccountAddressesController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a customer saved address' })
-  @ApiResponse({ status: 200, description: 'Address deleted successfully' })
+  @ApiResponse({ status: 200, description: 'Address deleted successfully', type: AccountMessageResponseDto })
   @ApiResponse({ status: 404, description: 'Address not found' })
   async deleteAddress(
     @CurrentUser() user: AccessPayload,
@@ -91,7 +96,7 @@ export class AccountAddressesController {
   @Put(':id/default-shipping')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Set address as default shipping address' })
-  @ApiResponse({ status: 200, description: 'Default shipping set successfully' })
+  @ApiResponse({ status: 200, description: 'Default shipping set successfully', type: UserAddressResponseDto })
   @ApiResponse({ status: 404, description: 'Address not found' })
   async setDefaultShipping(
     @CurrentUser() user: AccessPayload,
@@ -103,7 +108,7 @@ export class AccountAddressesController {
   @Put(':id/default-billing')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Set address as default billing address' })
-  @ApiResponse({ status: 200, description: 'Default billing set successfully' })
+  @ApiResponse({ status: 200, description: 'Default billing set successfully', type: UserAddressResponseDto })
   @ApiResponse({ status: 404, description: 'Address not found' })
   async setDefaultBilling(
     @CurrentUser() user: AccessPayload,

@@ -4,9 +4,11 @@ packages:
 allowBuilds:
   argon2: true
   '@prisma/engines': true
+  '@parcel/watcher': false
+  '@sentry/cli': true
   '@scarf/scarf': false
   esbuild: true
   prisma: true
-  sharp: false
+  sharp: true
   unrs-resolver: false
   workerd: true

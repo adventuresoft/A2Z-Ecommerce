@@ -11,7 +11,7 @@ describe('MarketplaceService', () => {
 
   beforeEach(() => {
     prismaMock = {
-      freelancerProfile: { findMany: vi.fn(), findFirst: vi.fn() },
+      freelancerProfile: { findMany: vi.fn(), findFirst: vi.fn(), count: vi.fn().mockResolvedValue(3) },
       contactReveal: {
         findFirst: vi.fn(),
         findMany: vi.fn(),

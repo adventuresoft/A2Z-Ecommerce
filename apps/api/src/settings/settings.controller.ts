@@ -5,7 +5,7 @@ import {
   Param,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { SettingResponseDto } from './dto/index.js';
+import { PublicSettingsResponseDto, SettingResponseDto } from './dto/index.js';
 import { SettingsService } from './settings.service.js';
 
 @ApiTags('Store Settings')
@@ -20,29 +20,22 @@ export class SettingsController {
   @ApiResponse({
     status: 200,
     description: 'Key-value map of public store settings',
-    schema: {
-      type: 'object',
-      example: {
-        store_name: 'A2Z E-Commerce Store',
-        default_currency: 'BDT',
-        currency_symbol: '৳',
-        enable_cod: true,
-      },
-    },
+    type: PublicSettingsResponseDto,
   })
-  async getPublicSettings(): Promise<Record<string, any>> {
+  async getPublicSettings(): Promise<PublicSettingsResponseDto> {
     return this.settingsService.getPublicSettings();
   }
 
   @Get('public')
   @ApiOperation({
-    summary: 'Get all public store settings (hero banners, contact, policies)',
+    summary: 'Get all public store settings (hero banners, contact, policies, mobile version gates)',
   })
   @ApiResponse({
     status: 200,
-    description: 'Key-value map of public store settings with active hero banners',
+    description: 'Key-value map of public store settings with active hero banners and mobile version gates',
+    type: PublicSettingsResponseDto,
   })
-  async getPublicSettingsExplicit(): Promise<Record<string, any>> {
+  async getPublicSettingsExplicit(): Promise<PublicSettingsResponseDto> {
     return this.settingsService.getPublicSettings();
   }
 

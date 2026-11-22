@@ -1,140 +1,82 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException } from '@nestjs/common';
-import fs from 'node:fs';
-import { join } from 'node:path';
+import { describe, it, expect } from 'vitest';
+import sharp from 'sharp';
 import {
-  createImageUploadOptions,
-  ensureUploadDirs,
-  MAX_IMAGE_FILE_SIZE,
+  optimizeAndStoreImage,
+  type MediaStorageAdapter,
 } from './image-upload.js';
 
-describe('image-upload helper', () => {
-  describe('createImageUploadOptions', () => {
-    it('should configure 5 MB file size limit', () => {
-      const options = createImageUploadOptions('brands', 'brand');
-      const limits = options.limits as any;
-      expect(limits?.fileSize).toBe(5 * 1024 * 1024);
-      expect(limits?.fileSize).toBe(MAX_IMAGE_FILE_SIZE);
+class InMemoryMediaStorageAdapter implements MediaStorageAdapter {
+  public readonly files = new Map<string, Buffer>();
+
+  async save(subdir: string, filename: string, data: Buffer) {
+    const key = `${subdir}/${filename}`;
+    this.files.set(key, data);
+    return { path: `/mem/${key}`, url: `/uploads/${key}` };
+  }
+
+  async remove(subdir: string, filename: string) {
+    this.files.delete(`${subdir}/${filename}`);
+  }
+}
+
+describe('image-upload WebP optimization pipeline', () => {
+  it('converts raster PNG uploads into primary, 800px medium, and 400px thumb WebP derivatives', async () => {
+    const pngBuffer = await sharp({
+      create: {
+        width: 1200,
+        height: 1200,
+        channels: 4,
+        background: { r: 29, g: 78, b: 216, alpha: 1 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const storage = new InMemoryMediaStorageAdapter();
+    const res = await optimizeAndStoreImage({
+      buffer: pngBuffer,
+      originalname: 'hero-product.png',
+      mimetype: 'image/png',
+      subdir: 'products',
+      filePrefix: 'product',
+      storage,
     });
 
-    it('should accept valid image MIME types', () => {
-      const options = createImageUploadOptions('brands', 'brand');
-      const fileFilter = options.fileFilter as (
-        req: any,
-        file: any,
-        cb: (err: any, accept: boolean) => void,
-      ) => void;
+    expect(res.mimetype).toBe('image/webp');
+    expect(res.filename.endsWith('.webp')).toBe(true);
+    expect(res.primaryUrl).toMatch(/^\/uploads\/products\/product_.*\.webp$/);
+    expect(res.mediumUrl).toMatch(/-md\.webp$/);
+    expect(res.thumbUrl).toMatch(/-thumb\.webp$/);
+    expect(storage.files.size).toBe(3);
 
-      const validMimes = [
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/webp',
-        'image/svg+xml',
-        'image/gif',
-      ];
+    const thumbKey = Array.from(storage.files.keys()).find((k) => k.endsWith('-thumb.webp'))!;
+    const thumbMeta = await sharp(storage.files.get(thumbKey)!).metadata();
+    expect(thumbMeta.format).toBe('webp');
+    expect(thumbMeta.width).toBe(400);
 
-      for (const mime of validMimes) {
-        const cb = vi.fn();
-        fileFilter({}, { mimetype: mime } as any, cb);
-        expect(cb).toHaveBeenCalledWith(null, true);
-      }
-    });
-
-    it('should reject invalid non-image MIME types with BadRequestException', () => {
-      const options = createImageUploadOptions('brands', 'brand');
-      const fileFilter = options.fileFilter as (
-        req: any,
-        file: any,
-        cb: (err: any, accept: boolean) => void,
-      ) => void;
-
-      const invalidMimes = [
-        'application/pdf',
-        'text/plain',
-        'image/bmp',
-        'image/tiff',
-        'video/mp4',
-        'application/javascript',
-      ];
-
-      for (const mime of invalidMimes) {
-        const cb = vi.fn();
-        fileFilter({}, { mimetype: mime } as any, cb);
-        expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
-        const err = cb.mock.calls[0][0];
-        expect(err.message).toBe(
-          'Only image files (JPG, PNG, WEBP, SVG, GIF) are allowed',
-        );
-      }
-    });
-
-    it('should generate filename in <prefix>_<uuid><ext> format', () => {
-      const options = createImageUploadOptions('brands', 'brand');
-      const storage = options.storage as any;
-
-      const cb = vi.fn();
-      const file = { originalname: 'My-Logo.PNG' };
-      storage.getFilename({}, file, cb);
-
-      expect(cb).toHaveBeenCalledWith(null, expect.any(String));
-      const generatedFilename = cb.mock.calls[0][1];
-
-      // Format: brand_<uuid>.png
-      const regex =
-        /^brand_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$/;
-      expect(generatedFilename).toMatch(regex);
-    });
-
-    it('should store files in process.cwd()/uploads/<subdir>', () => {
-      const options = createImageUploadOptions('categories', 'cat');
-      const storage = options.storage as any;
-
-      const cb = vi.fn();
-      storage.getDestination({}, {}, cb);
-
-      expect(cb).toHaveBeenCalledWith(
-        null,
-        join(process.cwd(), 'uploads', 'categories'),
-      );
-    });
+    const medKey = Array.from(storage.files.keys()).find((k) => k.endsWith('-md.webp'))!;
+    const medMeta = await sharp(storage.files.get(medKey)!).metadata();
+    expect(medMeta.format).toBe('webp');
+    expect(medMeta.width).toBe(800);
   });
 
-  describe('ensureUploadDirs', () => {
-    beforeEach(() => {
-      vi.restoreAllMocks();
+  it('bypasses raster resizing safely for SVG uploads', async () => {
+    const svgBuffer = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"></svg>');
+    const storage = new InMemoryMediaStorageAdapter();
+
+    const res = await optimizeAndStoreImage({
+      buffer: svgBuffer,
+      originalname: 'logo.svg',
+      mimetype: 'image/svg+xml',
+      subdir: 'brands',
+      filePrefix: 'brand',
+      storage,
     });
 
-    it('should create directories if they do not exist', () => {
-      const existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(false);
-      const mkdirSyncSpy = vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined as any);
-
-      ensureUploadDirs(['categories', 'brands']);
-
-      expect(existsSyncSpy).toHaveBeenCalledWith(
-        join(process.cwd(), 'uploads', 'categories'),
-      );
-      expect(existsSyncSpy).toHaveBeenCalledWith(
-        join(process.cwd(), 'uploads', 'brands'),
-      );
-      expect(mkdirSyncSpy).toHaveBeenCalledWith(
-        join(process.cwd(), 'uploads', 'categories'),
-        { recursive: true },
-      );
-      expect(mkdirSyncSpy).toHaveBeenCalledWith(
-        join(process.cwd(), 'uploads', 'brands'),
-        { recursive: true },
-      );
-    });
-
-    it('should skip creating directories if they already exist', () => {
-      const existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-      const mkdirSyncSpy = vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined as any);
-
-      ensureUploadDirs(['categories', 'brands']);
-
-      expect(existsSyncSpy).toHaveBeenCalledTimes(2);
-      expect(mkdirSyncSpy).not.toHaveBeenCalled();
-    });
+    expect(res.mimetype).toBe('image/svg+xml');
+    expect(res.filename.endsWith('.svg')).toBe(true);
+    expect(res.mediumUrl).toBeUndefined();
+    expect(res.thumbUrl).toBeUndefined();
+    expect(storage.files.size).toBe(1);
   });
 });

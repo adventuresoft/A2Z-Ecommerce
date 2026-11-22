@@ -10,6 +10,8 @@ export interface AccessPayload {
 export interface RefreshPayload {
   sub: string;
   tokenVersion: number;
+  sid?: string;
+  deviceId?: string;
 }
 
 export interface VerificationTokenPayload {

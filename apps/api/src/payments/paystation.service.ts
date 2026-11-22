@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +11,7 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  Role,
 } from '@prisma/client';
 import {
   PaystationInitiateResponseDto,
@@ -56,17 +58,62 @@ export class PaystationService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
+    const isProduction = process.env.NODE_ENV === 'production';
     this.merchantId = this.configService.get<string>(
       'PAYSTATION_MERCHANT_ID',
-      '104-1653730183',
+      isProduction ? '' : '104-1653730183',
     );
     this.password = this.configService.get<string>(
       'PAYSTATION_PASSWORD',
-      'gamecoderstorepass',
+      isProduction ? '' : 'gamecoderstorepass',
     );
     this.baseUrl = this.configService
-      .get<string>('PAYSTATION_BASE_URL', 'https://sandbox.paystation.com.bd')
+      .get<string>(
+        'PAYSTATION_BASE_URL',
+        isProduction ? 'https://api.paystation.com.bd' : 'https://sandbox.paystation.com.bd',
+      )
       .replace(/\/+$/, '');
+  }
+
+  private validateCallbackUrl(callbackUrl: string): void {
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (callbackUrl.startsWith('azecommerce://')) {
+      return;
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(callbackUrl);
+    } catch {
+      throw new BadRequestException('Invalid callback URL');
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new BadRequestException('Unsupported callback URL protocol');
+    }
+
+    const origin = parsed.origin;
+    if (
+      !isProduction &&
+      /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(
+        origin,
+      )
+    ) {
+      return;
+    }
+
+    const allowedOriginsRaw = [
+      this.configService.get<string>('PAYSTATION_ALLOWED_CALLBACK_ORIGINS', ''),
+      this.configService.get<string>('CORS_ORIGIN', ''),
+    ]
+      .join(',')
+      .split(',')
+      .map((item) => item.trim().replace(/\/+$/, ''))
+      .filter(Boolean);
+
+    if (!allowedOriginsRaw.includes(origin)) {
+      throw new BadRequestException(`Callback URL origin '${origin}' is not permitted`);
+    }
   }
 
   /**
@@ -83,6 +130,10 @@ export class PaystationService {
 
     const merchantId = setting?.merchantId?.trim() || this.merchantId;
     const password = setting?.password?.trim() || this.password;
+
+    if (process.env.NODE_ENV === 'production' && (!merchantId || !password)) {
+      throw new BadRequestException('PayStation credentials are not configured in production');
+    }
 
     let baseUrl = this.baseUrl;
     if (setting && setting.isSandbox === false) {
@@ -103,6 +154,7 @@ export class PaystationService {
   async initiatePayment(
     orderId: string,
     customCallbackUrl?: string,
+    actor?: { sub: string; role: Role },
   ): Promise<PaystationInitiateResponseDto> {
     const order = await this.prisma.order.findFirst({
       where: {
@@ -119,6 +171,20 @@ export class PaystationService {
       throw new NotFoundException(`Order '${orderId}' not found`);
     }
 
+    if (actor) {
+      const isPrivileged =
+        actor.role === Role.SUPER_ADMIN ||
+        actor.role === Role.ADMIN ||
+        actor.role === Role.SHOP_MANAGER;
+      if (!isPrivileged && order.userId !== actor.sub) {
+        throw new ForbiddenException('You are not authorized to initiate payment for this order');
+      }
+    }
+
+    if (order.orderStatus === OrderStatus.CANCELLED) {
+      throw new BadRequestException(`Order '${order.orderNumber}' has been cancelled.`);
+    }
+
     if (order.paymentStatus === PaymentStatus.PAID) {
       throw new BadRequestException(`Order '${order.orderNumber}' has already been paid.`);
     }
@@ -129,6 +195,8 @@ export class PaystationService {
         'PAYSTATION_CALLBACK_URL',
         'http://localhost:3000/checkout/payment-callback',
       );
+
+    this.validateCallbackUrl(callbackUrl);
 
     const { merchantId, password, baseUrl } = await this.getCredentials();
 
@@ -270,8 +338,8 @@ export class PaystationService {
       });
 
       if (trxStatus === 'success' || trxStatus === 'successful') {
-        if (order) {
-          // Perform database state transition in atomic transaction
+        if (order && order.paymentStatus !== PaymentStatus.PAID) {
+          // Perform database state transition in atomic transaction (idempotent guard)
           await this.prisma.$transaction(async (tx) => {
             // Update order
             await tx.order.update({

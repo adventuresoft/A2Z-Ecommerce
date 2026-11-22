@@ -155,6 +155,9 @@ describe('OrdersService', () => {
           productVariant: {
             findMany: vi.fn().mockResolvedValue([mockVariant]),
           },
+          paymentMethodSetting: {
+            findUnique: vi.fn().mockResolvedValue({ code: 'CASH_ON_DELIVERY', isEnabled: true }),
+          },
           order: {
             findUnique: vi.fn().mockResolvedValue(null),
             create: vi.fn().mockResolvedValue({ id: 'order-1' }),
@@ -213,6 +216,9 @@ describe('OrdersService', () => {
         const tx = {
           productVariant: {
             findMany: vi.fn().mockResolvedValue([mockVariant]),
+          },
+          paymentMethodSetting: {
+            findUnique: vi.fn().mockResolvedValue({ code: 'CASH_ON_DELIVERY', isEnabled: true }),
           },
           order: {
             findUnique: vi.fn().mockResolvedValue(null),
@@ -329,6 +335,9 @@ describe('OrdersService', () => {
       prismaMock.$transaction.mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findMany: vi.fn().mockResolvedValue([mockVariant]) },
+          paymentMethodSetting: {
+            findUnique: vi.fn().mockResolvedValue({ code: 'CASH_ON_DELIVERY', isEnabled: true }),
+          },
           order: {
             findUnique: vi.fn().mockResolvedValue(null),
             create: vi.fn().mockResolvedValue({ id: 'order-idemp-1' }),
@@ -398,6 +407,9 @@ describe('OrdersService', () => {
       prismaMock.$transaction.mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findMany: vi.fn().mockResolvedValue([mockVariant]) },
+          paymentMethodSetting: {
+            findUnique: vi.fn().mockResolvedValue({ code: 'CASH_ON_DELIVERY', isEnabled: true }),
+          },
           order: {
             findUnique: vi.fn().mockResolvedValue(null),
             create: vi.fn().mockImplementation(({ data }: any) => {

@@ -173,6 +173,27 @@ describe('SettingsService', () => {
       expect(result.heroBanners[0].id).toBe('b-1');
       expect(result.heroBanners[1].id).toBe('b-2');
     });
+
+    it('should expose public mobile version gate settings', async () => {
+      prismaMock.storeSetting.findMany.mockResolvedValue([
+        {
+          key: 'mobile.min_supported_version',
+          value: '1.0.0',
+          dataType: 'STRING',
+          isPublic: true,
+        },
+        {
+          key: 'mobile.latest_version',
+          value: '1.2.0',
+          dataType: 'STRING',
+          isPublic: true,
+        },
+      ]);
+
+      const result = await service.getPublicSettings();
+      expect(result['mobile.min_supported_version']).toBe('1.0.0');
+      expect(result['mobile.latest_version']).toBe('1.2.0');
+    });
   });
 
   describe('create', () => {

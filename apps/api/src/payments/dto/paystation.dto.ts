@@ -12,10 +12,14 @@ export class InitiatePaystationDto {
 
   @ApiPropertyOptional({
     example: 'http://localhost:3000/checkout/payment-callback',
-    description: 'Optional custom callback URL after payment completion',
+    description: 'Optional custom callback URL after payment completion (https or azecommerce://)',
   })
   @IsOptional()
-  @IsUrl({ require_tld: false })
+  @IsUrl({
+    require_tld: false,
+    require_protocol: true,
+    protocols: ['http', 'https', 'azecommerce'],
+  })
   callbackUrl?: string;
 }
 

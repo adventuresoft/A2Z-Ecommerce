@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "REPLACE_WITH_APPLE_TEAM_ID.com.atozecommerce.app",
+          "REPLACE_WITH_APPLE_TEAM_ID.com.atozecommerce.app.staging"
+        ],
+        "components": [
+          { "/": "/product/*" },
+          { "/": "/category/*" },
+          { "/": "/collection/*" },
+          { "/": "/orders/*" },
+          { "/": "/track/*" },
+          { "/": "/checkout/payment-callback*" }
+        ]
+      }
+    ]
+  }
+}

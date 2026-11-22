@@ -2214,6 +2214,22 @@ const DEFAULT_STORE_SETTINGS = [
     description: 'Public contact telephone number',
   },
   {
+    key: 'mobile.min_supported_version',
+    value: '1.0.0',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Minimum supported mobile app semantic version (triggers force update when lower)',
+  },
+  {
+    key: 'mobile.latest_version',
+    value: '1.0.0',
+    dataType: 'STRING',
+    group: 'GENERAL',
+    isPublic: true,
+    description: 'Latest published mobile app semantic version (triggers soft update banner when lower)',
+  },
+  {
     key: 'support_hotline',
     value: '16247',
     dataType: 'STRING',

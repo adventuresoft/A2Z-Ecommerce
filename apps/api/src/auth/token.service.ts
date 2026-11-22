@@ -16,13 +16,16 @@ export class TokenService {
     private readonly configService: ConfigService,
   ) {}
 
-  async generateTokens(user: {
-    id: string;
-    email?: string | null;
-    phone?: string | null;
-    role: Role;
-    tokenVersion: number;
-  }): Promise<TokenPair> {
+  async generateTokens(
+    user: {
+      id: string;
+      email?: string | null;
+      phone?: string | null;
+      role: Role;
+      tokenVersion: number;
+    },
+    sessionContext?: { sid?: string; deviceId?: string },
+  ): Promise<TokenPair> {
     const accessPayload: AccessPayload = {
       sub: user.id,
       email: user.email ?? null,
@@ -33,6 +36,8 @@ export class TokenService {
     const refreshPayload: RefreshPayload = {
       sub: user.id,
       tokenVersion: user.tokenVersion,
+      ...(sessionContext?.sid ? { sid: sessionContext.sid } : {}),
+      ...(sessionContext?.deviceId ? { deviceId: sessionContext.deviceId } : {}),
     };
 
     const accessSecret = this.configService.get<string>(

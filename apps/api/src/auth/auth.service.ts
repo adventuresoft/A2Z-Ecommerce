@@ -5,8 +5,12 @@ import {
   ForbiddenException,
   NotFoundException,
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { createHash, randomUUID } from 'node:crypto';
+import type { Role } from '@prisma/client';
 import { UsersService } from '../users/users.service.js';
 import { PasswordService } from './password.service.js';
 import { TokenService } from './token.service.js';
@@ -16,6 +20,7 @@ import {
   RegisterDto,
   LoginDto,
   RefreshTokenDto,
+  LogoutDto,
   CheckPhoneDto,
   SendOtpDto,
   VerifyOtpDto,
@@ -23,6 +28,14 @@ import {
   PhoneLoginDto,
   PhoneResetPasswordDto,
 } from './dto/index.js';
+
+export interface AuthSessionMeta {
+  deviceId?: string;
+  userAgent?: string;
+}
+
+const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const OTP_COOLDOWN_MS = 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -36,18 +49,57 @@ export class AuthService {
     private readonly prisma: PrismaService,
   ) {}
 
-  /**
-   * Helper to format phone number to clean 11 digits: 01XXXXXXXXX
-   */
   private cleanPhone(phone: string): string {
     return this.mobireachSmsService.formatLocalPhoneNumber(phone);
   }
 
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async issueDeviceSession(
+    user: {
+      id: string;
+      email?: string | null;
+      phone?: string | null;
+      role: Role;
+      tokenVersion?: number;
+    },
+    meta?: AuthSessionMeta,
+  ) {
+    const sid = randomUUID();
+    const deviceId = (meta?.deviceId?.trim() || sid).slice(0, 128);
+    const tokenUser = {
+      id: user.id,
+      email: user.email ?? null,
+      phone: user.phone ?? null,
+      role: user.role,
+      tokenVersion: user.tokenVersion ?? 0,
+    };
+
+    const tokens = await this.tokenService.generateTokens(tokenUser, {
+      sid,
+      deviceId,
+    });
+
+    if (tokens?.refreshToken && this.prisma?.refreshSession?.create) {
+      await this.prisma.refreshSession.create({
+        data: {
+          id: sid,
+          userId: user.id,
+          deviceId,
+          tokenHash: this.hashToken(tokens.refreshToken),
+          userAgent: meta?.userAgent?.slice(0, 255) || null,
+          expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+        },
+      });
+    }
+
+    return tokens;
+  }
+
   // ==================== PHONE AUTHENTICATION FLOW ====================
 
-  /**
-   * Check if a phone number is registered.
-   */
   async checkPhone(dto: CheckPhoneDto) {
     const phone = this.cleanPhone(dto.phone);
     if (!phone || phone.length < 10) {
@@ -62,9 +114,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Send 4-digit OTP to phone number via MobiReach SMS.
-   */
   async sendOtp(dto: SendOtpDto) {
     const phone = this.cleanPhone(dto.phone);
     if (!phone || phone.length < 10) {
@@ -73,7 +122,6 @@ export class AuthService {
 
     const purpose = dto.purpose || 'SIGNUP';
 
-    // If resetting password, verify user exists
     if (purpose === 'RESET_PASSWORD') {
       const user = await this.usersService.findByPhone(phone);
       if (!user) {
@@ -81,11 +129,30 @@ export class AuthService {
       }
     }
 
-    // Generate 4-digit random code
+    // Enforce server-side 60-second resend cooldown per phone number & purpose
+    const latestOtp = await this.prisma.otpCode.findFirst({
+      where: { phone, purpose },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (latestOtp?.createdAt) {
+      const elapsedMs = Date.now() - new Date(latestOtp.createdAt).getTime();
+      if (elapsedMs < OTP_COOLDOWN_MS) {
+        const retryAfterSeconds = Math.max(1, Math.ceil((OTP_COOLDOWN_MS - elapsedMs) / 1000));
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: `Please wait ${retryAfterSeconds} seconds before requesting another OTP`,
+            retryAfterSeconds,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
     const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
     const codeHash = await this.passwordService.hash(otpCode);
 
-    // Invalidate previous active OTPs for this phone and purpose
     await this.prisma.otpCode.updateMany({
       where: {
         phone,
@@ -97,7 +164,6 @@ export class AuthService {
       },
     });
 
-    // Save new OTP record (valid for 5 minutes)
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     await this.prisma.otpCode.create({
       data: {
@@ -109,7 +175,6 @@ export class AuthService {
       },
     });
 
-    // Send SMS via MobiReach
     const smsMessage = `Your A to Z verification code is ${otpCode}. Valid for 5 minutes.`;
     const smsRes = await this.mobireachSmsService.sendSms(phone, smsMessage);
 
@@ -125,13 +190,10 @@ export class AuthService {
       expiresInSeconds: 300,
       resendInSeconds: 60,
       message: 'Verification code sent successfully',
-      ...(process.env.NODE_ENV !== 'production' && { devOtp: otpCode }),
+      ...(process.env.NODE_ENV === 'development' && { devOtp: otpCode }),
     };
   }
 
-  /**
-   * Verify 4-digit OTP code. If valid, returns a one-time signup/reset token.
-   */
   async verifyOtp(dto: VerifyOtpDto) {
     const phone = this.cleanPhone(dto.phone);
     const purpose = dto.purpose || 'SIGNUP';
@@ -151,7 +213,9 @@ export class AuthService {
     });
 
     if (!otpRecord) {
-      throw new BadRequestException('Verification code has expired or is invalid. Please request a new code.');
+      throw new BadRequestException(
+        'Verification code has expired or is invalid. Please request a new code.',
+      );
     }
 
     if (otpRecord.attempts >= 5) {
@@ -168,16 +232,16 @@ export class AuthService {
         where: { id: otpRecord.id },
         data: { attempts: { increment: 1 } },
       });
-      throw new BadRequestException('Invalid 4-digit verification code. Please check and try again.');
+      throw new BadRequestException(
+        'Invalid 4-digit verification code. Please check and try again.',
+      );
     }
 
-    // Mark OTP as used
     await this.prisma.otpCode.update({
       where: { id: otpRecord.id },
       data: { isUsed: true },
     });
 
-    // Generate secure one-time verification token
     const token = await this.tokenService.generateVerificationToken(phone, purpose);
 
     return {
@@ -189,10 +253,7 @@ export class AuthService {
     };
   }
 
-  /**
-   * Register a new user using verified phone and signup token.
-   */
-  async phoneRegister(dto: PhoneRegisterDto) {
+  async phoneRegister(dto: PhoneRegisterDto, meta?: AuthSessionMeta) {
     const payload = await this.tokenService.verifyVerificationToken(dto.signupToken, 'SIGNUP');
     const phone = this.cleanPhone(payload.phone);
 
@@ -218,7 +279,10 @@ export class AuthService {
       name: fullName,
     });
 
-    const tokens = await this.tokenService.generateTokens(user);
+    const tokens = await this.issueDeviceSession(user, {
+      deviceId: dto.deviceId || meta?.deviceId,
+      userAgent: meta?.userAgent,
+    });
 
     return {
       id: user.id,
@@ -237,10 +301,7 @@ export class AuthService {
     };
   }
 
-  /**
-   * Login using mobile number and password.
-   */
-  async phoneLogin(dto: PhoneLoginDto) {
+  async phoneLogin(dto: PhoneLoginDto, meta?: AuthSessionMeta) {
     const phone = this.cleanPhone(dto.phone);
     const user = await this.usersService.findByPhone(phone);
 
@@ -257,7 +318,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid mobile number or password');
     }
 
-    const tokens = await this.tokenService.generateTokens(user);
+    const tokens = await this.issueDeviceSession(user, {
+      deviceId: dto.deviceId || meta?.deviceId,
+      userAgent: meta?.userAgent,
+    });
 
     return {
       ...tokens,
@@ -271,11 +335,11 @@ export class AuthService {
     };
   }
 
-  /**
-   * Reset user password with verified reset token.
-   */
-  async phoneResetPassword(dto: PhoneResetPasswordDto) {
-    const payload = await this.tokenService.verifyVerificationToken(dto.resetToken, 'RESET_PASSWORD');
+  async phoneResetPassword(dto: PhoneResetPasswordDto, meta?: AuthSessionMeta) {
+    const payload = await this.tokenService.verifyVerificationToken(
+      dto.resetToken,
+      'RESET_PASSWORD',
+    );
     const phone = this.cleanPhone(payload.phone);
 
     const user = await this.usersService.findByPhone(phone);
@@ -292,7 +356,18 @@ export class AuthService {
       },
     });
 
-    const tokens = await this.tokenService.generateTokens(updated);
+    // Revoke all existing device sessions on password reset
+    if (this.prisma?.refreshSession?.updateMany) {
+      await this.prisma.refreshSession.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
+    const tokens = await this.issueDeviceSession(updated, {
+      deviceId: dto.deviceId || meta?.deviceId,
+      userAgent: meta?.userAgent,
+    });
 
     return {
       message: 'Password reset successful',
@@ -309,7 +384,7 @@ export class AuthService {
 
   // ==================== EMAIL AUTHENTICATION FLOW ====================
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, meta?: AuthSessionMeta) {
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('Email is already registered');
@@ -330,7 +405,10 @@ export class AuthService {
       phone: dto.phone,
     });
 
-    const tokens = await this.tokenService.generateTokens(user);
+    const tokens = await this.issueDeviceSession(user, {
+      deviceId: dto.deviceId || meta?.deviceId,
+      userAgent: meta?.userAgent,
+    });
 
     return {
       id: user.id,
@@ -349,7 +427,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, meta?: AuthSessionMeta) {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
@@ -359,22 +437,24 @@ export class AuthService {
       throw new ForbiddenException('Account has been deactivated');
     }
 
-    let isMatch = await this.passwordService.verify(
-      user.passwordHash,
-      dto.password,
-    );
+    let isMatch = await this.passwordService.verify(user.passwordHash, dto.password);
     if (
       !isMatch &&
+      process.env.NODE_ENV === 'development' &&
       user.email === 'customer@az-ecommerce.local' &&
       (dto.password === 'Customer123!' || dto.password === 'Password123!')
     ) {
       isMatch = true;
     }
+
     if (!isMatch) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const tokens = await this.tokenService.generateTokens(user);
+    const tokens = await this.issueDeviceSession(user, {
+      deviceId: dto.deviceId || meta?.deviceId,
+      userAgent: meta?.userAgent,
+    });
 
     return {
       ...tokens,
@@ -388,13 +468,11 @@ export class AuthService {
     };
   }
 
-  async refreshToken(dto: RefreshTokenDto) {
+  async refreshToken(dto: RefreshTokenDto, meta?: AuthSessionMeta) {
     if (!dto.refreshToken) {
       throw new UnauthorizedException('Refresh token is required');
     }
-    const payload = await this.tokenService.verifyRefreshToken(
-      dto.refreshToken,
-    );
+    const payload = await this.tokenService.verifyRefreshToken(dto.refreshToken);
     const user = await this.usersService.findById(payload.sub);
 
     if (!user || !user.isActive) {
@@ -405,10 +483,108 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token has been revoked');
     }
 
-    return this.tokenService.generateTokens(user);
+    if (payload.sid && this.prisma?.refreshSession?.findUnique) {
+      const session = await this.prisma.refreshSession.findUnique({
+        where: { id: payload.sid },
+      });
+
+      if (
+        !session ||
+        session.userId !== user.id ||
+        session.revokedAt !== null ||
+        new Date(session.expiresAt) <= new Date()
+      ) {
+        throw new UnauthorizedException('Refresh session has been revoked or expired');
+      }
+
+      const presentedHash = this.hashToken(dto.refreshToken);
+      if (session.tokenHash !== presentedHash) {
+        // Possible stolen / replayed rotated refresh token: revoke session immediately
+        await this.prisma.refreshSession.update({
+          where: { id: session.id },
+          data: { revokedAt: new Date() },
+        });
+        this.logger.warn(
+          `Refresh token reuse detected for user ${user.id}, session ${session.id}; session revoked.`,
+        );
+        throw new UnauthorizedException('Refresh token reuse detected; session revoked');
+      }
+
+      const deviceId = dto.deviceId?.trim() || session.deviceId;
+      const tokens = await this.tokenService.generateTokens(user, {
+        sid: session.id,
+        deviceId,
+      });
+
+      await this.prisma.refreshSession.update({
+        where: { id: session.id },
+        data: {
+          tokenHash: this.hashToken(tokens.refreshToken),
+          deviceId,
+          userAgent: meta?.userAgent?.slice(0, 255) || session.userAgent,
+          expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+        },
+      });
+
+      return tokens;
+    }
+
+    // Legacy token without session ID: issue a tracked device session
+    return this.issueDeviceSession(user, {
+      deviceId: dto.deviceId || meta?.deviceId,
+      userAgent: meta?.userAgent,
+    });
   }
 
-  async logout(userId: string) {
+  async logout(userId: string, options?: LogoutDto) {
+    const refreshToken = options?.refreshToken?.trim();
+    const deviceId = options?.deviceId?.trim();
+
+    if ((refreshToken || deviceId) && this.prisma?.refreshSession?.updateMany) {
+      const revokedAt = new Date();
+      let revoked = false;
+
+      if (refreshToken) {
+        const tokenHash = this.hashToken(refreshToken);
+        const byHash = await this.prisma.refreshSession.updateMany({
+          where: { userId, tokenHash, revokedAt: null },
+          data: { revokedAt },
+        });
+        if (byHash.count > 0) {
+          revoked = true;
+        } else {
+          try {
+            const payload = await this.tokenService.verifyRefreshToken(refreshToken);
+            if (payload.sid && payload.sub === userId) {
+              await this.prisma.refreshSession.updateMany({
+                where: { id: payload.sid, userId, revokedAt: null },
+                data: { revokedAt },
+              });
+              revoked = true;
+            }
+          } catch {
+            // Token may already be expired; fall through to deviceId check if present
+          }
+        }
+      }
+
+      if (!revoked && deviceId) {
+        await this.prisma.refreshSession.updateMany({
+          where: { userId, deviceId, revokedAt: null },
+          data: { revokedAt },
+        });
+      }
+
+      return { message: 'Successfully logged out' };
+    }
+
+    // Legacy logout without session context: revoke all sessions and increment tokenVersion
+    if (this.prisma?.refreshSession?.updateMany) {
+      await this.prisma.refreshSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
     await this.usersService.incrementTokenVersion(userId);
     return { message: 'Successfully logged out' };
   }

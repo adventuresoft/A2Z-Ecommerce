@@ -3,3 +3,4 @@ export * from './change-password.dto.js';
 export * from './create-address.dto.js';
 export * from './update-address.dto.js';
 export * from './account-overview-response.dto.js';
+export * from './delete-account.dto.js';

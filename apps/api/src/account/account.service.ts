@@ -2,14 +2,18 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PasswordService } from '../auth/password.service.js';
+import { TokenService } from '../auth/token.service.js';
 import {
   UpdateProfileDto,
   ChangePasswordDto,
   AccountOverviewResponseDto,
+  DeleteAccountDto,
 } from './dto/index.js';
 
 @Injectable()
@@ -17,6 +21,7 @@ export class AccountService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
+    @Optional() private readonly tokenService?: TokenService,
   ) {}
 
   async getProfile(userId: string) {
@@ -195,8 +200,86 @@ export class AccountService {
       },
     });
 
+    if (this.prisma?.refreshSession?.updateMany) {
+      await this.prisma.refreshSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
     return {
       message: 'Password changed successfully. Please log in again.',
+    };
+  }
+
+  async deleteAccount(userId: string, dto: DeleteAccountDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!dto?.password && !dto?.verificationToken) {
+      throw new BadRequestException(
+        'Current password or phone verification token is required to delete account',
+      );
+    }
+
+    if (dto.password) {
+      const isMatch = await this.passwordService.verify(
+        user.passwordHash,
+        dto.password,
+      );
+      if (!isMatch) {
+        throw new BadRequestException('Current password does not match');
+      }
+    } else if (dto.verificationToken) {
+      if (!this.tokenService) {
+        throw new BadRequestException('OTP verification is unavailable');
+      }
+      const payload = await this.tokenService.verifyVerificationToken(
+        dto.verificationToken,
+        'RESET_PASSWORD',
+      );
+      const userDigits = (user.phone || '').replace(/[^\d]/g, '').slice(-10);
+      const tokenDigits = (payload.phone || '').replace(/[^\d]/g, '').slice(-10);
+      if (!userDigits || userDigits !== tokenDigits) {
+        throw new BadRequestException('Verification token does not match account phone');
+      }
+    }
+
+    const unusableHash = await this.passwordService.hash(
+      `deleted-${randomUUID()}-${randomUUID()}`,
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          name: 'Deleted User',
+          email: null,
+          phone: null,
+          passwordHash: unusableHash,
+          isActive: false,
+          tokenVersion: { increment: 1 },
+        },
+      });
+
+      await tx.refreshSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      await tx.deviceToken.deleteMany({ where: { userId } });
+      await tx.userAddress.deleteMany({ where: { userId } });
+      await tx.wishlistItem.deleteMany({ where: { userId } });
+      await tx.cartItem.deleteMany({ where: { userId } });
+    });
+
+    return {
+      message: 'Your account has been permanently deleted.',
     };
   }
 }

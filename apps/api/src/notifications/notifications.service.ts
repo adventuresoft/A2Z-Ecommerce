@@ -2,21 +2,29 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
-import { NotificationType, Prisma, Role } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/index.js';
+import { ExpoPushService } from './expo-push.service.js';
 import {
   BroadcastNotificationDto,
   CreateNotificationDto,
+  DeactivateDeviceTokenResponseDto,
+  DeviceTokenResponseDto,
   NotificationResponseDto,
   NotificationStatsResponseDto,
   PaginatedNotificationsResponseDto,
   QueryNotificationsDto,
+  RegisterDeviceTokenDto,
 } from './dto/index.js';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly expoPushService?: ExpoPushService,
+  ) {}
 
   /**
    * Dispatch a direct notification to a specific user.
@@ -48,6 +56,17 @@ export class NotificationsService {
         },
       },
     });
+
+    if (this.expoPushService) {
+      void this.expoPushService
+        .sendToUsers([dto.userId], {
+          title: dto.title,
+          body: dto.message,
+          route: dto.linkUrl ?? null,
+          type: dto.type,
+        })
+        .catch(() => undefined);
+    }
 
     return this.mapNotification(notification);
   }
@@ -84,6 +103,20 @@ export class NotificationsService {
     const result = await this.prisma.notification.createMany({
       data: records,
     });
+
+    if (this.expoPushService) {
+      void this.expoPushService
+        .sendToUsers(
+          targetUsers.map((u) => u.id),
+          {
+            title: dto.title,
+            body: dto.message,
+            route: dto.linkUrl ?? null,
+            type: dto.type,
+          },
+        )
+        .catch(() => undefined);
+    }
 
     return {
       success: true,
@@ -300,6 +333,60 @@ export class NotificationsService {
 
     await this.prisma.notification.delete({ where: { id } });
     return { success: true, message: 'Notification deleted successfully' };
+  }
+
+  /**
+   * Register or reassign a mobile push device token to the authenticated user.
+   */
+  async registerDeviceToken(
+    userId: string,
+    dto: RegisterDeviceTokenDto,
+  ): Promise<DeviceTokenResponseDto> {
+    const token = dto.token.trim();
+    const record = await this.prisma.deviceToken.upsert({
+      where: { token },
+      create: {
+        userId,
+        token,
+        platform: dto.platform,
+        deviceId: dto.deviceId?.trim() || null,
+        isActive: true,
+        lastUsedAt: new Date(),
+      },
+      update: {
+        userId,
+        platform: dto.platform,
+        deviceId: dto.deviceId?.trim() || null,
+        isActive: true,
+        lastUsedAt: new Date(),
+      },
+    });
+
+    return {
+      id: record.id,
+      token: record.token,
+      platform: record.platform,
+      deviceId: record.deviceId,
+      isActive: record.isActive,
+      lastUsedAt: record.lastUsedAt,
+    };
+  }
+
+  /**
+   * Deactivate a push device token belonging to the authenticated user.
+   */
+  async deactivateDeviceToken(
+    userId: string,
+    token: string,
+  ): Promise<DeactivateDeviceTokenResponseDto> {
+    const result = await this.prisma.deviceToken.updateMany({
+      where: { userId, token: token.trim() },
+      data: { isActive: false },
+    });
+    return {
+      success: true,
+      deactivated: result.count > 0,
+    };
   }
 
   private mapNotification(notif: any): NotificationResponseDto {

@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.atozecommerce.app",
+      "sha256_cert_fingerprints": [
+        "REPLACE_WITH_GOOGLE_PLAY_APP_SIGNING_SHA256_FINGERPRINT"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.atozecommerce.app.staging",
+      "sha256_cert_fingerprints": [
+        "REPLACE_WITH_STAGING_KEYSTORE_SHA256_FINGERPRINT"
+      ]
+    }
+  }
+]

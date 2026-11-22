@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { validate } from './config/env.validation.js';
@@ -26,6 +28,7 @@ import { AccountModule } from './account/account.module.js';
 import { CouponsModule } from './coupons/coupons.module.js';
 import { CheckoutModule } from './checkout/checkout.module.js';
 import { WishlistModule } from './wishlist/wishlist.module.js';
+import { CartModule } from './cart/cart.module.js';
 import { TagsModule } from './tags/tags.module.js';
 import { CollectionsModule } from './collections/collections.module.js';
 import { LocationsModule } from './locations/locations.module.js';
@@ -42,6 +45,13 @@ import { FreelancerReviewsModule } from './freelancer-reviews/freelancer-reviews
       isGlobal: true,
       validate,
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000,
+        limit: 120,
+      },
+    ]),
     PrismaModule,
     HealthModule,
     UsersModule,
@@ -65,6 +75,7 @@ import { FreelancerReviewsModule } from './freelancer-reviews/freelancer-reviews
     CouponsModule,
     CheckoutModule,
     WishlistModule,
+    CartModule,
     TagsModule,
     CollectionsModule,
     LocationsModule,
@@ -76,6 +87,12 @@ import { FreelancerReviewsModule } from './freelancer-reviews/freelancer-reviews
     FreelancerReviewsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

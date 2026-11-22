@@ -1,0 +1,25 @@
+appId: com.atozecommerce.app.staging
+name: "04 - Checkout COD Order & Pending Cancellation"
+---
+- launchApp
+- tapOn:
+    id: "tabs.cart"
+- tapOn:
+    id: "cart.checkoutButton"
+- assertVisible:
+    id: "checkout.screen"
+- tapOn:
+    id: "checkout.payment.CASH_ON_DELIVERY"
+- tapOn:
+    id: "checkout.placeOrderButton"
+- assertVisible:
+    id: "checkout.successScreen"
+- tapOn:
+    id: "checkout.viewOrderButton"
+- assertVisible:
+    id: "orders.detailScreen"
+- tapOn:
+    id: "orders.cancelOrderButton"
+- tapOn:
+    id: "orders.confirmCancelButton"
+- assertVisible: "CANCELLED"

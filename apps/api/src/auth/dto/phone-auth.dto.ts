@@ -67,6 +67,12 @@ export class PhoneRegisterDto {
   @IsString()
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   password!: string;
+
+  @ApiPropertyOptional({ example: 'android-device-01' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  deviceId?: string;
 }
 
 export class PhoneLoginDto {
@@ -79,6 +85,12 @@ export class PhoneLoginDto {
   @IsNotEmpty()
   @IsString()
   password!: string;
+
+  @ApiPropertyOptional({ example: 'android-device-01' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  deviceId?: string;
 }
 
 export class PhoneResetPasswordDto {
@@ -92,5 +104,11 @@ export class PhoneResetPasswordDto {
   @IsString()
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   password!: string;
+
+  @ApiPropertyOptional({ example: 'android-device-01' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  deviceId?: string;
 }
 

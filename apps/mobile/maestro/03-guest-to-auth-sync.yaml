@@ -1,0 +1,35 @@
+appId: com.atozecommerce.app.staging
+name: "03 - Guest Cart to Authenticated Server Cart Sync"
+env:
+  TEST_PHONE: "01707819647"
+  TEST_PASSWORD: "Password123!"
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: "home.screen"
+- tapOn:
+    index: 0
+    id: "catalog.productCard.*"
+- tapOn:
+    id: "pdp.addToCartButton"
+- tapOn:
+    id: "tabs.cart"
+- assertVisible:
+    id: "cart.checkoutButton"
+- tapOn:
+    id: "cart.checkoutButton"
+- assertVisible:
+    id: "auth.phoneInput"
+- tapOn:
+    id: "auth.phoneInput"
+- inputText: "${TEST_PHONE}"
+- tapOn:
+    id: "auth.phoneContinueButton"
+- tapOn:
+    id: "auth.phonePasswordInput"
+- inputText: "${TEST_PASSWORD}"
+- tapOn:
+    id: "auth.phoneLoginButton"
+- assertVisible:
+    id: "checkout.screen"

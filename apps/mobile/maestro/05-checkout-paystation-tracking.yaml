@@ -1,0 +1,19 @@
+appId: com.atozecommerce.app.staging
+name: "05 - PayStation Checkout Initiation & Shipment Tracking Lookup"
+env:
+  SAMPLE_TRACKING: "AZ-TRK-10001"
+---
+- launchApp
+- tapOn:
+    id: "tabs.account"
+- tapOn:
+    id: "account.trackItem"
+- assertVisible:
+    id: "track.screen"
+- tapOn:
+    id: "track.input"
+- inputText: "${SAMPLE_TRACKING}"
+- tapOn:
+    id: "track.submitButton"
+- assertVisible:
+    id: "track.screen"

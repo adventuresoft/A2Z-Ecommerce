@@ -1,0 +1,41 @@
+name: Staging Release (Build & OTA)
+
+on:
+  push:
+    branches: ['staging']
+
+jobs:
+  check:
+    name: Verify Types & Tests
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Typecheck & Test
+        run: |
+          pnpm --filter @repo/api-client check-types
+          pnpm --filter mobile check-types
+          pnpm --filter mobile test
+
+  build_android_staging:
+    name: Build Android Staging APK
+    needs: [check]
+    type: build
+    params:
+      platform: android
+      profile: staging
+
+  build_ios_staging:
+    name: Build iOS Staging Internal
+    needs: [check]
+    type: build
+    params:
+      platform: ios
+      profile: staging
+
+  ota_staging:
+    name: Publish Staging OTA Update
+    needs: [check]
+    type: update
+    params:
+      branch: staging
+      message: "Automated staging OTA release"

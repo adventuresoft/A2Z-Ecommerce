@@ -31,7 +31,8 @@
     "db:seed:taxonomy": "node --no-warnings prisma/seed-taxonomy.ts",
     "db:seed:memberships": "node --no-warnings prisma/seed-memberships.ts",
     "db:seed:freelancers": "node --no-warnings prisma/seed-freelancers.ts",
-    "inventory:backfill": "node --no-warnings prisma/backfill-inventory.ts"
+    "inventory:backfill": "node --no-warnings prisma/backfill-inventory.ts",
+    "openapi:export": "nest build && node --no-warnings dist/export-openapi.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -42,6 +43,7 @@
     "@nestjs/platform-socket.io": "^12.3.3",
     "@nestjs/schedule": "^12.0.2",
     "@nestjs/swagger": "^12.0.2",
+    "@nestjs/throttler": "^6.8.0",
     "@nestjs/websockets": "^12.3.3",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "7.10.0",
@@ -49,12 +51,14 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
+    "expo-server-sdk": "^8.0.0",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
     "multer": "^2.4.0",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.5",
     "socket.io": "^4.8.4"
   },
   "devDependencies": {

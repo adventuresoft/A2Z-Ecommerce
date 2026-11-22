@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   Patch,
   Post,
@@ -24,11 +25,14 @@ import { AccountService } from './account.service.js';
 import {
   UpdateProfileDto,
   ChangePasswordDto,
+  DeleteAccountDto,
   AccountOverviewResponseDto,
+  AccountProfileResponseDto,
+  AccountMessageResponseDto,
 } from './dto/index.js';
 
 @ApiTags('Account')
-@ApiBearerAuth('access-token')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('account')
 export class AccountController {
@@ -50,21 +54,31 @@ export class AccountController {
 
   @Get('profile')
   @ApiOperation({ summary: 'Retrieve profile of authenticated customer' })
-  @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile retrieved successfully',
+    type: AccountProfileResponseDto,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getProfile(@CurrentUser() user: AccessPayload) {
+  async getProfile(
+    @CurrentUser() user: AccessPayload,
+  ): Promise<AccountProfileResponseDto> {
     return this.accountService.getProfile(user.sub);
   }
 
   @Patch('profile')
   @ApiOperation({ summary: 'Update customer display name and contact phone' })
-  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated successfully',
+    type: AccountProfileResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async updateProfile(
     @CurrentUser() user: AccessPayload,
     @Body() dto: UpdateProfileDto,
-  ) {
+  ): Promise<AccountProfileResponseDto> {
     return this.accountService.updateProfile(user.sub, dto);
   }
 
@@ -73,7 +87,11 @@ export class AccountController {
   @ApiOperation({
     summary: 'Change password and revoke all active refresh tokens',
   })
-  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+    type: AccountMessageResponseDto,
+  })
   @ApiResponse({
     status: 400,
     description: 'Incorrect current password or invalid new password',
@@ -83,8 +101,37 @@ export class AccountController {
     @CurrentUser() user: AccessPayload,
     @Body() dto: ChangePasswordDto,
     @Res({ passthrough: true }) res?: Response,
-  ) {
+  ): Promise<AccountMessageResponseDto> {
     const result = await this.accountService.changePassword(user.sub, dto);
+    if (res) {
+      res.clearCookie(REFRESH_COOKIE_NAME, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/api/v1/auth',
+      });
+    }
+    return result;
+  }
+
+  @Delete()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Permanently deactivate and anonymize the authenticated customer account while preserving order history',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Account deleted successfully',
+    type: AccountMessageResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid password or verification token' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async deleteAccount(
+    @CurrentUser() user: AccessPayload,
+    @Body() dto: DeleteAccountDto,
+    @Res({ passthrough: true }) res?: Response,
+  ): Promise<AccountMessageResponseDto> {
+    const result = await this.accountService.deleteAccount(user.sub, dto);
     if (res) {
       res.clearCookie(REFRESH_COOKIE_NAME, {
         httpOnly: true,

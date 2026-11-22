@@ -235,6 +235,69 @@ describe('AccountService and Controller', () => {
         expect.objectContaining({ httpOnly: true, path: '/api/v1/auth' }),
       );
     });
+
+    it('should anonymize user PII, revoke sessions, delete personal data, and preserve orders on deleteAccount', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'u-1',
+        email: 'customer@az.local',
+        phone: '01711111111',
+        passwordHash: 'hashed-pw',
+        isActive: true,
+      });
+      passwordServiceMock.verify.mockResolvedValue(true);
+      passwordServiceMock.hash.mockResolvedValue('unusable-random-hash');
+
+      const txMock = {
+        user: { update: vi.fn() },
+        refreshSession: { updateMany: vi.fn() },
+        deviceToken: { deleteMany: vi.fn() },
+        userAddress: { deleteMany: vi.fn() },
+        wishlistItem: { deleteMany: vi.fn() },
+        cartItem: { deleteMany: vi.fn() },
+        order: { deleteMany: vi.fn() },
+      };
+      prismaMock.$transaction = vi.fn(async (cb: any) => cb(txMock));
+
+      const resMock = { clearCookie: vi.fn() } as any;
+      const res = await controller.deleteAccount(
+        { sub: 'u-1', email: 'customer@az.local', role: Role.CUSTOMER },
+        { password: 'Password123!' },
+        resMock,
+      );
+
+      expect(res.message).toContain('permanently deleted');
+      expect(txMock.user.update).toHaveBeenCalledWith({
+        where: { id: 'u-1' },
+        data: expect.objectContaining({
+          name: 'Deleted User',
+          email: null,
+          phone: null,
+          isActive: false,
+          tokenVersion: { increment: 1 },
+        }),
+      });
+      expect(txMock.refreshSession.updateMany).toHaveBeenCalled();
+      expect(txMock.deviceToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u-1' } });
+      expect(txMock.userAddress.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u-1' } });
+      expect(txMock.wishlistItem.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u-1' } });
+      expect(txMock.cartItem.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u-1' } });
+      // Orders MUST be preserved
+      expect(txMock.order.deleteMany).not.toHaveBeenCalled();
+      expect(resMock.clearCookie).toHaveBeenCalled();
+    });
+
+    it('should reject deleteAccount when password is wrong or missing', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'u-1',
+        passwordHash: 'hashed-pw',
+      });
+      passwordServiceMock.verify.mockResolvedValue(false);
+
+      await expect(service.deleteAccount('u-1', {})).rejects.toThrow(BadRequestException);
+      await expect(
+        service.deleteAccount('u-1', { password: 'WrongPassword!' }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 });
 

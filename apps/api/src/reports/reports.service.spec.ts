@@ -208,7 +208,7 @@ describe('ReportsService', () => {
 
       const res = await service.getSalesByPaymentMethod({});
 
-      expect(res.length).toBe(3);
+      expect(res.length).toBe(Object.values(PaymentMethod).length);
       const cod = res.find((r) => r.method === PaymentMethod.CASH_ON_DELIVERY);
       const mb = res.find((r) => r.method === PaymentMethod.MOBILE_BANKING);
 
