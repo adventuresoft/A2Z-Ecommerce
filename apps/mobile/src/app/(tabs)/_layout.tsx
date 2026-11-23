@@ -7,6 +7,10 @@ import { useAuthStore } from '@/features/auth/auth-store';
 import { selectActiveCartCount, useCartStore } from '@/features/cart/cart-store';
 import { useWishlistStore } from '@/features/wishlist/wishlist-store';
 
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
+
 export default function TabsLayout() {
   const { t } = useTranslation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);

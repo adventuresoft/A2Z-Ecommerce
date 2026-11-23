@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
@@ -72,10 +73,21 @@ export const useWishlistStore = create<WishlistState>()(
             set({ items: previousItems });
           }
         } else {
+          // Optimistically add placeholder so the heart turns active immediately
+          const optimisticItem = {
+            id: `optimistic-${productId}`,
+            productId,
+            createdAt: new Date().toISOString(),
+          } as unknown as WishlistItemResponseDto;
+          set({
+            items: [optimisticItem, ...previousItems.filter((i) => i.productId !== productId)],
+          });
           try {
             const added = await wishlistControllerAddProduct(productId);
             if (added.status === 200) {
-              set({ items: [added.data, ...previousItems.filter((i) => i.productId !== productId)] });
+              set({
+                items: [added.data, ...previousItems.filter((i) => i.productId !== productId)],
+              });
             }
           } catch {
             set({ items: previousItems });
@@ -124,3 +136,17 @@ export const useWishlistStore = create<WishlistState>()(
 );
 
 registerPostLoginHook(() => useWishlistStore.getState().syncGuestToServer());
+
+/**
+ * Reactive selector hook returning a Set of currently wishlisted product IDs.
+ * Subscribes components to both `items` and `guestProductIds` so heart buttons re-render immediately.
+ */
+export function useWishlistedIds(): Set<string> {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const items = useWishlistStore((s) => s.items);
+  const guestProductIds = useWishlistStore((s) => s.guestProductIds);
+  return useMemo(
+    () => new Set(isAuthenticated ? items.map((i) => i.productId) : guestProductIds),
+    [isAuthenticated, items, guestProductIds],
+  );
+}

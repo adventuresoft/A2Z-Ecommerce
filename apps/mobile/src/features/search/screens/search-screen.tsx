@@ -82,7 +82,7 @@ export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
           />
         </View>
         <View style={styles.resultsFlex}>
-          <CatalogListingScreen title={submittedQuery} initialQuery={submittedQuery} />
+          <CatalogListingScreen title={submittedQuery} initialQuery={submittedQuery} hideHeader />
         </View>
       </View>
     );

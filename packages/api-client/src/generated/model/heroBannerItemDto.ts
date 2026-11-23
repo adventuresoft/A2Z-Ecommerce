@@ -15,6 +15,10 @@ export interface HeroBannerItemDto {
   subtitle?: string;
   /** Banner background/hero image URL */
   imageUrl: string;
+  /** Optional mobile-optimized hero banner image URL */
+  mobileImageUrl?: string;
+  /** Primary call-to-action button label */
+  ctaText?: string;
   /** Target URL when banner is clicked */
   linkUrl?: string;
   /** Badge pill text */

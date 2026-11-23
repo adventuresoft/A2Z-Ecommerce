@@ -25,10 +25,20 @@ export class HeroBannerItemDto {
   @IsOptional()
   subtitle?: string;
 
-  @ApiProperty({ description: 'Banner background/hero image URL', example: '/banners/hero-macbook.jpg' })
+  @ApiProperty({ description: 'Banner background/hero image URL (Web & default)', example: '/uploads/banners/hero-macbook.webp' })
   @IsString()
   @IsNotEmpty()
   imageUrl!: string;
+
+  @ApiPropertyOptional({ description: 'Optional mobile-optimized hero banner image URL', example: '/uploads/banners/hero-macbook-mobile.webp' })
+  @IsString()
+  @IsOptional()
+  mobileImageUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Primary call-to-action button label', example: 'Explore Now' })
+  @IsString()
+  @IsOptional()
+  ctaText?: string;
 
   @ApiPropertyOptional({ description: 'Target URL when banner is clicked', example: '/products/apple-macbook-pro-16-m3-max' })
   @IsString()

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
+  brandsPublicControllerFindAll,
   categoriesPublicControllerGetBrowseCatalog,
   collectionsPublicControllerGetHomeCollections,
   notificationsUserControllerGetUnreadCount,
@@ -16,39 +17,41 @@ import {
 } from '@repo/api-client';
 import { env } from '@/shared/config/env';
 import { STALE_TIMES } from '@/shared/api/query-client';
-import { azColors, radius, spacing } from '@/shared/theme';
+import { azColors, spacing } from '@/shared/theme';
 import { ProductGridSkeleton } from '@/shared/components/skeleton';
 import { useAuthStore } from '@/features/auth/auth-store';
 import { useCartStore } from '@/features/cart/cart-store';
-import { useWishlistStore } from '@/features/wishlist/wishlist-store';
-import { ProductCard, type ProductCardModel } from '../components/product-card';
+import { useWishlistedIds, useWishlistStore } from '@/features/wishlist/wishlist-store';
+import { type ProductCardModel } from '../components/product-card';
 import { QuickVariantSheet } from '../components/quick-variant-sheet';
+import { HomeHeroSlider } from '../components/home-hero-slider';
+import { HomeCollectionSection, type HomeCollectionData } from '../components/home-collection-section';
+import { BestSellingSection } from '../components/best-selling-section';
+import { AuthorizedBrandsSlider } from '../components/authorized-brands-slider';
+import { TrustStripSection } from '../components/trust-strip-section';
 import type { ResolvableVariant } from '../utils/variant-resolver';
 
-function toCardModel(raw: Record<string, unknown>): ProductCardModel {
-  const minPrice = Number(raw.minPrice ?? raw.salePrice ?? raw.regularPrice ?? raw.price ?? 0);
-  const regularPrice = Number(raw.regularPrice ?? raw.maxPrice ?? minPrice);
-  const images = Array.isArray(raw.images) ? raw.images : [];
-  const firstImg = images[0] as Record<string, unknown> | undefined;
+function resolveMobileBannerRoute(rawLink?: string | null): string | null {
+  if (!rawLink || !rawLink.trim()) return null;
+  const link = rawLink.trim();
+  if (!link.startsWith('/')) return null;
 
-  return {
-    id: String(raw.id ?? ''),
-    slug: String(raw.slug ?? raw.id ?? ''),
-    title: String(raw.title ?? ''),
-    imageUrl:
-      (typeof raw.thumbnailUrl === 'string' && raw.thumbnailUrl) ||
-      (typeof firstImg?.imageUrl === 'string' && firstImg.imageUrl) ||
-      (typeof raw.imageUrl === 'string' && raw.imageUrl) ||
-      null,
-    price: minPrice,
-    regularPrice: regularPrice > minPrice ? regularPrice : null,
-    rating: typeof raw.rating === 'number' ? raw.rating : undefined,
-    reviewsCount: typeof raw.reviewsCount === 'number' ? raw.reviewsCount : undefined,
-    inStock: raw.inStock !== false,
-    defaultVariantId:
-      typeof raw.defaultVariantId === 'string' ? raw.defaultVariantId : null,
-    variantsCount: typeof raw.variantsCount === 'number' ? raw.variantsCount : undefined,
-  };
+  if (link.startsWith('/products/')) {
+    return `/product/${link.slice('/products/'.length)}`;
+  }
+  if (link.startsWith('/collections/')) {
+    return `/collection/${link.slice('/collections/'.length)}`;
+  }
+  if (link === '/flash-sale') {
+    return '/search?hasDiscount=true';
+  }
+  if (link === '/shop' || link === '/products' || link === '/new-arrivals') {
+    return '/search';
+  }
+  if (link.startsWith('/category/') || link.startsWith('/product/') || link.startsWith('/collection/') || link.startsWith('/search')) {
+    return link;
+  }
+  return null;
 }
 
 export function HomeScreen() {
@@ -56,7 +59,7 @@ export function HomeScreen() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const addItem = useCartStore((s) => s.addItem);
-  const isWishlisted = useWishlistStore((s) => s.isWishlisted);
+  const wishlistedIds = useWishlistedIds();
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
 
   const [snackMsg, setSnackMsg] = useState<string | null>(null);
@@ -90,6 +93,12 @@ export function HomeScreen() {
     staleTime: STALE_TIMES.HOME_CURATED,
   });
 
+  const homeBrandsQ = useQuery({
+    queryKey: ['/api/v1/brands', { showOnHome: true }],
+    queryFn: () => brandsPublicControllerFindAll({ showOnHome: true }),
+    staleTime: STALE_TIMES.TAXONOMY_AND_SETTINGS,
+  });
+
   const unreadQ = useQuery({
     queryKey: ['/api/v1/notifications/unread-count'],
     queryFn: () => notificationsUserControllerGetUnreadCount(),
@@ -119,7 +128,8 @@ export function HomeScreen() {
           return;
         }
         const detail = await productsPublicControllerGetBySlug(product.slug);
-        const variants = ((detail.data as unknown as { variants?: ResolvableVariant[] })?.variants ?? []);
+        const variants =
+          (detail.data as unknown as { variants?: ResolvableVariant[] })?.variants ?? [];
         if (variants.length === 1 && variants[0]) {
           await addItem(
             {
@@ -146,6 +156,7 @@ export function HomeScreen() {
     [addItem, router, t],
   );
 
+  const publicSettings = settingsQ.data?.data as Record<string, unknown> | undefined;
   const heroBanners = settingsQ.data?.data?.heroBanners ?? [];
   const categories = (categoriesQ.data?.data ?? []) as unknown as Array<{
     id: string;
@@ -155,62 +166,37 @@ export function HomeScreen() {
   }>;
   const curated = curatedQ.data?.data as unknown as
     | {
-        flashDeals?: Array<Record<string, unknown>>;
-        featured?: Array<Record<string, unknown>>;
-        newArrivals?: Array<Record<string, unknown>>;
         bestSellers?: Array<Record<string, unknown>>;
       }
     | undefined;
-  const collections = collectionsQ.data?.data ?? [];
+  const collections = (collectionsQ.data?.data ?? []) as unknown as HomeCollectionData[];
+  const homeBrands = homeBrandsQ.data?.data ?? [];
   const unreadCount = unreadQ.data?.data?.unreadCount ?? 0;
 
-  const isRefreshing = curatedQ.isRefetching || collectionsQ.isRefetching;
+  const isRefreshing =
+    curatedQ.isRefetching || collectionsQ.isRefetching || homeBrandsQ.isRefetching;
+
   const onRefresh = () => {
     void Promise.all([
       settingsQ.refetch(),
       categoriesQ.refetch(),
       curatedQ.refetch(),
       collectionsQ.refetch(),
+      homeBrandsQ.refetch(),
     ]);
   };
 
-  const renderProductRail = (
-    title: string,
-    items: Array<Record<string, unknown>> | undefined,
-    onSeeAll?: () => void,
-  ) => {
-    if (!items || items.length === 0) return null; // Empty section rule
-    return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            {title}
-          </Text>
-          {onSeeAll ? (
-            <Pressable onPress={onSeeAll} hitSlop={8}>
-              <Text style={styles.seeAll}>{t('home.seeAll')}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-          {items.map((raw) => {
-            const card = toCardModel(raw);
-            return (
-              <View key={card.id} style={styles.railCardWrap}>
-                <ProductCard
-                  product={card}
-                  isWishlisted={isWishlisted(card.id)}
-                  onPress={(slug) => router.push(`/product/${slug}` as never)}
-                  onToggleWishlist={(p) => void toggleWishlist(p.id)}
-                  onQuickAdd={(p) => void handleQuickAdd(p)}
-                />
-              </View>
-            );
-          })}
-        </ScrollView>
-      </View>
-    );
-  };
+  const handlePressProduct = useCallback(
+    (slug: string) => router.push(`/product/${slug}` as never),
+    [router],
+  );
+
+  const handleToggleWishlist = useCallback(
+    (product: ProductCardModel) => {
+      void toggleWishlist(product.id);
+    },
+    [toggleWishlist],
+  );
 
   return (
     <View style={styles.screen} testID="home.screen">
@@ -251,47 +237,18 @@ export function HomeScreen() {
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
         contentContainerStyle={styles.scrollContent}
       >
-        {heroBanners.length > 0 ? (
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.bannerRail}
-          >
-            {heroBanners.map((banner, idx) => {
-              const uri = resolveMediaUrl(banner.imageUrl, env.API_ORIGIN, 'medium');
-              return (
-                <Pressable
-                  key={banner.id || idx}
-                  style={styles.bannerCard}
-                  onPress={() => {
-                    if (banner.linkUrl?.startsWith('/')) {
-                      router.push(banner.linkUrl as never);
-                    }
-                  }}
-                >
-                  {uri ? (
-                    <Image source={{ uri }} contentFit="cover" style={styles.bannerImage} />
-                  ) : null}
-                  <View style={styles.bannerOverlay}>
-                    {banner.badgeText ? (
-                      <Text style={styles.bannerBadge}>{banner.badgeText}</Text>
-                    ) : null}
-                    <Text variant="titleLarge" style={styles.bannerTitle} numberOfLines={2}>
-                      {banner.title}
-                    </Text>
-                    {banner.subtitle ? (
-                      <Text style={styles.bannerSubtitle} numberOfLines={1}>
-                        {banner.subtitle}
-                      </Text>
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
+        {/* 1. Dynamic Obsidian Hero Slider (Shared with Web Admin Settings) */}
+        <HomeHeroSlider
+          banners={heroBanners}
+          onNavigateLink={(rawLink) => {
+            const target = resolveMobileBannerRoute(rawLink);
+            if (target) {
+              router.push(target as never);
+            }
+          }}
+        />
 
+        {/* 2. Circular Category Strip */}
         {categories.length > 0 ? (
           <View style={styles.section}>
             <Text variant="titleMedium" style={styles.sectionTitle}>
@@ -309,7 +266,12 @@ export function HomeScreen() {
                     key={cat.id}
                     testID={`home.category.${cat.slug}`}
                     style={styles.catItem}
-                    onPress={() => router.push(`/category/${cat.slug}` as never)}
+                    onPress={() =>
+                      router.push({
+                        pathname: `/category/${cat.slug}` as never,
+                        params: { name: cat.name },
+                      } as never)
+                    }
                   >
                     <View style={styles.catCircle}>
                       {uri ? (
@@ -328,25 +290,60 @@ export function HomeScreen() {
           </View>
         ) : null}
 
-        {curatedQ.isLoading ? (
+        {/* 3. Dynamic Home Page Collections (Web templates: default / collection-1 / collection-2) */}
+        {collectionsQ.isLoading && curatedQ.isLoading ? (
           <ProductGridSkeleton count={4} />
         ) : (
           <>
-            {renderProductRail(t('home.flashDeals'), curated?.flashDeals, () =>
-              router.push('/search?hasDiscount=true' as never),
-            )}
-            {collections.map((col) =>
-              renderProductRail(
-                col.name,
-                col.products as unknown as Array<Record<string, unknown>>,
-                () => router.push(`/collection/${col.slug}` as never),
-              ),
-            )}
-            {renderProductRail(t('home.featured'), curated?.featured)}
-            {renderProductRail(t('home.newArrivals'), curated?.newArrivals)}
-            {renderProductRail(t('home.bestSellers'), curated?.bestSellers)}
+            {collections.map((col) => (
+              <HomeCollectionSection
+                key={col.id}
+                collection={col}
+                wishlistedIds={wishlistedIds}
+                seeAllLabel={t('home.seeAll')}
+                onSeeAll={() =>
+                  router.push({
+                    pathname: `/collection/${col.slug}` as never,
+                    params: { name: col.name },
+                  } as never)
+                }
+                onPressProduct={handlePressProduct}
+                onToggleWishlist={handleToggleWishlist}
+                onQuickAdd={(p) => void handleQuickAdd(p)}
+              />
+            ))}
+
+            {/* 4. Best Selling Hardware (Live Best Sellers from /products/curated) */}
+            <BestSellingSection
+              items={curated?.bestSellers}
+              wishlistedIds={wishlistedIds}
+              title={t('home.bestSellingHardware')}
+              badgeText={t('home.trendingNow')}
+              seeAllLabel={t('home.seeAll')}
+              onSeeAll={() => router.push('/search?browseAll=true' as never)}
+              onPressProduct={handlePressProduct}
+              onToggleWishlist={handleToggleWishlist}
+              onQuickAdd={(p) => void handleQuickAdd(p)}
+            />
           </>
         )}
+
+        {/* 5. Authorized Distribution — Dynamic Brands Slider (showOnHome=true) */}
+        <AuthorizedBrandsSlider
+          brands={homeBrands}
+          eyebrow={t('home.authorizedDistribution')}
+          title={t('home.officialPartnerBrands')}
+          warrantyBadge={t('home.directWarranty')}
+          onPressBrand={(brand) =>
+            router.push({
+              pathname: '/search' as never,
+              params: { brand: brand.slug, brandName: brand.name },
+            } as never)
+          }
+        />
+
+        {/* 6. Storefront Value Propositions (5 Service Cards, semi-dynamic from Settings) */}
+        <TrustStripSection settings={publicSettings} />
       </ScrollView>
 
       <QuickVariantSheet
@@ -409,49 +406,13 @@ const styles = StyleSheet.create({
   bellWrap: { position: 'relative' },
   bellBadge: { position: 'absolute', top: 4, right: 4, backgroundColor: azColors.accent },
   scrollContent: { paddingBottom: spacing.xxl },
-  bannerRail: { padding: spacing.md, gap: spacing.sm },
-  bannerCard: {
-    width: 320,
-    height: 156,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    backgroundColor: azColors.navy,
-  },
-  bannerImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  bannerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    padding: spacing.md,
-    justifyContent: 'flex-end',
-  },
-  bannerBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: azColors.accent,
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 6,
-  },
-  bannerTitle: { color: '#FFFFFF', fontWeight: '700' },
-  bannerSubtitle: { color: '#E2E8F0', fontSize: 12, marginTop: 2 },
   section: { marginTop: spacing.md },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.xs,
-  },
   sectionTitle: {
     color: azColors.navy,
-    fontWeight: '700',
+    fontWeight: '800',
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  seeAll: { color: azColors.primary, fontWeight: '600', fontSize: 13 },
   catRail: { paddingHorizontal: spacing.md, gap: spacing.md },
   catItem: { width: 72, alignItems: 'center' },
   catCircle: {
@@ -474,6 +435,4 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 15,
   },
-  rail: { paddingHorizontal: spacing.md, gap: spacing.sm },
-  railCardWrap: { width: 168 },
 });

@@ -143,6 +143,37 @@ export default function BrandsPage() {
     }
   };
 
+  const handleToggleShowOnHome = async (brand: BrandItem) => {
+    const nextShow = !brand.showOnHome;
+
+    setBrands((prev) =>
+      prev.map((item) =>
+        item.id === brand.id ? { ...item, showOnHome: nextShow } : item,
+      ),
+    );
+
+    try {
+      await brandsApi.toggleShowOnHome(brand.id, nextShow);
+      setAlert({
+        type: "success",
+        text: `Brand "${brand.name}" ${
+          nextShow ? "added to" : "removed from"
+        } Home Page slider.`,
+      });
+    } catch (err: unknown) {
+      setBrands((prev) =>
+        prev.map((item) =>
+          item.id === brand.id ? { ...item, showOnHome: !nextShow } : item,
+        ),
+      );
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to update home slider visibility.";
+      setAlert({ type: "danger", text: msg });
+    }
+  };
+
   const handleSaved = (savedBrand: BrandItem) => {
     setAlert({
       type: "success",
@@ -255,6 +286,7 @@ export default function BrandsPage() {
         onEditClick={handleEditClick}
         onDeleteClick={handleDeleteClick}
         onToggleStatus={handleToggleStatus}
+        onToggleShowOnHome={handleToggleShowOnHome}
         onResetFilters={handleResetFilters}
       />
 

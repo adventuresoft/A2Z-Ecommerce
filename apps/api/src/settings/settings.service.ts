@@ -236,10 +236,13 @@ export class SettingsService {
 
     await this.prisma.$transaction(async (tx) => {
       for (const item of dto.settings) {
+        this.validateSettingValue(item.key, item.value);
+        const isHeroBanners = item.key === 'storefront.hero_banners';
         await tx.storeSetting.upsert({
           where: { key: item.key },
           update: {
             value: item.value,
+            ...(isHeroBanners ? { dataType: 'JSON', group: 'HERO_BANNERS', isPublic: true } : {}),
             ...(item.isPublic !== undefined && { isPublic: item.isPublic }),
             ...(item.description !== undefined && {
               description: item.description,
@@ -248,9 +251,9 @@ export class SettingsService {
           create: {
             key: item.key,
             value: item.value,
-            dataType: 'STRING',
-            group: 'GENERAL',
-            isPublic: item.isPublic ?? false,
+            dataType: isHeroBanners ? 'JSON' : 'STRING',
+            group: isHeroBanners ? 'HERO_BANNERS' : 'GENERAL',
+            isPublic: isHeroBanners ? true : (item.isPublic ?? false),
             description: item.description ?? null,
           },
         });

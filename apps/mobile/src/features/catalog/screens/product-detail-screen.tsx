@@ -35,7 +35,7 @@ import { PriceText } from '@/shared/components/price-text';
 import { SkeletonBox } from '@/shared/components/skeleton';
 import { EmptyState } from '@/shared/components/empty-state';
 import { useCartStore } from '@/features/cart/cart-store';
-import { useWishlistStore } from '@/features/wishlist/wishlist-store';
+import { useWishlistedIds, useWishlistStore } from '@/features/wishlist/wishlist-store';
 import { ProductCard, type ProductCardModel } from '../components/product-card';
 import {
   extractAttributeGroups,
@@ -65,7 +65,7 @@ export function ProductDetailScreen({ slug }: { slug: string }) {
   const { t } = useTranslation();
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
-  const isWishlisted = useWishlistStore((s) => s.isWishlisted);
+  const wishlistedIds = useWishlistedIds();
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
 
   const productQuery = useProductsPublicControllerGetBySlug(slug, {
@@ -179,7 +179,7 @@ export function ProductDetailScreen({ slug }: { slug: string }) {
   const regularPrice = activeVariant?.regularPrice ?? null;
   const stockStatus = getStockStatus(activeVariant);
   const canPurchase = Boolean(activeVariant) && stockStatus !== 'OUT_OF_STOCK';
-  const wishlisted = isWishlisted(product.id);
+  const wishlisted = wishlistedIds.has(product.id);
   const variantLabel = activeVariant?.attributes.map((a) => a.value).join(' / ') || null;
 
   const specEntries: [string, string][] =
@@ -505,7 +505,7 @@ export function ProductDetailScreen({ slug }: { slug: string }) {
                 <View key={rel.id} style={styles.relatedCardWrap}>
                   <ProductCard
                     product={rel}
-                    isWishlisted={isWishlisted(rel.id)}
+                    isWishlisted={wishlistedIds.has(rel.id)}
                     onPress={(nextSlug) => router.push(`/product/${nextSlug}` as never)}
                     onToggleWishlist={(p) => void toggleWishlist(p.id)}
                     onQuickAdd={(p) => router.push(`/product/${p.slug}` as never)}

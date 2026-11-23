@@ -184,13 +184,19 @@ export class AuthService {
       );
     }
 
+    // Expose devOtp ONLY in non-production when live SMS delivery failed and fell back to dev simulation
+    const includeDevOtp =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.NODE_ENV !== 'test' &&
+      smsRes.simulated === true;
+
     return {
       success: true,
       phone,
       expiresInSeconds: 300,
       resendInSeconds: 60,
       message: 'Verification code sent successfully',
-      ...(process.env.NODE_ENV === 'development' && { devOtp: otpCode }),
+      ...(includeDevOtp && { devOtp: otpCode }),
     };
   }
 

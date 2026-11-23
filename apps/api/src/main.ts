@@ -19,7 +19,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Static uploads directories
-  ensureUploadDirs(['categories', 'brands', 'products', 'freelancers']);
+  ensureUploadDirs(['categories', 'brands', 'products', 'freelancers', 'banners']);
   app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // Security Headers
@@ -94,7 +94,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = configService.get<number>('PORT', 3001);
-  await app.listen(port);
-  console.log(`[NestJS] API server is ready at http://localhost:${port}/api/v1`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`[NestJS] API server is ready at http://localhost:${port}/api/v1 (LAN: 0.0.0.0:${port})`);
 }
 await bootstrap();

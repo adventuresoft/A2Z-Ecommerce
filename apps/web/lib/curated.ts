@@ -5,6 +5,8 @@ export interface PublicHeroBannerItem {
   title: string;
   subtitle?: string | null;
   imageUrl: string;
+  mobileImageUrl?: string | null;
+  ctaText?: string | null;
   linkUrl?: string | null;
   badgeText?: string | null;
   designTemplate?: "default" | "collection-1" | "collection-2";

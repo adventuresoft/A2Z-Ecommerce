@@ -78,6 +78,15 @@ export class CreateBrandDto {
   isActive?: boolean;
 
   @ApiPropertyOptional({
+    example: false,
+    default: false,
+    description: 'Whether to display this brand in the homepage Authorized Distribution slider',
+  })
+  @IsBoolean({ message: 'showOnHome must be a boolean' })
+  @IsOptional()
+  showOnHome?: boolean;
+
+  @ApiPropertyOptional({
     example: 0,
     default: 0,
     description: 'Ordering position for curated listings',

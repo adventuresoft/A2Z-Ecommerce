@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Chip, Divider, Modal, Portal, RadioButton, Switch, Text, TextInput } from 'react-native-paper';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Button,
+  Chip,
+  Divider,
+  Modal,
+  Portal,
+  RadioButton,
+  Switch,
+  Text,
+  TextInput,
+} from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { azColors, radius, spacing } from '@/shared/theme';
 
@@ -12,19 +22,48 @@ export interface CatalogFilterState {
   maxPrice?: number;
   inStock: boolean;
   hasDiscount: boolean;
-  brandSlug?: string;
+  brandSlugs: string[];
+  attributeValues: string[];
+  categorySlug?: string;
 }
 
 export interface FacetBrandItem {
   id: string;
   name: string;
   slug: string;
+  count?: number;
+}
+
+export interface FacetCategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  count?: number;
+}
+
+export interface FacetAttributeValueItem {
+  id: string;
+  value: string;
+  label?: string | null;
+  colorCode?: string | null;
+  count?: number;
+}
+
+export interface FacetAttributeItem {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  values: FacetAttributeValueItem[];
 }
 
 interface FilterSheetProps {
   visible: boolean;
   initialState: CatalogFilterState;
   brands?: FacetBrandItem[];
+  attributes?: FacetAttributeItem[];
+  categories?: FacetCategoryItem[];
+  hideCategories?: boolean;
   onDismiss: () => void;
   onApply: (next: CatalogFilterState) => void;
 }
@@ -41,6 +80,9 @@ export function FilterSheet({
   visible,
   initialState,
   brands = [],
+  attributes = [],
+  categories = [],
+  hideCategories = false,
   onDismiss,
   onApply,
 }: FilterSheetProps) {
@@ -51,17 +93,48 @@ export function FilterSheet({
 
   useEffect(() => {
     if (visible) {
-      setDraft(initialState);
+      setDraft({
+        ...initialState,
+        brandSlugs: [...initialState.brandSlugs],
+        attributeValues: [...initialState.attributeValues],
+      });
       setMinText(initialState.minPrice?.toString() ?? '');
       setMaxText(initialState.maxPrice?.toString() ?? '');
     }
   }, [visible, initialState]);
+
+  const toggleBrand = (slug: string) => {
+    setDraft((prev) => {
+      const exists = prev.brandSlugs.includes(slug);
+      return {
+        ...prev,
+        brandSlugs: exists
+          ? prev.brandSlugs.filter((s) => s !== slug)
+          : [...prev.brandSlugs, slug],
+      };
+    });
+  };
+
+  const toggleAttributeValue = (valId: string) => {
+    setDraft((prev) => {
+      const exists = prev.attributeValues.includes(valId);
+      return {
+        ...prev,
+        attributeValues: exists
+          ? prev.attributeValues.filter((id) => id !== valId)
+          : [...prev.attributeValues, valId],
+      };
+    });
+  };
 
   const handleReset = () => {
     const clean: CatalogFilterState = {
       sortBy: 'featured',
       inStock: false,
       hasDiscount: false,
+      brandSlugs: [],
+      attributeValues: [],
+      categorySlug: undefined,
     };
     setDraft(clean);
     setMinText('');
@@ -73,19 +146,15 @@ export function FilterSheet({
     const maxNum = maxText.trim() ? Number(maxText) : undefined;
     onApply({
       ...draft,
-      minPrice: minNum && Number.isFinite(minNum) ? minNum : undefined,
-      maxPrice: maxNum && Number.isFinite(maxNum) ? maxNum : undefined,
+      minPrice: minNum !== undefined && Number.isFinite(minNum) ? minNum : undefined,
+      maxPrice: maxNum !== undefined && Number.isFinite(maxNum) ? maxNum : undefined,
     });
     onDismiss();
   };
 
   return (
     <Portal>
-      <Modal
-        visible={visible}
-        onDismiss={onDismiss}
-        contentContainerStyle={styles.sheet}
-      >
+      <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={styles.sheet}>
         <Text variant="titleLarge" style={styles.heading}>
           {t('catalog.filters')} & {t('catalog.sort')}
         </Text>
@@ -96,7 +165,9 @@ export function FilterSheet({
           </Text>
           <RadioButton.Group
             value={draft.sortBy}
-            onValueChange={(val) => setDraft((prev) => ({ ...prev, sortBy: val as CatalogSortBy }))}
+            onValueChange={(val) =>
+              setDraft((prev) => ({ ...prev, sortBy: val as CatalogSortBy }))
+            }
           >
             {SORT_OPTIONS.map((opt) => (
               <RadioButton.Item key={opt.value} label={opt.label} value={opt.value} />
@@ -147,33 +218,112 @@ export function FilterSheet({
             />
           </View>
 
-          {brands.length > 0 ? (
+          {!hideCategories && categories.length > 0 ? (
             <>
               <Divider style={styles.divider} />
               <Text variant="titleSmall" style={styles.sectionTitle}>
-                Brands
+                Categories
               </Text>
-              <View style={styles.brandChips}>
-                {brands.map((brand) => {
-                  const selected = draft.brandSlug === brand.slug;
+              <View style={styles.chipsWrap}>
+                {categories.map((cat) => {
+                  const selected = draft.categorySlug === cat.slug;
                   return (
                     <Chip
-                      key={brand.id}
+                      key={cat.id}
                       selected={selected}
                       onPress={() =>
                         setDraft((prev) => ({
                           ...prev,
-                          brandSlug: selected ? undefined : brand.slug,
+                          categorySlug: selected ? undefined : cat.slug,
                         }))
                       }
                     >
-                      {brand.name}
+                      {cat.count != null ? `${cat.name} (${cat.count})` : cat.name}
                     </Chip>
                   );
                 })}
               </View>
             </>
           ) : null}
+
+          {brands.length > 0 ? (
+            <>
+              <Divider style={styles.divider} />
+              <Text variant="titleSmall" style={styles.sectionTitle}>
+                Brands
+              </Text>
+              <View style={styles.chipsWrap}>
+                {brands.map((brand) => {
+                  const selected = draft.brandSlugs.includes(brand.slug);
+                  return (
+                    <Chip
+                      key={brand.id}
+                      selected={selected}
+                      onPress={() => toggleBrand(brand.slug)}
+                    >
+                      {brand.count != null ? `${brand.name} (${brand.count})` : brand.name}
+                    </Chip>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
+
+          {/* Dynamic Faceted Attributes matching Web ProductCatalogView (OR within group, AND across groups) */}
+          {attributes.map((attr) => {
+            if (!attr.values || attr.values.length === 0) return null;
+            const isColor = attr.type?.toUpperCase() === 'COLOR';
+            return (
+              <React.Fragment key={attr.id}>
+                <Divider style={styles.divider} />
+                <Text variant="titleSmall" style={styles.sectionTitle}>
+                  {attr.name}
+                </Text>
+                <View style={styles.chipsWrap}>
+                  {attr.values.map((val) => {
+                    const selected = draft.attributeValues.includes(val.id);
+                    const displayLabel = val.label?.trim() || val.value;
+                    if (isColor && val.colorCode) {
+                      return (
+                        <Pressable
+                          key={val.id}
+                          onPress={() => toggleAttributeValue(val.id)}
+                          style={[
+                            styles.colorChip,
+                            selected && styles.colorChipSelected,
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.colorDot,
+                              { backgroundColor: val.colorCode },
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.colorLabel,
+                              selected && styles.colorLabelSelected,
+                            ]}
+                          >
+                            {val.count != null ? `${displayLabel} (${val.count})` : displayLabel}
+                          </Text>
+                        </Pressable>
+                      );
+                    }
+                    return (
+                      <Chip
+                        key={val.id}
+                        selected={selected}
+                        onPress={() => toggleAttributeValue(val.id)}
+                      >
+                        {val.count != null ? `${displayLabel} (${val.count})` : displayLabel}
+                      </Chip>
+                    );
+                  })}
+                </View>
+              </React.Fragment>
+            );
+          })}
         </ScrollView>
 
         <View style={styles.footer}>
@@ -200,7 +350,7 @@ const styles = StyleSheet.create({
     margin: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    maxHeight: '85%',
+    maxHeight: '86%',
   },
   heading: { color: azColors.navy, fontWeight: '700', marginBottom: spacing.sm },
   scroll: { marginBottom: spacing.md },
@@ -214,7 +364,38 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.xs,
   },
-  brandChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  colorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: azColors.border,
+    backgroundColor: azColors.page,
+  },
+  colorChipSelected: {
+    borderColor: azColors.primary,
+    backgroundColor: azColors.primarySoft,
+  },
+  colorDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.2)',
+  },
+  colorLabel: {
+    fontSize: 12.5,
+    color: azColors.navy,
+    fontWeight: '500',
+  },
+  colorLabelSelected: {
+    color: azColors.primary,
+    fontWeight: '700',
+  },
   footer: { flexDirection: 'row', gap: spacing.sm },
   footerBtn: { flex: 1, borderRadius: radius.md },
 });

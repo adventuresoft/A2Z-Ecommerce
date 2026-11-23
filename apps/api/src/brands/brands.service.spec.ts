@@ -52,6 +52,7 @@ describe('BrandsService', () => {
           logoUrl: null,
           website: null,
           isActive: true,
+          showOnHome: false,
           sortOrder: 0,
         },
       });
@@ -355,9 +356,20 @@ describe('BrandsService', () => {
           logoUrl: true,
           website: true,
           sortOrder: true,
+          showOnHome: true,
         },
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       });
+    });
+
+    it('findAllPublic with showOnHome=true filters by showOnHome', async () => {
+      prismaMock.brand.findMany.mockResolvedValueOnce([]);
+      await service.findAllPublic({ showOnHome: true });
+      expect(prismaMock.brand.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isActive: true, showOnHome: true },
+        }),
+      );
     });
 
     it('findBySlug should return active brand details', async () => {

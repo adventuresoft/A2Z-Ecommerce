@@ -36,7 +36,7 @@ export default function HomePage() {
           await Promise.allSettled([
             apiClient.get<CuratedProductsResponse>("/products/curated", { skipAuth: true }),
             apiClient.get<PublicSettingsResponse>("/settings/public", { skipAuth: true }),
-            apiClient.get<any[]>("/brands/public", { skipAuth: true }),
+            apiClient.get<any[]>("/brands/public?showOnHome=true", { skipAuth: true }),
             apiClient.get<BrowseCatalogCategory[]>("/categories/browse-catalog", { skipAuth: true }),
             apiClient.get<PublicHomeCollection[]>("/collections/home", { skipAuth: true }),
           ]);
@@ -103,7 +103,7 @@ export default function HomePage() {
       <BrandStrip brands={brands ?? undefined} />
 
       {/* 6. Storefront Value Propositions */}
-      <TrustStrip />
+      <TrustStrip settings={publicSettings ?? undefined} />
 
       {/* 7. AZ Insider Club Newsletter */}
       <NewsletterBanner />

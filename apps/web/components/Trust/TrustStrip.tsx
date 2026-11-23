@@ -37,12 +37,53 @@ const VALUE_PROPS = [
   },
 ];
 
-export function TrustStrip() {
+interface TrustStripProps {
+  settings?: Record<string, unknown>;
+}
+
+function formatFreeShippingLabel(settings?: Record<string, unknown>): string {
+  const raw =
+    settings?.["free_shipping_threshold"] ??
+    settings?.["shipping.free_threshold"] ??
+    settings?.["free_delivery_threshold"];
+  const num = Number(raw);
+  if (Number.isFinite(num) && num > 0) {
+    return `24h Dhaka & FREE over ৳${num.toLocaleString("en-IN")}`;
+  }
+  return "24h Dhaka & FREE over ৳1,00,000";
+}
+
+function formatHotlineLabel(settings?: Record<string, unknown>): string {
+  const raw =
+    settings?.["support_phone"] ??
+    settings?.["store_phone"] ??
+    settings?.["hotline"];
+  if (typeof raw === "string" && raw.trim()) {
+    return `Hotline: ${raw.trim()}`;
+  }
+  return "Hotline: 09678-123456";
+}
+
+export function TrustStrip({ settings }: TrustStripProps = {}) {
+  const valueProps = [
+    {
+      ...VALUE_PROPS[0]!,
+      desc: formatFreeShippingLabel(settings),
+    },
+    VALUE_PROPS[1]!,
+    VALUE_PROPS[2]!,
+    {
+      ...VALUE_PROPS[3]!,
+      desc: formatHotlineLabel(settings),
+    },
+    VALUE_PROPS[4]!,
+  ];
+
   return (
     <section className="py-10 bg-[#F8FAFC] border-b border-slate-200/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
-          {VALUE_PROPS.map((prop) => {
+          {valueProps.map((prop) => {
             const Icon = prop.icon;
             return (
               <Tilt3DCard key={prop.title} maxTilt={6} scale={1.015}>

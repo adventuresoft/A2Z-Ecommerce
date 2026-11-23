@@ -29,15 +29,19 @@ export async function initPushChannels(): Promise<void> {
   });
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('orders', {
-      name: 'Order Updates',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-    });
-    await Notifications.setNotificationChannelAsync('promotions', {
-      name: 'Offers & Promotions',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    });
+    try {
+      await Notifications.setNotificationChannelAsync('orders', {
+        name: 'Order Updates',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+      });
+      await Notifications.setNotificationChannelAsync('promotions', {
+        name: 'Offers & Promotions',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      });
+    } catch {
+      // Ignore notification channel setup errors in unsupported environments (e.g., Expo Go)
+    }
   }
 }
 

@@ -31,6 +31,10 @@ import '@/features/wishlist/wishlist-store';
 initObservability();
 configureApiClient({ baseUrl: env.API_URL });
 
+export const unstable_settings = {
+  initialRouteName: '(tabs)',
+};
+
 function NotificationDeepLinkHandler() {
   const router = useRouter();
   const lastResponse = Notifications.useLastNotificationResponse();

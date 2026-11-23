@@ -1,6 +1,6 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { IconButton, Surface, Text } from 'react-native-paper';
+import { Surface, Text } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { resolveMediaUrl } from '@repo/api-client';
@@ -40,6 +40,16 @@ export const ProductCard = memo(function ProductCard({
   testIDPrefix = 'catalog.productCard',
 }: ProductCardProps) {
   const thumbUri = resolveMediaUrl(product.imageUrl, env.API_ORIGIN, 'thumb');
+  const originalUri = resolveMediaUrl(product.imageUrl, env.API_ORIGIN, 'original');
+  const [useOriginalFallback, setUseOriginalFallback] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setUseOriginalFallback(false);
+    setImageFailed(false);
+  }, [product.imageUrl]);
+
+  const activeUri = useOriginalFallback ? originalUri : thumbUri;
 
   return (
     <Surface style={styles.card} elevation={1} testID={`${testIDPrefix}.${product.slug}`}>
@@ -49,14 +59,21 @@ export const ProductCard = memo(function ProductCard({
         accessibilityLabel={product.title}
       >
         <View style={styles.imageFrame}>
-          {thumbUri ? (
+          {activeUri && !imageFailed ? (
             <Image
-              source={{ uri: thumbUri }}
-              recyclingKey={product.id}
+              source={{ uri: activeUri }}
+              recyclingKey={`${product.id}-${useOriginalFallback ? 'orig' : 'thumb'}`}
               contentFit="contain"
               cachePolicy="memory-disk"
               transition={180}
               style={styles.image}
+              onError={() => {
+                if (!useOriginalFallback && originalUri && originalUri !== thumbUri) {
+                  setUseOriginalFallback(true);
+                } else {
+                  setImageFailed(true);
+                }
+              }}
             />
           ) : (
             <View style={styles.placeholder}>
@@ -64,15 +81,27 @@ export const ProductCard = memo(function ProductCard({
             </View>
           )}
 
-          <IconButton
+          <Pressable
             testID={`${testIDPrefix}.${product.slug}.wishlist`}
-            icon={isWishlisted ? 'heart' : 'heart-outline'}
-            iconColor={isWishlisted ? azColors.danger : azColors.muted}
-            size={20}
-            style={styles.wishlistBtn}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isWishlisted }}
             accessibilityLabel={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            onPress={() => onToggleWishlist(product)}
-          />
+            hitSlop={8}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onToggleWishlist(product);
+            }}
+            style={[
+              styles.wishlistBtn,
+              isWishlisted ? styles.wishlistBtnActive : styles.wishlistBtnIdle,
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={isWishlisted ? 'heart' : 'heart-outline'}
+              size={18}
+              color={isWishlisted ? azColors.danger : azColors.muted}
+            />
+          </Pressable>
         </View>
 
         <View style={styles.body}>
@@ -148,10 +177,22 @@ const styles = StyleSheet.create({
   },
   wishlistBtn: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    margin: 0,
+    top: 8,
+    right: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  wishlistBtnIdle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderColor: azColors.border,
+  },
+  wishlistBtnActive: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
   },
   body: {
     padding: spacing.sm,

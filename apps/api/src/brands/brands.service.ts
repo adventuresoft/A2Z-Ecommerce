@@ -108,6 +108,7 @@ export class BrandsService {
           logoUrl: dto.logoUrl?.trim() || null,
           website: dto.website?.trim() || null,
           isActive: dto.isActive !== undefined ? dto.isActive : true,
+          showOnHome: dto.showOnHome !== undefined ? dto.showOnHome : false,
           sortOrder: dto.sortOrder !== undefined ? dto.sortOrder : 0,
         },
       });
@@ -120,6 +121,7 @@ export class BrandsService {
         logoUrl: brand.logoUrl,
         website: brand.website,
         isActive: brand.isActive,
+        showOnHome: brand.showOnHome,
         sortOrder: brand.sortOrder,
         createdAt: brand.createdAt,
         updatedAt: brand.updatedAt,
@@ -182,6 +184,7 @@ export class BrandsService {
         logoUrl: brand.logoUrl,
         website: brand.website,
         isActive: brand.isActive,
+        showOnHome: brand.showOnHome,
         sortOrder: brand.sortOrder,
         createdAt: brand.createdAt,
         updatedAt: brand.updatedAt,
@@ -216,6 +219,7 @@ export class BrandsService {
       logoUrl: brand.logoUrl,
       website: brand.website,
       isActive: brand.isActive,
+      showOnHome: brand.showOnHome,
       sortOrder: brand.sortOrder,
       createdAt: brand.createdAt,
       updatedAt: brand.updatedAt,
@@ -269,6 +273,7 @@ export class BrandsService {
             ? { website: dto.website?.trim() || null }
             : {}),
           ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+          ...(dto.showOnHome !== undefined ? { showOnHome: dto.showOnHome } : {}),
           ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
         },
       });
@@ -281,6 +286,7 @@ export class BrandsService {
         logoUrl: updated.logoUrl,
         website: updated.website,
         isActive: updated.isActive,
+        showOnHome: updated.showOnHome,
         sortOrder: updated.sortOrder,
         createdAt: updated.createdAt,
         updatedAt: updated.updatedAt,
@@ -326,9 +332,14 @@ export class BrandsService {
   /**
    * Public endpoint: List active brands ordered by sortOrder then name
    */
-  async findAllPublic(): Promise<PublicBrandDto[]> {
+  async findAllPublic(options?: { showOnHome?: boolean }): Promise<PublicBrandDto[]> {
+    const where: Prisma.BrandWhereInput = { isActive: true };
+    if (options?.showOnHome) {
+      where.showOnHome = true;
+    }
+
     const brands = await this.prisma.brand.findMany({
-      where: { isActive: true },
+      where,
       select: {
         id: true,
         name: true,
@@ -337,6 +348,7 @@ export class BrandsService {
         logoUrl: true,
         website: true,
         sortOrder: true,
+        showOnHome: true,
       },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });

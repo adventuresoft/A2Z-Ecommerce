@@ -73,6 +73,20 @@ export function HeroSlider({
 }: HeroSliderProps = {}) {
   const prefersReducedMotion = useSafeReducedMotion();
 
+  const apiOrigin = (
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1"
+  )
+    .replace(/\/api\/v1\/?$/, "")
+    .replace(/\/+$/, "");
+
+  const resolveBannerImage = (rawUrl?: string | null): string => {
+    if (!rawUrl || !rawUrl.trim()) return "/placeholder.png";
+    const cleaned = rawUrl.trim();
+    if (/^https?:\/\//i.test(cleaned)) return cleaned;
+    if (cleaned.startsWith("/uploads/")) return `${apiOrigin}${cleaned}`;
+    return cleaned;
+  };
+
   const baseSlides: HeroSlide[] =
     banners && banners.length > 0
       ? banners.map((b, idx) => ({
@@ -82,12 +96,12 @@ export function HeroSlider({
           subtitle:
             b.subtitle ||
             "Experience studio-grade acoustic clarity, precision performance, and all-day reliability with our curated flagship selection.",
-          primaryCtaText: "Explore Now",
+          primaryCtaText: b.ctaText?.trim() || "Explore Now",
           primaryCtaLink: b.linkUrl || "/shop",
           secondaryCtaText: "Top Rated",
           secondaryCtaLink: "/flash-sale",
           badgeText: b.badgeText || "STUDIO GRADE",
-          image: b.imageUrl || "/placeholder.png",
+          image: resolveBannerImage(b.imageUrl),
           bgColor: "from-slate-950 via-slate-900 to-slate-950",
         }))
       : HERO_SLIDES;

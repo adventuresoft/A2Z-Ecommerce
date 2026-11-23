@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,10 +10,15 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiResponse,
@@ -24,6 +30,10 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import {
+  createImageUploadOptions,
+  type StoredMediaDerivatives,
+} from '../common/uploads/image-upload.js';
 import {
   BatchUpdateSettingsDto,
   CreateSettingDto,
@@ -77,6 +87,43 @@ export class SettingsAdminController {
   @ApiResponse({ status: 404, description: 'Setting not found' })
   async findByKey(@Param('key') key: string) {
     return this.settingsService.findByKey(key);
+  }
+
+  @Post('hero-banners/upload')
+  @RequirePermission('settings', 'update')
+  @ApiOperation({
+    summary: 'Upload hero banner image (JPG, PNG, WEBP, GIF, SVG — auto-optimized to WebP)',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', createImageUploadOptions('banners', 'hero')),
+  )
+  async uploadHeroBannerImage(
+    @UploadedFile() file?: Express.Multer.File & { mediaDerivatives?: StoredMediaDerivatives },
+  ) {
+    if (!file) {
+      throw new BadRequestException('Banner image file is required');
+    }
+    const derivatives = file.mediaDerivatives;
+    return {
+      imageUrl: derivatives?.primaryUrl || `/uploads/banners/${file.filename}`,
+      mediumUrl: derivatives?.mediumUrl,
+      thumbUrl: derivatives?.thumbUrl,
+      filename: file.filename,
+      originalName: file.originalname,
+      size: file.size,
+    };
   }
 
   @Post()

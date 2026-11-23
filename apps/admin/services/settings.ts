@@ -172,6 +172,41 @@ export const SettingsService = {
   },
 
   /**
+   * Upload a hero banner image (auto-optimized to WebP on backend)
+   */
+  async uploadHeroBannerImage(
+    file: File,
+  ): Promise<{ imageUrl: string; mediumUrl?: string; thumbUrl?: string; filename: string }> {
+    const token = await ensureValidToken();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE}/admin/settings/hero-banners/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      let errorMessage = `Upload failed (${res.status})`;
+      try {
+        const errorJson = await res.json();
+        errorMessage = errorJson.message || errorMessage;
+      } catch {
+        // Keep default
+      }
+      throw new Error(errorMessage);
+    }
+
+    return res.json();
+  },
+
+  /**
    * Fetch public settings (unauthenticated)
    */
   async getPublicSettings(): Promise<Record<string, unknown>> {
@@ -182,3 +217,10 @@ export const SettingsService = {
     return res.json();
   },
 };
+
+export function resolveSettingMediaUrl(url?: string | null): string {
+  if (!url) return '';
+  if (/^(https?:\/\/|data:)/i.test(url)) return url;
+  const origin = API_BASE.replace(/\/api\/v1\/?$/, '');
+  return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
+}

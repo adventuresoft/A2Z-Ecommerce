@@ -16,7 +16,25 @@ export type AppEnvironmentConfig = z.infer<typeof envSchema> & {
   isDevelopment: boolean;
 };
 
-export function parseAppEnv(source: Record<string, string | undefined> = process.env): AppEnvironmentConfig {
+/**
+ * Expo's Babel plugin only statically inlines direct `process.env.EXPO_PUBLIC_*` reads.
+ * Reading them via a dynamic `source[key]` parameter leaves them undefined on physical devices.
+ */
+function readBundledEnv(): Record<string, string | undefined> {
+  return {
+    APP_ENV: process.env.EXPO_PUBLIC_APP_ENV || process.env.APP_ENV,
+    EXPO_PUBLIC_APP_ENV: process.env.EXPO_PUBLIC_APP_ENV,
+    EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
+    EXPO_PUBLIC_WEB_URL: process.env.EXPO_PUBLIC_WEB_URL,
+    EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    EXPO_PUBLIC_POSTHOG_KEY: process.env.EXPO_PUBLIC_POSTHOG_KEY,
+    EXPO_PUBLIC_POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST,
+  };
+}
+
+export function parseAppEnv(
+  source: Record<string, string | undefined> = readBundledEnv(),
+): AppEnvironmentConfig {
   const parsed = envSchema.parse({
     APP_ENV: source.EXPO_PUBLIC_APP_ENV || source.APP_ENV || 'development',
     API_URL: source.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001/api/v1',

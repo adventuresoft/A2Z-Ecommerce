@@ -79,6 +79,45 @@ describe('PhoneAuth in AuthService', () => {
       expect(mobireachSmsMock.sendSms).toHaveBeenCalled();
       expect((res as any).devOtp).toBeUndefined();
     });
+
+    it('should omit devOtp when live SMS succeeds even in development', async () => {
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+      mobireachSmsMock.sendSms.mockResolvedValueOnce({ success: true, simulated: false });
+      try {
+        const res = await authService.sendOtp({ phone: '01707819647', purpose: 'SIGNUP' });
+        expect(res.success).toBe(true);
+        expect((res as any).devOtp).toBeUndefined();
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+      }
+    });
+
+    it('should include devOtp in development when SMS falls back to simulation', async () => {
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+      mobireachSmsMock.sendSms.mockResolvedValueOnce({ success: true, simulated: true });
+      try {
+        const res = await authService.sendOtp({ phone: '01707819647', purpose: 'SIGNUP' });
+        expect(res.success).toBe(true);
+        expect((res as any).devOtp).toMatch(/^\d{4}$/);
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+      }
+    });
+
+    it('should never include devOtp in production even if simulated is true', async () => {
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      mobireachSmsMock.sendSms.mockResolvedValueOnce({ success: true, simulated: true });
+      try {
+        const res = await authService.sendOtp({ phone: '01707819647', purpose: 'SIGNUP' });
+        expect(res.success).toBe(true);
+        expect((res as any).devOtp).toBeUndefined();
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+      }
+    });
   });
 
   describe('verifyOtp', () => {

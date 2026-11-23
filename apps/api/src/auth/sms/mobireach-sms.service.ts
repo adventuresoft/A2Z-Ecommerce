@@ -5,6 +5,8 @@ export interface SendSmsResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  /** True only when live SMS delivery failed and fell back to dev simulation */
+  simulated?: boolean;
 }
 
 @Injectable()
@@ -90,7 +92,7 @@ export class MobiReachSmsService {
             Authorization: `Bearer ${this.cachedRefreshToken}`,
             Accept: 'application/json',
           },
-          signal: AbortSignal.timeout(3000),
+          signal: AbortSignal.timeout(8000),
         });
         if (refreshRes.ok) {
           const data = (await refreshRes.json()) as {
@@ -119,7 +121,7 @@ export class MobiReachSmsService {
           username: this.username,
           password: this.password,
         }),
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(8000),
       });
 
       if (!res.ok) {
@@ -146,16 +148,34 @@ export class MobiReachSmsService {
     }
   }
 
+  private logDevFallback(receiver: string, content: string, reason: string): SendSmsResult {
+    this.logger.warn(
+      `\n===========================================================\n` +
+        `[DEV SMS FALLBACK] ${reason}\n` +
+        `To: ${receiver}\n` +
+        `Message: "${content}"\n` +
+        `===========================================================\n`,
+    );
+    return {
+      success: true,
+      simulated: true,
+      messageId: `sim_${Date.now()}`,
+    };
+  }
+
   /**
    * Send an SMS message using live MobiReach Gateway (`POST /sms/send`).
+   * In non-production environments, logs OTP/content ONLY if live SMS fails or is simulated.
    */
   async sendSms(rawPhone: string, content: string): Promise<SendSmsResult> {
     const receiver = this.normalizePhoneNumber(rawPhone);
     const isProduction = process.env.NODE_ENV === 'production';
-    const isDev =
-      !isProduction &&
-      (process.env.NODE_ENV !== 'production' ||
-        this.configService.get<string>('SMS_SIMULATE') === 'true');
+    const forceSimulate = !isProduction && this.configService.get<string>('SMS_SIMULATE') === 'true';
+    const isDev = !isProduction;
+
+    if (forceSimulate) {
+      return this.logDevFallback(receiver, content, 'SMS_SIMULATE=true enabled.');
+    }
 
     if (isProduction && (!this.username || !this.password || !this.sender)) {
       return {
@@ -168,17 +188,7 @@ export class MobiReachSmsService {
       let token = await this.getAccessToken(false);
       if (!token) {
         if (isDev) {
-          this.logger.warn(
-            `\n===========================================================\n` +
-              `[DEV SMS GATEWAY] MobiReach auth unavailable. Simulating SMS:\n` +
-              `To: ${receiver}\n` +
-              `Content: "${content}"\n` +
-              `===========================================================\n`,
-          );
-          return {
-            success: true,
-            messageId: `sim_${Date.now()}`,
-          };
+          return this.logDevFallback(receiver, content, 'MobiReach auth unavailable.');
         }
         return {
           success: false,
@@ -203,7 +213,7 @@ export class MobiReachSmsService {
           Accept: 'application/json',
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(8000),
       });
 
       // Retry once with fresh token if unauthorized (401)
@@ -218,7 +228,7 @@ export class MobiReachSmsService {
               Accept: 'application/json',
             },
             body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(3000),
+            signal: AbortSignal.timeout(8000),
           });
         }
       }
@@ -227,17 +237,11 @@ export class MobiReachSmsService {
         const errorText = await res.text();
         this.logger.error(`MobiReach send failed (${res.status}): ${errorText}`);
         if (isDev) {
-          this.logger.warn(
-            `\n===========================================================\n` +
-              `[DEV SMS GATEWAY] MobiReach returned ${res.status}. Simulating delivery:\n` +
-              `To: ${receiver}\n` +
-              `Content: "${content}"\n` +
-              `===========================================================\n`,
+          return this.logDevFallback(
+            receiver,
+            content,
+            `MobiReach returned HTTP ${res.status}: ${errorText}`,
           );
-          return {
-            success: true,
-            messageId: `sim_${Date.now()}`,
-          };
         }
         return {
           success: false,
@@ -245,26 +249,50 @@ export class MobiReachSmsService {
         };
       }
 
-      const result = await res.json().catch(() => ({}));
-      this.logger.log(`MobiReach SMS sent to ${receiver}. Response: ${JSON.stringify(result)}`);
+      const result = (await res.json().catch(() => ({}))) as {
+        status?: string;
+        description?: string;
+        errorCode?: number;
+        messageId?: string | number;
+        message_id?: string | number;
+      };
+
+      const gatewayStatus =
+        typeof result?.status === 'string' ? result.status.toUpperCase() : '';
+      const hasErrorCode =
+        typeof result?.errorCode === 'number' && result.errorCode !== 0;
+
+      if (gatewayStatus === 'FAILED' || hasErrorCode) {
+        const reason =
+          result?.description ||
+          `MobiReach rejected SMS (status=${result?.status}, errorCode=${result?.errorCode})`;
+        this.logger.error(`MobiReach gateway failure for ${receiver}: ${JSON.stringify(result)}`);
+        if (isDev) {
+          return this.logDevFallback(receiver, content, reason);
+        }
+        return {
+          success: false,
+          error: reason,
+        };
+      }
+
+      const rawId = result?.messageId ?? result?.message_id;
+      const messageId =
+        rawId !== undefined && rawId !== null && String(rawId) !== '0'
+          ? String(rawId)
+          : `sms_${Date.now()}`;
+
+      // Live SMS succeeded — do NOT log OTP content
+      this.logger.log(`MobiReach SMS delivered to ${receiver} (messageId: ${messageId})`);
       return {
         success: true,
-        messageId: result?.message_id || `sms_${Date.now()}`,
+        simulated: false,
+        messageId,
       };
     } catch (error: any) {
       this.logger.error(`Error sending SMS via MobiReach: ${error.message}`);
       if (isDev) {
-        this.logger.warn(
-          `\n===========================================================\n` +
-            `[DEV SMS GATEWAY] MobiReach error (${error.message}). Simulating delivery:\n` +
-            `To: ${receiver}\n` +
-            `Content: "${content}"\n` +
-            `===========================================================\n`,
-        );
-        return {
-          success: true,
-          messageId: `sim_${Date.now()}`,
-        };
+        return this.logDevFallback(receiver, content, `MobiReach error (${error.message}).`);
       }
       return {
         success: false,

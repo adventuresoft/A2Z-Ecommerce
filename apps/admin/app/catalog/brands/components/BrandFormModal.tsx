@@ -36,6 +36,11 @@ export function BrandFormModal({
       ? brandToEdit.isActive
       : true,
   );
+  const [showOnHome, setShowOnHome] = useState(
+    brandToEdit !== undefined && brandToEdit !== null
+      ? Boolean(brandToEdit.showOnHome)
+      : false,
+  );
   const [sortOrder, setSortOrder] = useState(
     brandToEdit ? brandToEdit.sortOrder : 0,
   );
@@ -127,6 +132,7 @@ export function BrandFormModal({
       website: website.trim() ? website.trim() : undefined,
       logoUrl: logoUrl.trim() ? logoUrl.trim() : undefined,
       isActive,
+      showOnHome,
       sortOrder: Number(sortOrder) || 0,
     };
 
@@ -380,8 +386,8 @@ export function BrandFormModal({
                   </div>
                 </div>
 
-                {/* Status Toggle */}
-                <div className="col-12 pt-2">
+                {/* Status & Home Slider Toggles */}
+                <div className="col-12 col-md-6 pt-2">
                   <div className="form-check form-switch">
                     <input
                       id="brandIsActive"
@@ -397,6 +403,25 @@ export function BrandFormModal({
                   </div>
                   <div className="form-text ms-1">
                     Inactive brands are hidden from public catalog and storefront filters.
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6 pt-2">
+                  <div className="form-check form-switch">
+                    <input
+                      id="brandShowOnHome"
+                      type="checkbox"
+                      role="switch"
+                      className="form-check-input"
+                      checked={showOnHome}
+                      onChange={(e) => setShowOnHome(e.target.checked)}
+                    />
+                    <label htmlFor="brandShowOnHome" className="form-check-label fw-semibold small">
+                      Show on Home Page Slider
+                    </label>
+                  </div>
+                  <div className="form-text ms-1">
+                    Display this brand inside the Authorized Distribution slider on Web &amp; Mobile home.
                   </div>
                 </div>
               </div>

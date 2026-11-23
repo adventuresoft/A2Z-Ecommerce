@@ -6,6 +6,7 @@ export interface BrandItem {
   logoUrl?: string | null;
   website?: string | null;
   isActive: boolean;
+  showOnHome: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -38,6 +39,7 @@ export interface CreateBrandPayload {
   logoUrl?: string;
   website?: string;
   isActive?: boolean;
+  showOnHome?: boolean;
   sortOrder?: number;
 }
 
@@ -200,6 +202,14 @@ export const brandsApi = {
     const res = await fetchWithAuth(`${API_BASE}/admin/brands/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ isActive }),
+    });
+    return handleResponse<BrandItem>(res);
+  },
+
+  async toggleShowOnHome(id: string, showOnHome: boolean): Promise<BrandItem> {
+    const res = await fetchWithAuth(`${API_BASE}/admin/brands/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ showOnHome }),
     });
     return handleResponse<BrandItem>(res);
   },

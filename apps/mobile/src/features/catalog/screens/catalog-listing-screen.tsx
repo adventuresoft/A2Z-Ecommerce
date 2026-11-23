@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Appbar, Chip, Snackbar } from 'react-native-paper';
 import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -15,13 +15,16 @@ import { azColors, spacing } from '@/shared/theme';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ProductGridSkeleton } from '@/shared/components/skeleton';
 import { useCartStore } from '@/features/cart/cart-store';
-import { useWishlistStore } from '@/features/wishlist/wishlist-store';
+import { useWishlistedIds, useWishlistStore } from '@/features/wishlist/wishlist-store';
 import {
   FilterSheet,
   type CatalogFilterState,
+  type FacetAttributeItem,
   type FacetBrandItem,
+  type FacetCategoryItem,
 } from '@/features/search/components/filter-sheet';
 import { ProductCard, type ProductCardModel } from '../components/product-card';
+import { mapProductSummaryToCard } from '../utils/product-mapper';
 
 interface CatalogListingScreenProps {
   title: string;
@@ -29,6 +32,8 @@ interface CatalogListingScreenProps {
   collectionSlug?: string;
   initialQuery?: string;
   initialHasDiscount?: boolean;
+  initialBrandSlug?: string;
+  hideHeader?: boolean;
 }
 
 export function CatalogListingScreen({
@@ -37,11 +42,13 @@ export function CatalogListingScreen({
   collectionSlug,
   initialQuery,
   initialHasDiscount = false,
+  initialBrandSlug,
+  hideHeader = false,
 }: CatalogListingScreenProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
-  const isWishlisted = useWishlistStore((s) => s.isWishlisted);
+  const wishlistedIds = useWishlistedIds();
   const toggleWishlist = useWishlistStore((s) => s.toggleWishlist);
 
   const [filterVisible, setFilterVisible] = useState(false);
@@ -50,18 +57,28 @@ export function CatalogListingScreen({
     sortBy: 'featured',
     inStock: false,
     hasDiscount: initialHasDiscount,
+    brandSlugs: initialBrandSlug ? [initialBrandSlug] : [],
+    attributeValues: [],
+    categorySlug: undefined,
   });
+
+  const activeCategorySlug = categorySlug ?? filters.categorySlug;
 
   const activeFilterCount =
     (filters.inStock ? 1 : 0) +
     (filters.hasDiscount ? 1 : 0) +
     (filters.minPrice != null ? 1 : 0) +
     (filters.maxPrice != null ? 1 : 0) +
-    (filters.brandSlug ? 1 : 0) +
+    filters.brandSlugs.length +
+    filters.attributeValues.length +
+    (!categorySlug && filters.categorySlug ? 1 : 0) +
     (filters.sortBy !== 'featured' ? 1 : 0);
 
   const query = useInfiniteQuery({
-    queryKey: ['/api/v1/products', { categorySlug, collectionSlug, initialQuery, filters }],
+    queryKey: [
+      '/api/v1/products',
+      { categorySlug: activeCategorySlug, collectionSlug, initialQuery, filters },
+    ],
     initialPageParam: 1,
     staleTime: STALE_TIMES.CATALOG_LIST,
     queryFn: ({ pageParam }) =>
@@ -69,9 +86,11 @@ export function CatalogListingScreen({
         page: pageParam,
         limit: 16,
         q: initialQuery,
-        categorySlug,
+        categorySlug: activeCategorySlug,
         collectionSlug,
-        brandSlug: filters.brandSlug,
+        brandSlug: filters.brandSlugs.length > 0 ? filters.brandSlugs.join(',') : undefined,
+        attributeValues:
+          filters.attributeValues.length > 0 ? filters.attributeValues.join(',') : undefined,
         minPrice: filters.minPrice,
         maxPrice: filters.maxPrice,
         inStock: filters.inStock ? true : undefined,
@@ -87,41 +106,65 @@ export function CatalogListingScreen({
   const products: ProductCardModel[] = useMemo(() => {
     const pages = query.data?.pages ?? [];
     return pages.flatMap((page) =>
-      normalizePage<Record<string, unknown>>(page.data).items.map((raw) => {
-        const minPrice = Number(raw.minPrice ?? raw.salePrice ?? raw.regularPrice ?? 0);
-        const regularPrice = Number(raw.regularPrice ?? raw.maxPrice ?? minPrice);
-        return {
-          id: String(raw.id ?? ''),
-          slug: String(raw.slug ?? raw.id ?? ''),
-          title: String(raw.title ?? ''),
-          imageUrl: (raw.thumbnailUrl as string | null) ?? null,
-          price: minPrice,
-          regularPrice: regularPrice > minPrice ? regularPrice : null,
-          rating: typeof raw.rating === 'number' ? raw.rating : undefined,
-          inStock: raw.inStock !== false,
-          defaultVariantId: (raw.defaultVariantId as string | null) ?? null,
-          variantsCount: typeof raw.variantsCount === 'number' ? raw.variantsCount : undefined,
-        };
-      }),
+      normalizePage<Record<string, unknown>>(page.data).items.map((raw) =>
+        mapProductSummaryToCard(raw),
+      ),
     );
   }, [query.data]);
 
-  const facetBrands: FacetBrandItem[] = useMemo(() => {
+  const facets = useMemo(() => {
     const first = query.data?.pages?.[0]?.data as unknown as
-      | { facets?: { brands?: FacetBrandItem[] } }
+      | {
+          facets?: {
+            brands?: FacetBrandItem[];
+            attributes?: FacetAttributeItem[];
+            categories?: FacetCategoryItem[];
+          };
+        }
       | undefined;
-    return first?.facets?.brands ?? [];
+    return {
+      brands: first?.facets?.brands ?? [],
+      attributes: first?.facets?.attributes ?? [],
+      categories: first?.facets?.categories ?? [],
+    };
   }, [query.data]);
+
+  const attrValueLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const attr of facets.attributes) {
+      for (const val of attr.values ?? []) {
+        map.set(val.id, `${attr.name}: ${val.label?.trim() || val.value}`);
+      }
+    }
+    return map;
+  }, [facets.attributes]);
+
+  const resetAllFilters = () =>
+    setFilters({
+      sortBy: 'featured',
+      inStock: false,
+      hasDiscount: false,
+      brandSlugs: [],
+      attributeValues: [],
+      categorySlug: undefined,
+    });
 
   return (
     <View style={styles.screen} testID="catalog.listingScreen">
-      <Appbar.Header style={styles.header}>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title={title} />
-        <Appbar.Action icon="magnify" onPress={() => router.push('/search' as never)} />
-      </Appbar.Header>
+      {!hideHeader ? (
+        <Appbar.Header style={styles.header}>
+          <Appbar.BackAction onPress={() => router.back()} />
+          <Appbar.Content title={title} />
+          <Appbar.Action icon="magnify" onPress={() => router.push('/search' as never)} />
+        </Appbar.Header>
+      ) : null}
 
-      <View style={styles.filterBar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterBarScroll}
+        contentContainerStyle={styles.filterBar}
+      >
         <Chip
           testID="catalog.openFiltersChip"
           icon="tune"
@@ -144,7 +187,37 @@ export function CatalogListingScreen({
         >
           {t('catalog.onSale')}
         </Chip>
-      </View>
+
+        {filters.brandSlugs.map((slug) => (
+          <Chip
+            key={`b-${slug}`}
+            selected
+            onClose={() =>
+              setFilters((f) => ({
+                ...f,
+                brandSlugs: f.brandSlugs.filter((s) => s !== slug),
+              }))
+            }
+          >
+            {facets.brands.find((b) => b.slug === slug)?.name ?? slug}
+          </Chip>
+        ))}
+
+        {filters.attributeValues.map((valId) => (
+          <Chip
+            key={`a-${valId}`}
+            selected
+            onClose={() =>
+              setFilters((f) => ({
+                ...f,
+                attributeValues: f.attributeValues.filter((id) => id !== valId),
+              }))
+            }
+          >
+            {attrValueLabelMap.get(valId) ?? valId}
+          </Chip>
+        ))}
+      </ScrollView>
 
       {query.isLoading ? (
         <ProductGridSkeleton count={6} />
@@ -154,32 +227,32 @@ export function CatalogListingScreen({
           title={t('catalog.noProducts')}
           subtitle={t('catalog.noProductsSub')}
           ctaLabel={t('app.reset')}
-          onCtaPress={() =>
-            setFilters({ sortBy: 'featured', inStock: false, hasDiscount: false })
-          }
+          onCtaPress={resetAllFilters}
         />
       ) : (
         <FlashList
           data={products}
           numColumns={2}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.gridContent}
+          contentContainerStyle={styles.grid}
           onEndReached={() => {
             if (query.hasNextPage && !query.isFetchingNextPage) {
               void query.fetchNextPage();
             }
           }}
-          onEndReachedThreshold={0.5}
+          onEndReachedThreshold={0.4}
           ListFooterComponent={
             query.isFetchingNextPage ? (
-              <ActivityIndicator style={styles.footerLoader} color={azColors.primary} />
+              <View style={styles.footerLoader}>
+                <ActivityIndicator color={azColors.primary} />
+              </View>
             ) : null
           }
           renderItem={({ item }) => (
-            <View style={styles.cell}>
+            <View style={styles.cardCell}>
               <ProductCard
                 product={item}
-                isWishlisted={isWishlisted(item.id)}
+                isWishlisted={wishlistedIds.has(item.id)}
                 onPress={(slug) => router.push(`/product/${slug}` as never)}
                 onToggleWishlist={(p) => void toggleWishlist(p.id)}
                 onQuickAdd={(p) => {
@@ -211,20 +284,24 @@ export function CatalogListingScreen({
       <FilterSheet
         visible={filterVisible}
         initialState={filters}
-        brands={facetBrands}
+        brands={facets.brands}
+        attributes={facets.attributes}
+        categories={facets.categories}
+        hideCategories={Boolean(categorySlug)}
         onDismiss={() => setFilterVisible(false)}
         onApply={(next) => {
           setFilters(next);
           analytics.track('filter_applied', {
-            category: categorySlug ?? null,
-            brand: next.brandSlug ?? null,
             sortBy: next.sortBy,
-            filterCount: activeFilterCount,
+            inStock: next.inStock,
+            hasDiscount: next.hasDiscount,
+            brandsCount: next.brandSlugs.length,
+            attributesCount: next.attributeValues.length,
           });
         }}
       />
 
-      <Snackbar visible={Boolean(snackMsg)} onDismiss={() => setSnackMsg(null)} duration={2000}>
+      <Snackbar visible={Boolean(snackMsg)} onDismiss={() => setSnackMsg(null)} duration={2200}>
         {snackMsg}
       </Snackbar>
     </View>
@@ -234,16 +311,20 @@ export function CatalogListingScreen({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: azColors.page },
   header: { backgroundColor: azColors.surface },
-  filterBar: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+  filterBarScroll: {
+    flexGrow: 0,
     backgroundColor: azColors.surface,
     borderBottomWidth: 1,
     borderBottomColor: azColors.border,
   },
-  gridContent: { padding: spacing.sm },
-  cell: { flex: 1, padding: spacing.xxs },
-  footerLoader: { marginVertical: spacing.md },
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  grid: { padding: spacing.sm },
+  cardCell: { flex: 1, padding: spacing.xs },
+  footerLoader: { paddingVertical: spacing.md },
 });

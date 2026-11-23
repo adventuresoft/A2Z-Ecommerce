@@ -32,6 +32,9 @@ export class BrandResponseDto {
   @ApiProperty({ example: true })
   isActive!: boolean;
 
+  @ApiProperty({ example: true })
+  showOnHome!: boolean;
+
   @ApiProperty({ example: 0 })
   sortOrder!: number;
 
@@ -68,6 +71,9 @@ export class PublicBrandDto {
 
   @ApiProperty({ example: 0 })
   sortOrder!: number;
+
+  @ApiPropertyOptional({ example: true })
+  showOnHome?: boolean;
 }
 
 export class PaginatedBrandResponseDto {

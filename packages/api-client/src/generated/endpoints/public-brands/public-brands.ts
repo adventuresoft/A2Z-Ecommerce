@@ -58,56 +58,62 @@ export type brandsPublicControllerFindAllResponseSuccess = (brandsPublicControll
 
 export type brandsPublicControllerFindAllResponse = (brandsPublicControllerFindAllResponseSuccess)
 
-export const getBrandsPublicControllerFindAllUrl = () => {
+export type BrandsPublicFindAllParams = {
+  showOnHome?: boolean;
+};
 
-
-
-
-  return `/api/v1/brands`
+export const getBrandsPublicControllerFindAllUrl = (params?: BrandsPublicFindAllParams) => {
+  const normalizedParams = new URLSearchParams();
+  if (params?.showOnHome !== undefined) {
+    normalizedParams.append('showOnHome', String(params.showOnHome));
+  }
+  const stringifiedParams = normalizedParams.toString();
+  return stringifiedParams.length > 0 ? `/api/v1/brands?${stringifiedParams}` : `/api/v1/brands`;
 }
 
 /**
  * @summary List active brands ordered by sortOrder then name
  */
-export const brandsPublicControllerFindAll = async ( options?: Parameters<typeof customFetch>[1]): Promise<brandsPublicControllerFindAllResponse> => {
+export const brandsPublicControllerFindAll = async (
+  params?: BrandsPublicFindAllParams,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<brandsPublicControllerFindAllResponse> => {
+  return customFetch<brandsPublicControllerFindAllResponse>(
+    getBrandsPublicControllerFindAllUrl(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+};
 
-  return customFetch<brandsPublicControllerFindAllResponse>(getBrandsPublicControllerFindAllUrl(),
-  {
-    ...options,
-    method: 'GET'
+export const getBrandsPublicControllerFindAllQueryKey = (params?: BrandsPublicFindAllParams) => {
+  return [`/api/v1/brands`, ...(params ? [params] : [])] as const;
+};
 
-
-  }
-);}
-
-
-
-
-
-export const getBrandsPublicControllerFindAllQueryKey = () => {
-    return [
-    `/api/v1/brands`
-    ] as const;
-    }
-
-
-export const getBrandsPublicControllerFindAllQueryOptions = <TData = Awaited<ReturnType<typeof brandsPublicControllerFindAll>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof brandsPublicControllerFindAll>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export const getBrandsPublicControllerFindAllQueryOptions = <
+  TData = Awaited<ReturnType<typeof brandsPublicControllerFindAll>>,
+  TError = unknown,
+>(
+  params?: BrandsPublicFindAllParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof brandsPublicControllerFindAll>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
 ) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getBrandsPublicControllerFindAllQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof brandsPublicControllerFindAll>>> = ({ signal }) => brandsPublicControllerFindAll({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof brandsPublicControllerFindAll>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getBrandsPublicControllerFindAllQueryKey(params);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof brandsPublicControllerFindAll>>> = ({
+    signal,
+  }) => brandsPublicControllerFindAll(params, { signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof brandsPublicControllerFindAll>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
 
 export type BrandsPublicControllerFindAllQueryResult = NonNullable<Awaited<ReturnType<typeof brandsPublicControllerFindAll>>>
 export type BrandsPublicControllerFindAllQueryError = unknown
@@ -146,7 +152,7 @@ export function useBrandsPublicControllerFindAll<TData = Awaited<ReturnType<type
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getBrandsPublicControllerFindAllQueryOptions(options)
+  const queryOptions = getBrandsPublicControllerFindAllQueryOptions(undefined, options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

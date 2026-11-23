@@ -23,6 +23,7 @@ interface BrandsTableProps {
   onEditClick: (brand: BrandItem) => void;
   onDeleteClick: (brand: BrandItem) => void;
   onToggleStatus: (brand: BrandItem) => void;
+  onToggleShowOnHome: (brand: BrandItem) => void;
   onResetFilters: () => void;
 }
 
@@ -45,6 +46,7 @@ export function BrandsTable({
   onEditClick,
   onDeleteClick,
   onToggleStatus,
+  onToggleShowOnHome,
   onResetFilters,
 }: BrandsTableProps) {
   const { can } = useAuth();
@@ -160,6 +162,9 @@ export function BrandsTable({
                   Order {renderSortIcon("sortOrder")}
                 </th>
                 <th scope="col" className="text-center">
+                  Home Slider
+                </th>
+                <th scope="col" className="text-center">
                   Status
                 </th>
                 <th
@@ -174,7 +179,7 @@ export function BrandsTable({
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-5">
+                  <td colSpan={8} className="text-center py-5">
                     <div
                       className="spinner-border spinner-border-sm text-primary me-2"
                       role="status"
@@ -184,7 +189,7 @@ export function BrandsTable({
                 </tr>
               ) : brands.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-5">
+                  <td colSpan={8} className="text-center py-5">
                     <div
                       className="d-inline-flex align-items-center justify-content-center bg-body-tertiary text-secondary rounded-circle mb-3"
                       style={{ width: "56px", height: "56px" }}
@@ -287,6 +292,25 @@ export function BrandsTable({
                     {/* Sort Order */}
                     <td className="text-center text-secondary small">
                       {brand.sortOrder}
+                    </td>
+
+                    {/* Home Slider Toggle */}
+                    <td className="text-center">
+                      <div className="d-inline-flex align-items-center gap-1">
+                        <div
+                          className="form-check form-switch m-0"
+                          title="Show in Home Page Authorized Distribution slider"
+                        >
+                          <input
+                            type="checkbox"
+                            role="switch"
+                            className="form-check-input"
+                            checked={Boolean(brand.showOnHome)}
+                            onChange={() => onToggleShowOnHome(brand)}
+                            aria-label={`Toggle home slider for ${brand.name}`}
+                          />
+                        </div>
+                      </div>
                     </td>
 
                     {/* Status & Inline Toggle */}
