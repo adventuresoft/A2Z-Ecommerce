@@ -295,6 +295,25 @@ export function HomeScreen() {
           <ProductGridSkeleton count={4} />
         ) : (
           <>
+            {collectionsQ.isError && collections.length === 0 ? (
+              <Surface style={styles.errorBox} elevation={0}>
+                <Text variant="bodyMedium" style={styles.errorText}>
+                  {t('common.errorOccurred', { defaultValue: 'Could not load collections. Check your server connection.' })}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    void collectionsQ.refetch();
+                    void curatedQ.refetch();
+                  }}
+                  style={styles.retryBtn}
+                >
+                  <Text style={styles.retryText}>
+                    {t('common.retry', { defaultValue: 'Retry' })}
+                  </Text>
+                </Pressable>
+              </Surface>
+            ) : null}
+
             {collections.map((col) => (
               <HomeCollectionSection
                 key={col.id}
@@ -434,5 +453,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 15,
+  },
+  errorBox: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: azColors.border,
+    backgroundColor: azColors.surface,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  errorText: {
+    color: azColors.muted,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    backgroundColor: azColors.primary,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });
